@@ -1,0 +1,8 @@
+* README for esptool-js
+
+```
+npm install xterm
+python2 -m SimpleHTTPServer 8008
+```
+
+Then browse http://localhost:8008
