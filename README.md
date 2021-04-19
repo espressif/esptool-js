@@ -1,4 +1,4 @@
-* README for esptool-js
+# Javascript implementation of esptool
 
 ```
 npm install xterm
