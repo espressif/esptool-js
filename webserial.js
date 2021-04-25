@@ -25,17 +25,17 @@ class Transport {
         out_data[0] = 0xC0;
         j = 1;
         for (i = 0; i < data.length; i++, j++) {
-            if (data[i] == 0xC0) {
+            if (data[i] === 0xC0) {
                 out_data[j++] = 0xDB;
                 out_data[j] = 0xDC;
                 continue;
             }
-            if (data[i] == 0xDB) {
+            if (data[i] === 0xDB) {
                 out_data[j++] = 0xDB;
                 out_data[j] = 0xDD;
                 continue;
             }
-                
+
             out_data[j] = data[i];
         }
         out_data[j] = 0xC0;
@@ -48,18 +48,14 @@ class Transport {
         await writer.write(out_data.buffer);
         writer.releaseLock();
     }
-    flush_input() {
-        this.sliprd_state.state = "init";
-        this.sliprd_state.outstanding = null;
-    }
-    
+
     _appendBuffer(buffer1, buffer2) {
         var tmp = new Uint8Array(buffer1.byteLength + buffer2.byteLength);
         tmp.set(new Uint8Array(buffer1), 0);
         tmp.set(new Uint8Array(buffer2), buffer1.byteLength);
         return tmp.buffer;
     }
-   
+
     /* this function expects complete packet (hence reader reads for atleast 8 bytes. This function is
      * stateless and returns the first wellformed packet only after replacing escape sequence */
     slip_reader(data) {
@@ -84,7 +80,7 @@ class Transport {
         if (state !== "packet_complete") {
             return new Uint8Array(0);
         }
-        
+
         var temp_pkt = new Uint8Array(data_end - data_start + 1);
         var j = 0;
         for (i = data_start; i <= data_end; i++, j++) {
@@ -104,7 +100,7 @@ class Transport {
         return packet;
     }
 
-    read = async (timeout=0) => {
+    read = async ({timeout=0, min_data=8} = {}) => {
         let t;
         var packet = null;
         var value, done;
@@ -129,7 +125,7 @@ class Transport {
             if (done) {
                 break;
             }
-        } while (packet.length < 8);
+        } while (packet.length < min_data);
 
         if (done) {
             console.log("timed out");
@@ -149,12 +145,10 @@ class Transport {
     }
 
     setRTS = async (state) => {
-        console.log("setRTS " + state);
         await this.device.setSignals({requestToSend:state});
     }
 
     setDTR = async (state) => {
-        console.log("setDTR " + state);
         await this.device.setSignals({dataTerminalReady:state});
     }
     connect = async () => {

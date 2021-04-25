@@ -15,6 +15,71 @@ class ESP32ROM {
     static UART_CLKDIV_MASK = 0xFFFFF;
     static XTAL_CLK_DIVIDER= 1;
 
+    static TEXT_START = 0x400BE000;
+    static ENTRY = 0x400BE598;
+    static DATA_START = 0x3FFDEBA8;
+    static ROM_DATA = "CMD8Pw==";
+    static ROM_TEXT = "" +
+"H4sICNv8hGAAA2VzcDMyc3R1Yi5iaW4AVRZ/UBTn9d3e3XIHqx72BvAkyd7KryOY"+
+"QaQCji17l8sBmjZCEoRMpwkSTjOxmfNCCjLY3Gp6QOJ04DSFIzguV4lIpImEVIhl"+
+"clB70QnOCM0YE2MDRFI1kBBEgwr79X1HnUn/ePu9fd/79b1f83QwlxuPAAhHv13M"+
+"NeC5wQrmuyTIQzZjvUPPFA3PV7ZNsFoAsN4i0m1K7NTU62S5ckwHUYKT+Y93jph/"+
+"oPQc5oEZgHl+Lnc+PayraZGS6/UeT0JxPmm6+9M/ygoG5AUKADrkn1wg5nuE0yFb"+
+"A9N0j0hhH3w7Ab8tuuI9YXmmdtYjpPO8JqwBRJSrWCAxrUSaJk0LlMWvu8+/xAIq"+
+"AA+0BBdzCSGg4ZfeuUAyBE3Mo9qKeRJzQ9Nxj2TbuHnOWDhHsjqjsgXPesPw+sJZ"+
+"Eq+pF8Ts6MSbRJohnv2GdTPURIN63Sg9i8qpbyXq4ldQXFwfzLFlC5sfLRDQcCPa"+
+"04mLuR4PwGsIogiQ71nMPYR0tH9ynvByZeL78OcbWgxr022CIW1s8aC6Hgs03SSN"+
+"9RT3xUFj49zqc8HgHP4NlUDrW3gGCmDpTrpB8NrjmavzO6SrpGmStF8jrS14eVZ/"+
+"8iqpa1vlYKD2Wp1p3KHHQFDPI/HTr0cyPelPg77pEmmt5/RUZQnQmG1dy9K4Wt8n"+
+"JZlb15fHfK0uMT7z5NbfWL0AiVOk3v52nKY+oa5jtuMqjXynMf0fPN/DS7MEi+LA"+
+"RkE+Y3kqxbhRsBhTMtMzgjmZqFQXzrMIrom7ufkJrDgjoI0y6LhCulXSAhX8RSS3"+
+"cupGvcoXgMZ6Q4OqYoI0zZL2m0tlI9fzeO57AXrM0P49zQaKyGv2U3/JCgD0V6oj"+
+"Plnly4f0NqtvJ4MFl7FTZclOT+9tFVLXp2+ycoylJCe/Y56sjTxgEuR/Utk0X7iG"+
+"9snBbqbOtzwgX5buUdUB+UuvGsmX63w66cclyhVpjiLhskKZjRksAxBgYLUweY9k"+
+"+eaWihqgBKH2C6146RFWbMMz/rJW3GA2B0YM0l2qwIvJKLxNBlRbHy0/r+lmsACQ"+
+"upB6XjOgokw36e9mAQuquHyxfYr0jBhMXdJ3lNp+ncRHmboS8Q1qFgsbBLn8vj8B"+
+"OSgN33dwF/qwE8GFUIlQjbCwA8QL+F7dTvpmc9kd2mImZwFrqt8+YuA0aZGlOpvT"+
+"tORO4Q9EOk9MT5dot/UxbBZ0s9InlI59tvs6MdXXFJbqHIkgXSPiy0FTfb1uQOWq"+
+"Lj8fwQd4aShcCB/uHiOctsgZU7Pby8HkLeI6xXerKqZI4i1yPmJA9dzbvNRHOWuE"+
+"GntW7wXpItlaGVZVl3WMnSHARQYcu6QRNBZIATyRtfiGcrKTBNhdptMVr8KPN7jb"+
+"j+mfORXYAquf9t4kPe8qp1rPOh/TFSWZsj5gtvV2th8mz/2NN3R5pCNUvGOatLeE"+
+"Izj5NZmcImmR0sD/IhZcyH0i31rQibOwdjxKNI5FiRzOxGxxDufG0hg5gH1sEOnU"+
+"oc20kKtBMCQDGJFvBpmorA5p72GP12KMpzDeJV4Qd6WyYnYGKxrTWHEY4XGEzD+C"+
+"ONwIYjXWSPr3WrEE8/L4PszLIJj/TbhIoUxnk2Ep6ebPybovCKbbth22CFkZPyaO"+
+"E25LYJDv+IxUjJF13yjmbxTrKEldEx7DJ0eI+Q2F47hnChjpK6rAep4UtavCAz0t"+
+"cqtAO8mikf4QTuelsIVQeNwzwx/GnxEFgzCEo5A/up+LWor6Dx+Rkc1k8CNy8oQy"+
+"0Y55Waoz898xv6nrzceV7aMPU3l1jDusR80Z8ShV26wGG6Pikm3WaHehvrQw6VBE"+
+"fFaV8UFWBzZG7WYYjz3aZeed9uh8AQXyNQWFDizq+ARboX5ylHBvBAYNFefIT3l3"+
+"y8Tlmss7tRKrveIMCcjfJZ4hiReI4ysCbrT1eXMz4z0CVTm/du5g2Etwu4p3ZjGh"+
+"3XA7T+dMZhzbgE0CZx7j+CM4tzFsLzgE4PwoFGpGIZ2zigl9AI4HwNnMOI4D1483"+
+"jn3AroL4HERZGzKlOk8xoScgXl+Vw3F3prXU4gYIGSB+FWXZhv7n4fk78EaBTx6l"+
+"ujNQzOCTLzTHJvjkkebYdSENlpBP/heVLVD55E8pkg/TWrdMHD3AxRYnpEmV4RlX"+
+"ud/bjcxJr2m4WPYdsAmMW1C7DvGNjb3F/UrHO8Rl97SZ2HkC8gmrtDPcJRsX3Z/N"+
+"uI4Gh5NZCUD2zBXHKQ4NyPItqSzMkHpP2kI8VUFpM0G2quyrITWE5UuW5O8syRcf"+
+"U0IucMvBpNcY7wF0j4sIvQ5JvbdC5UhVJfUyXi/0COqAwEyeJCzOtSUqWm3aQGyC"+
+"Zusk75aH8voZdi/0FXUKXGxFB5Ff2R+qBm6Vszct39aeRuirh/I+ZNhKqM6gXK7K"+
+"ff7xyQCxrlRaxkuft3368J4E+c39e/Xsi9C0TJnWBvRoKBQTaaoubRFsZ2ZEfxDr"+
+"obHmIBfpk7/34lju6umJilvd9Z4/PS91NsBobYzG0xUtdvE2hp3Wgj1aPopohMeu"+
+"ku08itvkwcbKg94ncc9ZnNb6NGH9emNLpls+W9zwM58dqp9iH8fabMAgxDYbmVA+"+
+"XNs+775UdNbWl9EpSDoauOlIfJvDhvlLsjOhXOgUBrQS0Bv2IRwbciZ9arD49eVi"+
+"r/UN368iaxe8ywE6c/zj/YPnRqR7CnK2jPcNVls6V13Sy8cMQ+ZlSRHLsTcm1oKr"+
+"Nn2syuDqou17fNlqu++c4VTmENtKnHbG2xKOYtCxhtruZUI8WD9TWoqqBb/GelHZ"+
+"o9mrZePh5KjCxV6KwoAd1orNBy+8ctDlN1C5UHGpVhpW3PK5s7q8TZtF2UjdNGn2"+
+"RnIP4a5Q42t5YUuVP/Lwippu11QwL2s6xvLV8ajrulAN4WKdr8VaB5RqzYFYjFWp"+
+"hjNZ+xVXx/5SlJ7WuuTKibJlkw1kwrxsTK6saCAVb5LiiAGcC255RZVRzMsyov+O"+
+"PeB8ngm9CkmZjHdK8T4E8clVhxjvy5CXFRUfiyi7ERzfKJiW0SrjE2750yrjy44J"+
+"BRujL6P9iFIt9A9K79DwmduUpsNKeJr1DfL2nweF6EbBwCfw7/Xs69a6Tg9JAcoW"+
+"+Ms16QhF2BFUMipohwQNFnKnUPEn4hhWoIdR23DmnI4WT/M9n8wEhuImXyJsSPm/"+
+"WfTiIoayJavRXh5z9d2W2NZDjW1W3Al8ZcsnS4nPvDyQrHnbpOlMPnb828lCuioF"+
+"klXiGb5nKE7aR23HbAa6LG1Lid0sWGJTskRbsCArdEJxM2ofGqmKbqzibUNx7o9n"+
+"uHiWh6adivnFxQkLuMsixoSgUMamJHGm5FMqbqN//Pjg9ZGKItI5aH5WOa66NtL+"+
+"W2VAMzQYPzsYd4WRdlBz5yP7kjp3t4zLp4P9SXJVsE/fZe8s6zoddUI+wffr5Xe1"+
+"/OngcOvoZQ/34IW/7o+5Ad2Mf/zcSOKzpGX87IhFLz2ymJJ94FjwyLqgP3jRAsU9"+
+"ty+eAMmyaJM/LihxABzY1MaEapUY5og1YVGQz1qecuxRQDIjfs5S4vi9AilCccbh"+
+"bq1kpw61pyvSLykiWenX8RLeZ8RkvIX3m+4naQNFxhhgdyh0r8E95zCD21qKus6/"+
+"YjiDW+mNANzr1LUT2ElJKyOShBjc24Bubh7Lmjp/Eifg5awjAiP9ZbJfx620qNfq"+
+"wqvdldrZOj9LCYJ8mer+L0DR4a0UDQAA";
+
     static read_efuse = async (loader, offset) => {
         var addr = this.EFUSE_RD_REG_BASE + (4 * offset);
         console.log("Read efuse " + addr);
@@ -130,7 +195,7 @@ class ESP32ROM {
 
         return features;
     }
-    
+
     static get_crystal_freq = async (loader) => {
         var uart_div = await loader.read_reg({addr: this.UART_CLKDIV_REG}) & this.UART_CLKDIV_MASK;
         var ets_xtal = (loader.transport.baudrate * uart_div) / 1000000 / this.XTAL_CLK_DIVIDER;
@@ -145,17 +210,17 @@ class ESP32ROM {
         }
         return norm_xtal;
     }
-    
+
     static _d2h(d) {
         var h = (+d).toString(16);
-        return h.length === 1 ? '0' + h: h; 
+        return h.length === 1 ? '0' + h: h;
     }
 
     static read_mac = async (loader) => {
         var mac0 = await this.read_efuse(loader, 1);
         mac0 = mac0 >>> 0;
         var mac1 = await this.read_efuse(loader, 2);
-        mac1 = mac1 >>> 0; 
+        mac1 = mac1 >>> 0;
         var mac = new Uint8Array(6);
         mac[0] = (mac1 >> 8) & 0xff;
         mac[1] = mac1 & 0xff;
@@ -175,6 +240,80 @@ class ESP32S2ROM {
     static CHIP_DETECT_MAGIC_VALUE = 0x000007c6;
     static MAC_EFUSE_REG = 0x3f41A044;
     static EFUSE_BASE = 0x3f41A000;
+
+    static TEXT_START = 0x40028000;
+    static ENTRY = 0x4002873C;
+    static DATA_START = 0x3FFE2BF4;
+    static ROM_DATA = "CAD9Pw==";
+    static ROM_TEXT = "" +
+"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";
 
     static get_pkg_version = async (loader) => {
         var num_word = 3;
@@ -220,7 +359,7 @@ class ESP32S2ROM {
     }
     static _d2h(d) {
         var h = (+d).toString(16);
-        return h.length === 1 ? '0' + h: h; 
+        return h.length === 1 ? '0' + h: h;
     }
     static read_mac = async (loader) => {
         var mac0 = await loader.read_reg({addr: this.MAC_EFUSE_REG});
@@ -264,6 +403,70 @@ class ESP32C3ROM {
     static EFUSE_BASE = 0x60008800;
     static MAC_EFUSE_REG = this.EFUSE_BASE + 0x044;
 
+    static TEXT_START = 0x40380000;
+    static ENTRY = 0x403805C8;
+    static DATA_START = 0x3FC96BA8;
+    static ROM_DATA = "DEDIPw==";
+    static ROM_TEXT = "" +
+"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";
+
     static get_pkg_version = async (loader) => {
         var num_word = 3;
         var block1_addr = this.EFUSE_BASE + 0x044;
@@ -306,7 +509,7 @@ class ESP32C3ROM {
 
     static _d2h(d) {
         var h = (+d).toString(16);
-        return h.length === 1 ? '0' + h: h; 
+        return h.length === 1 ? '0' + h: h;
     }
 
     static read_mac = async (loader) => {
@@ -327,6 +530,11 @@ class ESP32C3ROM {
 }
 
 class ESPLoader {
+    ESP_RAM_BLOCK = 0x1800;
+    ESP_MEM_BEGIN  = 0x05;
+    ESP_MEM_END = 0x06;
+    ESP_MEM_DATA  = 0x07;
+
     constructor(transport, terminal) {
         this.transport = transport;
         this.terminal = terminal;
@@ -335,7 +543,7 @@ class ESPLoader {
         if (terminal) {
             this.terminal.clear();
         }
-        
+
         this.log("esptool.js v0.1-dev");
         this.log("Serial port " + this.transport.get_info());
     }
@@ -365,7 +573,7 @@ class ESPLoader {
     _int_to_bytearray(i) {
         return [i & 0xff, (i >> 8) & 0xff, (i >> 16) & 0xff, (i >> 24) & 0xff];
     }
-   
+
     _bytearray_to_short(i, j) {
         return (i | (j >> 8));
     }
@@ -381,9 +589,17 @@ class ESPLoader {
         return tmp.buffer;
     }
 
+    _appendArray(arr1, arr2) {
+        var c = new Uint8Array(arr1.length + arr2.length);
+        console.log(c);
+        c.set(arr1, 0);
+        c.set(arr2, arr1.length);
+        return c;
+    }
+
     flush_input = async () => {
         try {
-            await this.transport.read(200);
+            await this.transport.read({timeout:200});
         } catch(e) {
         }
     }
@@ -407,10 +623,10 @@ class ESPLoader {
             }
             await this.transport.write(pkt);
         }
-        
+
         if (wait_response) {
             try {
-                var p = await this.transport.read(timeout);
+                var p = await this.transport.read({timeout: timeout});
                 const resp = p[0];
                 const op_ret = p[1];
                 const len_ret = this._bytearray_to_short(p[2], p[3]);
@@ -453,7 +669,7 @@ class ESPLoader {
         for (i = 0; i < 32; i++) {
             cmd[4 + i] = 0x55;
         }
-        
+
         try {
             const resp = await this.command({op:0x08, data:cmd, timeout:100});
             return resp;
@@ -462,7 +678,7 @@ class ESPLoader {
             throw(e);
         }
     }
- 
+
     _connect_attempt = async ({mode='default_reset', esp32r0_delay=false} = {}) => {
         console.log("_connect_attempt " + esp32r0_delay);
         if (mode !== 'no_reset') {
@@ -484,7 +700,7 @@ class ESPLoader {
         var i = 0;
         while (1) {
             try {
-                const res = await this.transport.read(1000);
+                const res = await this.transport.read({timeout: 1000});
                 i += res.length;
                 //console.log("Len = " + res.length);
                 //var str = new TextDecoder().decode(res);
@@ -514,9 +730,9 @@ class ESPLoader {
             }
             await this._sleep(50);
         }
-        return "error";        
+        return "error";
     }
-   
+
     connect = async ({mode='default_reset', attempts=7, detecting=false} = {}) => {
         var i;
         var resp;
@@ -536,8 +752,8 @@ class ESPLoader {
             this.log("Failed to connect with the device");
             return "error";
         }
-        this.write_char('\n'); 
-        this.write_char('\r'); 
+        this.write_char('\n');
+        this.write_char('\r');
         await this.flush_input();
 
         if (!detecting) {
@@ -563,7 +779,92 @@ class ESPLoader {
         }
     }
 
+    check_command = async ({op_description="", op=null, data=[], chk=0, timeout=3000} = {}) => {
+        console.log("check_command " + op + " " + data);
+        var resp = await this.command({op:op, data:data, chk:chk, timeout:timeout});
+        console.log("check_command resp");
+        console.log(resp);
+    }
+
+    mem_begin = async (size, blocks, blocksize, offset) => {
+        /* XXX: Add check to ensure that STUB is not getting overwritten */
+        console.log("mem_begin " + size + " " + blocks + " " + blocksize + " " + offset);
+        var pkt = this._appendArray(this._int_to_bytearray(size), this._int_to_bytearray(blocks));
+        pkt = this._appendArray(pkt, this._int_to_bytearray(blocksize));
+        pkt = this._appendArray(pkt, this._int_to_bytearray(offset));
+        await this.check_command({op_description: "write to target RAM", op: this.ESP_MEM_BEGIN, data: pkt});
+    }
+
+    checksum = function (data) {
+        var i;
+        var chk = 0xEF;
+
+        for (i = 0; i < data.length; i++) {
+            chk ^= data[i];
+        }
+        return chk;
+    }
+
+    mem_block = async (buffer, seq) => {
+        var pkt = this._appendArray(this._int_to_bytearray(buffer.length), this._int_to_bytearray(seq));
+        pkt = this._appendArray(pkt, this._int_to_bytearray(0));
+        pkt = this._appendArray(pkt, this._int_to_bytearray(0));
+        pkt = this._appendArray(pkt, buffer);
+        var checksum = this.checksum(buffer);
+        await this.check_command({op_description: "write to target RAM", op: this.ESP_MEM_DATA, data: pkt, chk: checksum});
+    }
+
+    mem_finish = async (entrypoint) => {
+        var is_entry = (entrypoint === 0) ? 1 : 0;
+        var pkt = this._appendArray(this._int_to_bytearray(is_entry), this._int_to_bytearray(entrypoint));
+        await this.check_command({op_description: "leave RAM download mode", op: this.ESP_MEM_END, data: pkt, timeout: 50}); // XXX: handle non-stub with diff timeout
+    }
+
+    run_stub = async () => {
+        this.log("Uploading stub...");
+
+        var decoded = atob(this.chip.ROM_TEXT);
+        var chardata = decoded.split('').map(function(x){return x.charCodeAt(0);});
+        var bindata = new Uint8Array(chardata);
+        var text = pako.inflate(bindata);
+
+        decoded = atob(this.chip.ROM_DATA);
+        chardata = decoded.split('').map(function(x){return x.charCodeAt(0);});
+        var data = new Uint8Array(chardata);
+
+        var blocks = Math.floor((text.length + this.ESP_RAM_BLOCK - 1) / this.ESP_RAM_BLOCK);
+        var i;
+
+        await this.mem_begin(text.length, blocks, this.ESP_RAM_BLOCK, this.chip.TEXT_START);
+        for (i = 0; i < blocks; i++) {
+            var from_offs = i * this.ESP_RAM_BLOCK;
+            var to_offs = from_offs + this.ESP_RAM_BLOCK;
+            await this.mem_block(text.slice(from_offs, to_offs), i);
+        }
+
+        blocks = Math.floor((data.length + this.ESP_RAM_BLOCK - 1) / this.ESP_RAM_BLOCK);
+        await this.mem_begin(data.length, blocks, this.ESP_RAM_BLOCK, this.chip.DATA_START);
+        for (i = 0; i < blocks; i++) {
+            var from_offs = i * this.ESP_RAM_BLOCK;
+            var to_offs = from_offs + this.ESP_RAM_BLOCK;
+            await this.mem_block(data.slice(from_offs, to_offs), i);
+        }
+
+        this.log("Running stub...");
+        await this.mem_finish(this.chip.ENTRY);
+
+        const res = await this.transport.read({timeout: 1000, min_data: 6});
+        if (res[0] === 79 && res[1] === 72 && res[2] === 65 && res[3] === 73) {
+            this.log("Stub running...");
+            return this.chip;
+        } else {
+            this.log("Failed to start stub. Unexpected response");
+            return null;
+        }
+    }
+
     main_fn = async () => {
+
         await this.detect_chip();
         if (this.chip == null) {
             this.log("Error in connecting to board");
@@ -575,7 +876,10 @@ class ESPLoader {
         this.log("Features: " + await this.chip.get_chip_features(this));
         this.log("Crystal is " + await this.chip.get_crystal_freq(this) + "MHz");
         this.log("MAC: " + await this.chip.read_mac(this));
-        this.chip.read_mac(this);
+        await this.chip.read_mac(this);
+
+        await this.run_stub();
+
     }
 }
 
