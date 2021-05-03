@@ -13,7 +13,18 @@ class ESP32ROM {
     static DR_REG_SYSCON_BASE = 0x3ff66000;
     static UART_CLKDIV_REG = 0x3ff40014;
     static UART_CLKDIV_MASK = 0xFFFFF;
+    static UART_DATE_REG_ADDR = 0x60000078;
     static XTAL_CLK_DIVIDER= 1;
+
+    static FLASH_WRITE_SIZE = 0x400;
+
+    static SPI_REG_BASE   = 0x3ff42000;
+    static SPI_USR_OFFS    = 0x1c;
+    static SPI_USR1_OFFS   = 0x20;
+    static SPI_USR2_OFFS   = 0x24;
+    static SPI_W0_OFFS     = 0x80;
+    static SPI_MOSI_DLEN_OFFS = 0x28;
+    static SPI_MISO_DLEN_OFFS = 0x2c;
 
     static TEXT_START = 0x400BE000;
     static ENTRY = 0x400BE598;
@@ -232,6 +243,10 @@ class ESP32ROM {
         return(this._d2h(mac[0])+":"+this._d2h(mac[1])+":"+this._d2h(mac[2])+":"+this._d2h(mac[3])+":"+this._d2h(mac[4])+":"+this._d2h(mac[5]));
     }
 
+    static get_erase_size = function(offset, size) {
+        return size;
+    }
+
 }
 
 class ESP32S2ROM {
@@ -240,6 +255,19 @@ class ESP32S2ROM {
     static CHIP_DETECT_MAGIC_VALUE = 0x000007c6;
     static MAC_EFUSE_REG = 0x3f41A044;
     static EFUSE_BASE = 0x3f41A000;
+    static UART_CLKDIV_REG = 0x3f400014;
+    static UART_CLKDIV_MASK = 0xFFFFF;
+    static UART_DATE_REG_ADDR = 0x60000078;
+
+    static FLASH_WRITE_SIZE = 0x400;
+
+    static SPI_REG_BASE = 0x3f402000;
+    static SPI_USR_OFFS    = 0x18;
+    static SPI_USR1_OFFS   = 0x1c;
+    static SPI_USR2_OFFS   = 0x20;
+    static SPI_W0_OFFS = 0x58;
+    static SPI_MOSI_DLEN_OFFS = 0x24;
+    static SPI_MISO_DLEN_OFFS = 0x28;
 
     static TEXT_START = 0x40028000;
     static ENTRY = 0x4002873C;
@@ -376,6 +404,10 @@ class ESP32S2ROM {
 
         return(this._d2h(mac[0])+":"+this._d2h(mac[1])+":"+this._d2h(mac[2])+":"+this._d2h(mac[3])+":"+this._d2h(mac[4])+":"+this._d2h(mac[5]));
     }
+
+    static get_erase_size = function(offset, size) {
+        return size;
+    }
 }
 
 class ESP32S3BETA2ROM {
@@ -402,6 +434,19 @@ class ESP32C3ROM {
     static CHIP_DETECT_MAGIC_VALUE = 0x6921506f;
     static EFUSE_BASE = 0x60008800;
     static MAC_EFUSE_REG = this.EFUSE_BASE + 0x044;
+    static UART_CLKDIV_REG = 0x3ff40014;
+    static UART_CLKDIV_MASK = 0xFFFFF;
+    static UART_DATE_REG_ADDR = 0x6000007C;
+
+    static FLASH_WRITE_SIZE = 0x400;
+
+    static SPI_REG_BASE = 0x60002000;
+    static SPI_USR_OFFS    = 0x18;
+    static SPI_USR1_OFFS   = 0x1C;
+    static SPI_USR2_OFFS   = 0x20;
+    static SPI_MOSI_DLEN_OFFS = 0x24;
+    static SPI_MISO_DLEN_OFFS = 0x28;
+    static SPI_W0_OFFS = 0x58;
 
     static TEXT_START = 0x40380000;
     static ENTRY = 0x403805C8;
@@ -527,17 +572,35 @@ class ESP32C3ROM {
 
         return(this._d2h(mac[0])+":"+this._d2h(mac[1])+":"+this._d2h(mac[2])+":"+this._d2h(mac[3])+":"+this._d2h(mac[4])+":"+this._d2h(mac[5]));
     }
+
+    static get_erase_size = function(offset, size) {
+        return size;
+    }
 }
 
 class ESPLoader {
     ESP_RAM_BLOCK = 0x1800;
+    ESP_FLASH_BEGIN = 0x02;
+    ESP_FLASH_DATA = 0x03;
+    ESP_FLASH_END = 0x04;
     ESP_MEM_BEGIN  = 0x05;
     ESP_MEM_END = 0x06;
-    ESP_MEM_DATA  = 0x07;
+    ESP_MEM_DATA = 0x07;
+    ESP_WRITE_REG = 0x09;
+    ESP_READ_REG = 0x0A;
+    ESP_SPI_ATTACH = 0x0D;
+
+    ERASE_REGION_TIMEOUT_PER_MB = 30000;
+    ERASE_WRITE_TIMEOUT_PER_MB = 40000;
+    CHIP_ERASE_TIMEOUT = 120000;
+    MAX_TIMEOUT = this.CHIP_ERASE_TIMEOUT * 2;
+
+    DETECTED_FLASH_SIZES = {0x12: '256KB', 0x13: '512KB', 0x14: '1MB', 0x15: '2MB', 0x16: '4MB', 0x17: '8MB', 0x18: '16MB'};
 
     constructor(transport, terminal) {
         this.transport = transport;
         this.terminal = terminal;
+        this.IS_STUB = false;
         this.chip = null;
 
         if (terminal) {
@@ -652,10 +715,25 @@ class ESPLoader {
         var pkt = this._int_to_bytearray(addr);
         console.log("Read reg");
         console.log(pkt);
-        val = await this.command({op:0x0a, data:pkt, timeout:timeout});
+        val = await this.command({op:this.ESP_READ_REG, data:pkt, timeout:timeout});
         console.log("Read reg resp");
         console.log(val);
         return val[0];
+    }
+
+    write_reg = async({addr, value, mask = 0xFFFFFFFF, delay_us = 0, delay_after_us = 0} = {}) => {
+        var pkt = this._appendArray(this._int_to_bytearray(addr), this._int_to_bytearray(value));
+        pkt = this._appendArray(pkt, this._int_to_bytearray(mask));
+        pkt = this._appendArray(pkt, this._int_to_bytearray(delay_us));
+
+        if (delay_after_us > 0) {
+            pkt = this._appendArray(pkt, this._int_to_bytearray(this.chip.UART_DATE_REG_ADDR));
+            pkt = this._appendArray(pkt, this._int_to_bytearray(0));
+            pkt = this._appendArray(pkt, this._int_to_bytearray(0));
+            pkt = this._appendArray(pkt, this._int_to_bytearray(delay_after_us));
+        }
+
+        await this.check_command({op_description: "write target memory", op: this.ESP_WRITE_REG, data: pkt});
     }
 
     sync = async () => {
@@ -820,6 +898,170 @@ class ESPLoader {
         await this.check_command({op_description: "leave RAM download mode", op: this.ESP_MEM_END, data: pkt, timeout: 50}); // XXX: handle non-stub with diff timeout
     }
 
+    flash_spi_attach = async (hspi_arg) => {
+        var pkt = this._int_to_bytearray(hspi_arg);
+        await this.check_command({op_description: "configure SPI flash pins", op: this.ESP_SPI_ATTACH, data: pkt});
+    }
+
+    timeout_per_mb = function(seconds_per_mb, size_bytes) {
+        var result = seconds_per_mb * (size_bytes / 1000000);
+        if (result < 3000) {
+            return 3000;
+        } else {
+            return result;
+        }
+    }
+
+    flash_begin = async (size, offset) => {
+
+        var num_blocks = Math.floor((size + this.chip.FLASH_WRITE_SIZE - 1) / this.chip.FLASH_WRITE_SIZE);
+        var erase_size = this.chip.get_erase_size(offset, size);
+
+        var d = new Date();
+        var t1 = d.getTime();
+
+        var timeout = 3000;
+        if (this.IS_STUB == false) {
+            timeout = this.timeout_per_mb(this.ERASE_REGION_TIMEOUT_PER_MB, size);
+        }
+
+        console.log("flash begin " + erase_size + " " + num_blocks + " " + this.chip.FLASH_WRITE_SIZE + " " + offset + " " + size);
+        var pkt = this._appendArray(this._int_to_bytearray(erase_size), this._int_to_bytearray(num_blocks));
+        pkt = this._appendArray(pkt, this._int_to_bytearray(this.chip.FLASH_WRITE_SIZE));
+        pkt = this._appendArray(pkt, this._int_to_bytearray(offset));
+        if (this.IS_STUB == false) {
+            pkt = this._appendArray(pkt, this._int_to_bytearray(0)); // XXX: Support encrypted
+        }
+
+        await this.check_command({op_description:"enter Flash download mode", op: this.ESP_FLASH_BEGIN, data: pkt, timeout: timeout});
+
+        var t2 = d.getTime();
+        if (size != 0 && this.IS_STUB == false) {
+            this.log("Took "+((t2-t1)/1000)+"."+((t2-t1)%1000)+"s to erase flash block");
+        }
+
+    }
+
+    flash_block = async (data, seq, timeout) => {
+        var pkt = this._appendArray(this._int_to_bytearray(data.length), this._int_to_bytearray(seq));
+        pkt = this._appendArray(pkt, this._int_to_bytearray(0));
+        pkt = this._appendArray(pkt, this._int_to_bytearray(0));
+        pkt = this._appendArray(pkt, data);
+
+        var checksum = this.checksum(data);
+
+        await this.check_command({op_description:"write to target Flash after seq " + seq, op: this.ESP_FLASH_DATA, data: pkt, chk: checksum, timeout: timeout});
+    }
+
+    flash_finish = async ({reboot = false } = {}) => {
+        var val = reboot ? 0 : 1;
+        var pkt = this._int_to_bytearray(val);
+
+        await this.check_command({op_description:"leave Flash mode", op: this.ESP_FLASH_END, data: pkt});
+    }
+
+    run_spiflash_command = async (spiflash_command, data, read_bits) => {
+        // SPI_USR register flags
+        var SPI_USR_COMMAND = (1 << 31);
+        var SPI_USR_MISO    = (1 << 28);
+        var SPI_USR_MOSI    = (1 << 27);
+
+        // SPI registers, base address differs ESP32* vs 8266
+        var base = this.chip.SPI_REG_BASE;
+        var SPI_CMD_REG = base + 0x00;
+        var SPI_USR_REG       = base + this.chip.SPI_USR_OFFS;
+        var SPI_USR1_REG      = base + this.chip.SPI_USR1_OFFS;
+        var SPI_USR2_REG      = base + this.chip.SPI_USR2_OFFS;
+        var SPI_W0_REG        = base + this.chip.SPI_W0_OFFS;
+
+        var set_data_lengths;
+        if (this.chip.SPI_MOSI_DLEN_OFFS != null) {
+            set_data_lengths = async(mosi_bits, miso_bits) => {
+                var SPI_MOSI_DLEN_REG = base + this.chip.SPI_MOSI_DLEN_OFFS;
+                var SPI_MISO_DLEN_REG = base + this.chip.SPI_MISO_DLEN_OFFS;
+                if (mosi_bits > 0) {
+                    await this.write_reg({addr:SPI_MOSI_DLEN_REG, value:(mosi_bits - 1)});
+                }
+                if (miso_bits > 0) {
+                    await this.write_reg({addr:SPI_MISO_DLEN_REG, value:(miso_bits - 1)});
+                }
+            };
+        } else {
+            set_data_lengths = async(mosi_bits, miso_bits) => {
+                var SPI_DATA_LEN_REG = SPI_USR1_REG;
+                var SPI_MOSI_BITLEN_S = 17;
+                var SPI_MISO_BITLEN_S = 8;
+                mosi_mask = (mosi_bits === 0) ? 0 : (mosi_bits - 1);
+                miso_mask = (miso_bits === 0) ? 0 : (miso_bits - 1);
+                var val = (miso_mask << SPI_MISO_BITLEN_S) | (mosi_mask << SPI_MOSI_BITLEN_S);
+                await this.write_reg({addr:SPI_DATA_LEN_REG, value:val});
+            };
+        }
+
+        var SPI_CMD_USR  = (1 << 18);
+        var SPI_USR2_COMMAND_LEN_SHIFT = 28;
+        if(read_bits > 32) {
+            throw "Reading more than 32 bits back from a SPI flash operation is unsupported";
+        }
+        if (data.length > 64) {
+            throw "Writing more than 64 bytes of data with one SPI command is unsupported";
+        }
+
+        var data_bits = data.length * 8;
+        var old_spi_usr = await this.read_reg({addr:SPI_USR_REG});
+        var old_spi_usr2 = await this.read_reg({addr:SPI_USR2_REG});
+        var flags = SPI_USR_COMMAND;
+        var i;
+        if (read_bits > 0) {
+            flags |= SPI_USR_MISO;
+        }
+        if (data_bits > 0) {
+            flags |= SPI_USR_MOSI;
+        }
+        await set_data_lengths(data_bits, read_bits);
+        await this.write_reg({addr:SPI_USR_REG, value:flags});
+        var val = (7 << SPI_USR2_COMMAND_LEN_SHIFT) | spiflash_command;
+        await this.write_reg({addr:SPI_USR2_REG, value:val});
+        if (data_bits == 0) {
+            await this.write_reg({addr:SPI_W0_REG, value:0});
+        } else {
+            if (data.length % 4 != 0) {
+                var padding = new Uint8Array(data.length % 4);
+                data = this._appendArray(data, padding);
+            }
+            var next_reg = SPI_W0_REG;
+            for (i = 0 ; i < data.length - 4; i+=4) {
+                val = this._bytearray_to_int(data[i], data[i+1], data[i+2], data[i+3]);
+                await this.write_reg({addr:next_reg, value:val});
+                next_reg += 4;
+            }
+        }
+        await this.write_reg({addr:SPI_CMD_REG, value:SPI_CMD_USR});
+        for (i = 0; i < 10; i++) {
+            val = await this.read_reg({addr:SPI_CMD_REG}) & SPI_CMD_USR;
+            if (val == 0) {
+                break;
+            }
+        }
+        if (i === 10) {
+            throw "SPI command did not complete in time";
+        }
+        var stat = await this.read_reg({addr:SPI_W0_REG});
+        await this.write_reg({addr:SPI_USR_REG, value:old_spi_usr});
+        await this.write_reg({addr:SPI_USR2_REG, value:old_spi_usr2});
+        return stat;
+    }
+
+    read_flash_id = async() => {
+        var SPIFLASH_RDID = 0x9F;
+        var pkt = new Uint8Array(0);
+        return await this.run_spiflash_command(SPIFLASH_RDID, pkt, 24);
+    }
+    write_flash = async (data, offset) => {
+        // verify file sizes fit in flash
+
+    }
+
     run_stub = async () => {
         this.log("Uploading stub...");
 
@@ -856,6 +1098,8 @@ class ESPLoader {
         const res = await this.transport.read({timeout: 1000, min_data: 6});
         if (res[0] === 79 && res[1] === 72 && res[2] === 65 && res[3] === 73) {
             this.log("Stub running...");
+            this.IS_STUB = true;
+            this.FLASH_WRITE_SIZE = 0x4000;
             return this.chip;
         } else {
             this.log("Failed to start stub. Unexpected response");
@@ -880,6 +1124,19 @@ class ESPLoader {
 
         await this.run_stub();
 
+    }
+
+    program = async (fileData) => {
+        console.log("EspLoader program");
+    }
+
+    flash_id = async() => {
+        console.log("flash_id");
+        var flashid = await this.read_flash_id();
+        this.log("Manufacturer: " + (flashid & 0xff).toString(16));
+        var flid_lowbyte = (flashid >> 16) & 0xff;
+        this.log("Device: "+((flashid >> 8) & 0xff).toString(16) + flid_lowbyte.toString(16));
+        this.log("Detected flash size: " + this.DETECTED_FLASH_SIZES[flid_lowbyte]);
     }
 }
 

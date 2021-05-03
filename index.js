@@ -7,12 +7,33 @@ const terminal = document.getElementById("terminal");
 import { Transport } from './webserial.js'
 import { ESPLoader } from './ESPLoader.js'
 
-let term = new Terminal();
+let term = new Terminal({cols:120});
 term.open(terminal);
 
 let device;
 let chip;
+let esploader;
 
+function handleFileSelect(evt) {
+    var file = evt.target.files[0];
+    console.log(file);
+    var reader = new FileReader();
+
+    reader.onload = (function(theFile) {
+        return function(e) {
+            console.log("In reader.onload");
+            console.log(e);
+            esploader.program(e.target.result);
+//            var span = document.createElement('span');
+//            span.innerHTML = ['<img class="thumb" src="', e.target.result, '" title="', escape(theFile.name),'"/>'].join('');
+//             document.getElementById('list').insertBefore(span, null);
+        };
+    })(file);
+
+    reader.readAsBinaryString(file);
+}
+
+document.getElementById('selectFile').addEventListener('change', handleFileSelect, false);
 function _sleep(ms) {
     return new Promise(resolve => setTimeout(resolve, ms));
 }
@@ -27,10 +48,11 @@ connectButton.onclick = async () => {
     });
 
     var transport = new Transport(device);
-    var esploader = new ESPLoader(transport, term);
+    esploader = new ESPLoader(transport, term);
 
     await esploader.main_fn();
 
+    await esploader.flash_id();
    console.log("Settings done");
     connectButton.style.display = "none";
     disconnectButton.style.display = "initial";

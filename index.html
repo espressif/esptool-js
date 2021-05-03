@@ -11,12 +11,14 @@
         />
         <link rel="icon" href="favicon.ico" />
          <script src="node_modules/xterm/lib/xterm.js"></script>
+         <script src="pako.js"></script>
     </head>
     <body>
         <h1>ESP Tool</h1>
         <input class="button" type="button" id="connectButton" value="Connect" />
         <input class="button" type="button" id="disconnectButton" value="Disconnect" />
-
+        <input type="file" id="selectFile" name="selected_file">
+        <output id="list"></output>
         <hr/>
         <br/>
         <div id="terminal"></div>
