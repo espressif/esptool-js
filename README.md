@@ -2,6 +2,7 @@
 
 ```
 npm install xterm
+npm install crypto-js
 python2 -m SimpleHTTPServer 8008
 ```
 

@@ -12,15 +12,42 @@
         <link rel="icon" href="favicon.ico" />
          <script src="node_modules/xterm/lib/xterm.js"></script>
          <script src="pako.js"></script>
+         <script src="node_modules/crypto-js/crypto-js.js"></script>
     </head>
     <body>
         <h1>ESP Tool</h1>
-        <input class="button" type="button" id="connectButton" value="Connect" />
-        <input class="button" type="button" id="disconnectButton" value="Disconnect" />
-        <input type="file" id="selectFile" name="selected_file">
-        <output id="list"></output>
-        <hr/>
-        <br/>
+        <div>
+            <div id="program">
+                <h2> Program </h2>
+                <input class="button" type="button" id="connectButton" value="Connect" />
+                <input class="button" type="button" id="disconnectButton" value="Disconnect" />
+                <div id="files">
+                    <br/>
+                    <input class="button" type="button" id="eraseButton" value="Erase Flash" />
+                    <br/>
+                    <input type="text" id="offset1" name="offset1">
+                    <input type="file" id="selectFile1" name="selected_file1">
+                    <br/>
+                    <input type="text" id="offset2" name="offset2">
+                    <input type="file" id="selectFile2" name="selected_file2">
+                    <br/>
+                    <input type="text" id="offset3" name="offset3">
+                    <input type="file" id="selectFile3" name="selected_file3">
+                    <br/>
+                    <input class="button" type="button" id="programButton" value="Program" />
+                </div>
+                <output id="list"></output>
+                <br/>
+                <hr/>
+            </div>
+            <div id="console">
+                <h2>Console </h2>
+                <input class="button" type="button" id="consoleStartButton" value="Start" />
+                <input class="button" type="button" id="consoleStopButton" value="Stop" />
+                <input class="button" type="button" id="resetButton" value="Reset" />
+                <hr/>
+            </div>
+        </div>
         <div id="terminal"></div>
         <script src="index.js" type="module"></script>
     </body>

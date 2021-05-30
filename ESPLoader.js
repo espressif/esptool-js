@@ -17,6 +17,9 @@ class ESP32ROM {
     static XTAL_CLK_DIVIDER= 1;
 
     static FLASH_WRITE_SIZE = 0x400;
+    static BOOTLOADER_FLASH_OFFSET = 0x1000;
+
+    static FLASH_SIZES = {'1MB':0x00, '2MB':0x10, '4MB':0x20, '8MB':0x30, '16MB':0x40};
 
     static SPI_REG_BASE   = 0x3ff42000;
     static SPI_USR_OFFS    = 0x1c;
@@ -260,6 +263,9 @@ class ESP32S2ROM {
     static UART_DATE_REG_ADDR = 0x60000078;
 
     static FLASH_WRITE_SIZE = 0x400;
+    static BOOTLOADER_FLASH_OFFSET = 0x1000;
+
+    static FLASH_SIZES = {'1MB':0x00, '2MB':0x10, '4MB':0x20, '8MB':0x30, '16MB':0x40};
 
     static SPI_REG_BASE = 0x3f402000;
     static SPI_USR_OFFS    = 0x18;
@@ -439,6 +445,9 @@ class ESP32C3ROM {
     static UART_DATE_REG_ADDR = 0x6000007C;
 
     static FLASH_WRITE_SIZE = 0x400;
+    static BOOTLOADER_FLASH_OFFSET = 0x1000;
+
+    static FLASH_SIZES = {'1MB':0x00, '2MB':0x10, '4MB':0x20, '8MB':0x30, '16MB':0x40};
 
     static SPI_REG_BASE = 0x60002000;
     static SPI_USR_OFFS    = 0x18;
@@ -587,13 +596,27 @@ class ESPLoader {
     ESP_MEM_END = 0x06;
     ESP_MEM_DATA = 0x07;
     ESP_WRITE_REG = 0x09;
+    ESP_FLASH_DEFL_BEGIN = 0x10;
+    ESP_FLASH_DEFL_DATA  = 0x11;
+    ESP_FLASH_DEFL_END   = 0x12;
+    ESP_SPI_FLASH_MD5    = 0x13;
     ESP_READ_REG = 0x0A;
     ESP_SPI_ATTACH = 0x0D;
 
+    // Only Stub supported commands
+    ESP_ERASE_FLASH = 0xD0;
+    ESP_ERASE_REGION = 0xD1;
+
+    ESP_IMAGE_MAGIC = 0xe9;
+    ESP_CHECKSUM_MAGIC = 0xef;
+
     ERASE_REGION_TIMEOUT_PER_MB = 30000;
     ERASE_WRITE_TIMEOUT_PER_MB = 40000;
+    MD5_TIMEOUT_PER_MB = 8000;
     CHIP_ERASE_TIMEOUT = 120000;
     MAX_TIMEOUT = this.CHIP_ERASE_TIMEOUT * 2;
+
+    CHIP_DETECT_MAGIC_REG_ADDR = 0x40001000;
 
     DETECTED_FLASH_SIZES = {0x12: '256KB', 0x13: '512KB', 0x14: '1MB', 0x15: '2MB', 0x16: '4MB', 0x17: '8MB', 0x18: '16MB'};
 
@@ -654,12 +677,26 @@ class ESPLoader {
 
     _appendArray(arr1, arr2) {
         var c = new Uint8Array(arr1.length + arr2.length);
-        console.log(c);
         c.set(arr1, 0);
         c.set(arr2, arr1.length);
         return c;
     }
 
+    ui8ToBstr(u8Array) {
+        var i, len = u8Array.length, b_str = "";
+        for (i=0; i<len; i++) {
+            b_str += String.fromCharCode(u8Array[i]);
+        }
+        return b_str;
+    }
+
+    bstrToUi8(bStr) {
+        var i, len = bStr.length, u8_array = new Uint8Array(len);
+        for (var i = 0; i < len; i++) {
+            u8_array[i] = bStr.charCodeAt(i);
+        }
+        return u8_array;
+    }
     flush_input = async () => {
         try {
             await this.transport.read({timeout:200});
@@ -668,7 +705,7 @@ class ESPLoader {
     }
 
     command = async ({op=null, data=[], chk=0, wait_response=true, timeout=3000} = {})  => {
-        console.log("command "+ op + " " + wait_response + " " + timeout);
+        //console.log("command "+ op + " " + wait_response + " " + timeout);
         if (op != null) {
             var pkt = new Uint8Array(8 + data.length);
             pkt[0] = 0x00;
@@ -684,17 +721,19 @@ class ESPLoader {
             for (i = 0; i < data.length; i++) {
                 pkt[8 + i] = data[i];
             }
+            //console.log("Command " + pkt);
             await this.transport.write(pkt);
         }
 
         if (wait_response) {
             try {
                 var p = await this.transport.read({timeout: timeout});
+                //console.log("Response " + p);
                 const resp = p[0];
                 const op_ret = p[1];
                 const len_ret = this._bytearray_to_short(p[2], p[3]);
                 const val = this._bytearray_to_int(p[4], p[5], p[6], p[7]);
-                console.log("Resp "+resp + " " + op_ret + " " + len_ret + " " + val );
+                //console.log("Resp "+resp + " " + op_ret + " " + len_ret + " " + val );
                 const data = p.slice(8);
                 if (op == null || op_ret == op) {
                     return [val, data];
@@ -713,8 +752,6 @@ class ESPLoader {
         var val, data;
         console.log("read reg " + addr + " " + timeout);
         var pkt = this._int_to_bytearray(addr);
-        console.log("Read reg");
-        console.log(pkt);
         val = await this.command({op:this.ESP_READ_REG, data:pkt, timeout:timeout});
         console.log("Read reg resp");
         console.log(val);
@@ -795,7 +832,6 @@ class ESPLoader {
         while (i--) {
             try {
                 var resp = await this.sync();
-                console.log(resp);
                 return "success";
             } catch(error) {
                 if (error === "timeout") {
@@ -850,7 +886,6 @@ class ESPLoader {
 
     detect_chip = async () => {
         await this.connect();
-        console.log(this.chip);
         this.write_char("Detecting chip type... ");
         if (this.chip != null) {
             this.log(this.chip.CHIP_NAME);
@@ -858,10 +893,13 @@ class ESPLoader {
     }
 
     check_command = async ({op_description="", op=null, data=[], chk=0, timeout=3000} = {}) => {
-        console.log("check_command " + op + " " + data);
+        console.log("check_command " + op) ;
         var resp = await this.command({op:op, data:data, chk:chk, timeout:timeout});
-        console.log("check_command resp");
-        console.log(resp);
+        if (resp[1].length > 4) {
+            return resp[1];
+        } else {
+            return resp[0];
+        }
     }
 
     mem_begin = async (size, blocks, blocksize, offset) => {
@@ -914,7 +952,7 @@ class ESPLoader {
 
     flash_begin = async (size, offset) => {
 
-        var num_blocks = Math.floor((size + this.chip.FLASH_WRITE_SIZE - 1) / this.chip.FLASH_WRITE_SIZE);
+        var num_blocks = Math.floor((size + this.FLASH_WRITE_SIZE - 1) / this.FLASH_WRITE_SIZE);
         var erase_size = this.chip.get_erase_size(offset, size);
 
         var d = new Date();
@@ -925,9 +963,9 @@ class ESPLoader {
             timeout = this.timeout_per_mb(this.ERASE_REGION_TIMEOUT_PER_MB, size);
         }
 
-        console.log("flash begin " + erase_size + " " + num_blocks + " " + this.chip.FLASH_WRITE_SIZE + " " + offset + " " + size);
+        console.log("flash begin " + erase_size + " " + num_blocks + " " + this.FLASH_WRITE_SIZE + " " + offset + " " + size);
         var pkt = this._appendArray(this._int_to_bytearray(erase_size), this._int_to_bytearray(num_blocks));
-        pkt = this._appendArray(pkt, this._int_to_bytearray(this.chip.FLASH_WRITE_SIZE));
+        pkt = this._appendArray(pkt, this._int_to_bytearray(this.FLASH_WRITE_SIZE));
         pkt = this._appendArray(pkt, this._int_to_bytearray(offset));
         if (this.IS_STUB == false) {
             pkt = this._appendArray(pkt, this._int_to_bytearray(0)); // XXX: Support encrypted
@@ -942,6 +980,38 @@ class ESPLoader {
 
     }
 
+    flash_defl_begin = async (size, compsize, offset) => {
+        var num_blocks = Math.floor((compsize + this.FLASH_WRITE_SIZE - 1) / this.FLASH_WRITE_SIZE);
+        var erase_blocks = Math.floor((size + this.FLASH_WRITE_SIZE - 1) / this.FLASH_WRITE_SIZE);
+
+        var d = new Date();
+        var t1 = d.getTime();
+
+        let write_size, timeout;
+        if (this.IS_STUB) {
+            write_size = size;
+            timeout = 3000;
+        } else {
+            write_size = erase_blocks * this.FLASH_WRITE_SIZE;
+            timeout = this.timeout_per_mb(this.ERASE_REGION_TIMEOUT_PER_MB, write_size);
+        }
+        this.log("Compressed " + size + " bytes to " + compsize + "...");
+
+        var pkt = this._appendArray(this._int_to_bytearray(write_size), this._int_to_bytearray(num_blocks));
+        pkt = this._appendArray(pkt, this._int_to_bytearray(this.FLASH_WRITE_SIZE));
+        pkt = this._appendArray(pkt, this._int_to_bytearray(offset));
+
+        if ((this.chip.CHIP_NAME === "ESP32-S2" || this.chip.CHIP_NAME === "ESP32-S3" || this.chip.CHIP_NAME === "ESP32-C3") && (this.IS_STUB === false)) {
+            pkt = this._appendArray(pkt, this._int_to_bytearray(0));
+        }
+        await this.check_command({op_description:"enter compressed flash mode", op:this.ESP_FLASH_DEFL_BEGIN, data:pkt, timeout:timeout});
+        var t2 = d.getTime();
+        if (size != 0 && this.IS_STUB === false) {
+            this.log("Took "+((t2-t1)/1000)+"."+((t2-t1)%1000)+"s to erase flash block");
+        }
+        return num_blocks;
+    }
+
     flash_block = async (data, seq, timeout) => {
         var pkt = this._appendArray(this._int_to_bytearray(data.length), this._int_to_bytearray(seq));
         pkt = this._appendArray(pkt, this._int_to_bytearray(0));
@@ -953,11 +1023,31 @@ class ESPLoader {
         await this.check_command({op_description:"write to target Flash after seq " + seq, op: this.ESP_FLASH_DATA, data: pkt, chk: checksum, timeout: timeout});
     }
 
+    flash_defl_block = async (data, seq, timeout) => {
+        var pkt = this._appendArray(this._int_to_bytearray(data.length), this._int_to_bytearray(seq));
+        pkt = this._appendArray(pkt, this._int_to_bytearray(0));
+        pkt = this._appendArray(pkt, this._int_to_bytearray(0));
+        pkt = this._appendArray(pkt, data);
+
+        var checksum = this.checksum(data);
+        console.log("flash_defl_block " + data[0].toString(16), + " " + data[1].toString(16));
+
+        await this.check_command({op_description:"write compressed data to flash after seq " + seq, op: this.ESP_FLASH_DEFL_DATA, data: pkt, chk: checksum, timeout: timeout});
+
+    }
+
     flash_finish = async ({reboot = false } = {}) => {
         var val = reboot ? 0 : 1;
         var pkt = this._int_to_bytearray(val);
 
         await this.check_command({op_description:"leave Flash mode", op: this.ESP_FLASH_END, data: pkt});
+    }
+
+    flash_defl_finish = async ({reboot = false } = {}) => {
+        var val = reboot ? 0 : 1;
+        var pkt = this._int_to_bytearray(val);
+
+        await this.check_command({op_description:"leave compressed flash mode", op: this.ESP_FLASH_DEFL_END, data: pkt});
     }
 
     run_spiflash_command = async (spiflash_command, data, read_bits) => {
@@ -1057,9 +1147,34 @@ class ESPLoader {
         var pkt = new Uint8Array(0);
         return await this.run_spiflash_command(SPIFLASH_RDID, pkt, 24);
     }
-    write_flash = async (data, offset) => {
-        // verify file sizes fit in flash
 
+    erase_flash = async() => {
+        this.log("Erasing flash (this may take a while)...");
+        var d = new Date();
+        let t1 = d.getTime();
+        let ret = await this.check_command({op_description:"erase flash", op: this.ESP_ERASE_FLASH, timeout: this.CHIP_ERASE_TIMEOUT});
+        d = new Date();
+        let t2 = d.getTime();
+        this.log("Chip erase completed successfully in " + (t2-t1)/1000 + "s");
+        return ret;
+    }
+
+    toHex(buffer) {
+        return Array.prototype.map.call(buffer, x => ('00' + x.toString(16)).slice(-2)).join('');
+    }
+
+    flash_md5sum = async(addr, size) => {
+        let timeout = this.timeout_per_mb(this.MD5_TIMEOUT_PER_MB, size);
+        var pkt = this._appendArray(this._int_to_bytearray(addr), this._int_to_bytearray(size));
+        pkt = this._appendArray(pkt, this._int_to_bytearray(0));
+        pkt = this._appendArray(pkt, this._int_to_bytearray(0));
+
+        let res = await this.check_command({op_description: "calculate md5sum", op: this.ESP_SPI_FLASH_MD5, data:pkt, timeout:timeout});
+        if (res.length > 16) {
+            res = res.slice(0, 16);
+        }
+        let strmd5 = this.toHex(res);
+        return strmd5;
     }
 
     run_stub = async () => {
@@ -1108,7 +1223,6 @@ class ESPLoader {
     }
 
     main_fn = async () => {
-
         await this.detect_chip();
         if (this.chip == null) {
             this.log("Error in connecting to board");
@@ -1126,8 +1240,180 @@ class ESPLoader {
 
     }
 
-    program = async (fileData) => {
+    flash_size_bytes = function(flash_size) {
+        let flash_size_b = -1;
+        if (flash_size.indexOf("KB") !== -1) {
+            flash_size_b = parseInt(flash_size.slice(0, flash_size.indexOf("KB")))*1024;
+        } else if (flash_size.indexOf("MB") !== -1) {
+            flash_size_b = parseInt(flash_size.slice(0, flash_size.indexOf("MB")))*1024*1024;
+        }
+        return flash_size_b;
+    }
+
+    pad_array = function(arr,len,fillValue) {
+        return Object.assign(new Array(len).fill(fillValue), arr);
+    }
+
+    parse_flash_size_arg = function(flsz) {
+        if (typeof this.chip.FLASH_SIZES[flsz] === 'undefined') {
+            this.log("Flash size " + flsz + " is not supported by this chip type. Supported sizes: " + this.chip.FLASH_SIZES);
+            throw "Invalid flash size";
+        }
+        return this.chip.FLASH_SIZES[flsz];
+    }
+
+    _update_image_flash_params = function(image, address, flash_size, flash_mode, flash_freq) {
+        console.log("_update_image_flash_params " + flash_size + " " + flash_mode + " " + flash_freq);
+        if (image.length < 8) {
+            return image;
+        }
+        if (address != this.chip.BOOTLOADER_FLASH_OFFSET) {
+            return image;
+        }
+        if (flash_size === 'keep' && flash_mode === 'keep' && flash_freq === 'keep') {
+            console.log("Not changing the image");
+            return image;
+        }
+
+        let magic = image[0];
+        let a_flash_mode = image[2];
+        let flash_size_freq = image[3];
+        if (magic !== this.ESP_IMAGE_MAGIC) {
+            this.log("Warning: Image file at 0x" + address.toString(16) + " doesn't look like an image file, so not changing any flash settings.");
+            return image;
+        }
+
+        /* XXX: Yet to implement actual image verification */
+
+        if (flash_mode !== 'keep') {
+            let flash_modes =  {'qio':0, 'qout':1, 'dio':2, 'dout':3};
+            a_flash_mode =  flash_modes[flash_mode];
+        }
+        a_flash_freq = flash_size_freq & 0x0F;
+        if (flash_freq !== 'keep') {
+            let flash_freqs = {'40m': 0, '26m': 1, '20m': 2, '80m': 0xf};
+            a_flash_freq = flash_freqs[flash_freq];
+        }
+        a_flash_size = flash_size_freq & 0xF0;
+        if (flash_size !== 'keep') {
+            a_flash_size = this.parse_flash_size_arg(flash_size);
+        }
+
+        var flash_params = (a_flash_mode << 8) | (a_flash_freq + a_flash_size);
+        this.log("Flash params set to " + flash_params.toString(16));
+        if (image[2] !== (a_flash_mode << 8)) {
+            image[2] = (a_flash_mode << 8);
+        }
+        if (image[3] !== (a_flash_freq + a_flash_size)) {
+            image[3] = (a_flash_freq + a_flash_size);
+        }
+        return image;
+    }
+
+    write_flash = async ({fileArray=[], flash_size='keep', flash_mode='keep', flash_freq='keep', erase_all=false, compress=true} = {}) => {
         console.log("EspLoader program");
+        if (flash_size !== 'keep') {
+            let flash_end = this.flash_size_bytes(flash_size);
+            for (var i = 0; i < fileArray.length; i++) {
+                if ((fileArray[i].data.length + fileArray[i].address) > flash_end) {
+                    this.log("Specified file doesn't fit in the available flash");
+                    return;
+                }
+            }
+        }
+
+        if (this.IS_STUB === true && erase_all === true) {
+            this.erase_flash();
+        }
+        let image, address;
+        for (var i = 0; i < fileArray.length; i++) {
+            console.log("Data Length " + fileArray[i].data.length);
+            //image = this.pad_array(fileArray[i].data, Math.floor((fileArray[i].data.length + 3)/4) * 4, 0xff);
+            // XXX : handle padding
+            image = fileArray[i].data;
+            address = fileArray[i].address;
+            console.log("Image Length " + image.length);
+            if (image.length === 0) {
+                this.log("Warning: File is empty");
+                continue;
+            }
+            image = this._update_image_flash_params(image, address, flash_size, flash_mode, flash_freq);
+            let calcmd5 = CryptoJS.MD5(CryptoJS.enc.Latin1.parse(image));
+            console.log("Image MD5 " + calcmd5);
+            let uncsize = image.length;
+            let blocks;
+            if (compress) {
+                let uncimage = this.bstrToUi8(image);
+                image = pako.deflate(uncimage, {level:9});
+                console.log("Compressed image ");
+                console.log(image);
+                blocks = await this.flash_defl_begin(uncsize, image.length, address);
+            } else {
+                blocks = await this.flash_begin(uncsize, address);
+            }
+            let seq = 0;
+            let bytes_sent = 0;
+            let bytes_written = 0;
+
+            var d = new Date();
+            let t1 = d.getTime();
+
+            let timeout = 5000;
+            while (image.length > 0) {
+                console.log("Write loop " + address + " " + seq + " " + blocks);
+                this.log("Writing at 0x" + (address + (seq * this.FLASH_WRITE_SIZE)).toString(16) + "... ("+ Math.floor(100 * (seq + 1) / blocks) + "%)");
+                let block = image.slice(0, this.FLASH_WRITE_SIZE);
+                if (compress) {
+                    /*
+                    let block_uncompressed = pako.inflate(block).length;
+                    //let len_uncompressed = block_uncompressed.length;
+                    bytes_written += block_uncompressed;
+                    if (this.timeout_per_mb(this.ERASE_WRITE_TIMEOUT_PER_MB, block_uncompressed) > 3000) {
+                        block_timeout = this.timeout_per_mb(this.ERASE_WRITE_TIMEOUT_PER_MB, block_uncompressed);
+                    } else {
+                        block_timeout = 3000;
+                    }*/ // XXX: Partial block inflate seems to be unsupported in Pako. Hardcoding timeout
+                    let block_timeout = 5000;
+                    if (this.IS_STUB === false) {
+                        timeout = block_timeout;
+                    }
+                    await this.flash_defl_block(block, seq, timeout);
+                    if (this.IS_STUB) {
+                        timeout = block_timeout;
+                    }
+                } else {
+                    this.log("Yet to handle Non Compressed writes");
+                }
+                bytes_sent += block.length;
+                image = image.slice(this.FLASH_WRITE_SIZE, image.length);
+                seq++;
+            }
+            if (this.IS_STUB) {
+                await this.read_reg({addr:this.CHIP_DETECT_MAGIC_REG_ADDR, timeout:timeout});
+            }
+            d = new Date();
+            let t = d.getTime() - t1;
+            if (compress) {
+                this.log("Wrote " + uncsize + " bytes (" + bytes_sent + " compressed) at 0x" + address.toString(16) + " in "+(t/1000)+" seconds.");
+            }
+            let res = await this.flash_md5sum(address, uncsize);
+            if (new String(res).valueOf() != new String(calcmd5).valueOf()) {
+                this.log("File  md5: " + calcmd5);
+                this.log("Flash md5: " + res);
+            } else {
+                this.log("Hash of data verified.");
+            }
+        }
+        this.log("Leaving...");
+
+        if (this.IS_STUB) {
+            await this.flash_begin(0, 0);
+            if (compress) {
+                await this.flash_defl_finish();
+            } else {
+                await this.flash_finish();
+            }
+        }
     }
 
     flash_id = async() => {

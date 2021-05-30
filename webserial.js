@@ -2,7 +2,6 @@
 
 class Transport {
     constructor(device) {
-        console.log("In Transport Constructor");
         this.device = device;
         this.slip_reader_enabled = false;
     }
@@ -100,10 +99,10 @@ class Transport {
         return packet;
     }
 
-    read = async ({timeout=0, min_data=8} = {}) => {
+    read = async ({timeout=0, min_data=12} = {}) => {
         let t;
-        var packet = null;
-        var value, done;
+        let packet = null;
+        let value, done;
         console.log("Read with timeout " + timeout);
         const reader = this.device.readable.getReader();
         if (timeout > 0) {
@@ -112,8 +111,11 @@ class Transport {
                 reader.releaseLock();
             }, timeout);
         }
+
         do {
+            this.reader = reader;
             var o = await reader.read();
+            this.reader = null;
             value = o.value;
             done = o.done;
             if (packet == null) {
@@ -144,6 +146,19 @@ class Transport {
         }
     }
 
+    rawRead = async () => {
+        let reader = this.device.readable.getReader();
+        let done = false;
+        let value = new Uint8Array(0);
+
+        this.reader = reader;
+        let o = await reader.read();
+        this.reader = null;
+        done = o.done;
+        reader.releaseLock();
+        return o.value;
+    }
+
     setRTS = async (state) => {
         await this.device.setSignals({requestToSend:state});
     }
@@ -154,6 +169,13 @@ class Transport {
     connect = async () => {
         await this.device.open({baudRate: 115200});
         this.baudrate = 115200;
+    }
+    disconnect = async () => {
+        if (this.reader !== null) {
+            this.reader.cancel();
+            this.reader.releaseLock();
+        }
+        await this.device.close();
     }
 }
 
