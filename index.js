@@ -173,7 +173,6 @@ consoleStartButton.onclick = async () => {
 
     while (true) {
         let val = await transport.rawRead();
-        console.log("Type is " + typeof val);
         if (typeof val !== 'undefined') {
             term.write(val);
         } else {
