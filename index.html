@@ -25,13 +25,16 @@
                     <br/>
                     <input class="button" type="button" id="eraseButton" value="Erase Flash" />
                     <br/>
-                    <input type="text" id="offset1" name="offset1">
+                    <label for="offset1">Bootloader</label>
+                    <input type="text" id="offset1" name="offset1" value="0x1000">
                     <input type="file" id="selectFile1" name="selected_file1">
                     <br/>
-                    <input type="text" id="offset2" name="offset2">
+                    <label for="offset2">Partition table</label>
+                    <input type="text" id="offset2" name="offset2" value="0x8000">
                     <input type="file" id="selectFile2" name="selected_file2">
                     <br/>
-                    <input type="text" id="offset3" name="offset3">
+                    <label for="offset3">App</label>
+                    <input type="text" id="offset3" name="offset3" value="0x10000">
                     <input type="file" id="selectFile3" name="selected_file3">
                     <br/>
                     <input class="button" type="button" id="programButton" value="Program" />
