@@ -146,17 +146,32 @@ class Transport {
         }
     }
 
-    rawRead = async () => {
+    rawRead = async ({timeout=0} = {}) => {
         let reader = this.device.readable.getReader();
         let done = false;
         let value = new Uint8Array(0);
 
         this.reader = reader;
+        if (timeout > 0) {
+            t = setTimeout(function() {
+                reader.cancel();
+                reader.releaseLock();
+            }, timeout);
+        }
+
         let o = await reader.read();
         this.reader = null;
         done = o.done;
-        reader.releaseLock();
-        return o.value;
+
+        if (done) {
+            throw("timeout");
+        } else {
+            if (timeout > 0) {
+                clearTimeout(t);
+            }
+            reader.releaseLock();
+            return o.value;
+        }
     }
 
     setRTS = async (state) => {
@@ -166,9 +181,9 @@ class Transport {
     setDTR = async (state) => {
         await this.device.setSignals({dataTerminalReady:state});
     }
-    connect = async () => {
-        await this.device.open({baudRate: 115200});
-        this.baudrate = 115200;
+    connect = async ({baud=115200} = {}) => {
+        await this.device.open({baudRate: baud});
+        this.baudrate = baud;
     }
     disconnect = async () => {
         if (this.reader !== null) {
