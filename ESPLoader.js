@@ -602,6 +602,7 @@ class ESPLoader {
     ESP_SPI_FLASH_MD5    = 0x13;
     ESP_READ_REG = 0x0A;
     ESP_SPI_ATTACH = 0x0D;
+    ESP_CHANGE_BAUDRATE = 0x0F;
 
     // Only Stub supported commands
     ESP_ERASE_FLASH = 0xD0;
@@ -620,8 +621,9 @@ class ESPLoader {
 
     DETECTED_FLASH_SIZES = {0x12: '256KB', 0x13: '512KB', 0x14: '1MB', 0x15: '2MB', 0x16: '4MB', 0x17: '8MB', 0x18: '16MB'};
 
-    constructor(transport, terminal) {
+    constructor(transport, baudrate, terminal) {
         this.transport = transport;
+        this.baudrate = baudrate;
         this.terminal = terminal;
         this.IS_STUB = false;
         this.chip = null;
@@ -750,11 +752,8 @@ class ESPLoader {
 
     read_reg = async({addr, timeout = 3000} = {}) => {
         var val, data;
-        console.log("read reg " + addr + " " + timeout);
         var pkt = this._int_to_bytearray(addr);
         val = await this.command({op:this.ESP_READ_REG, data:pkt, timeout:timeout});
-        console.log("Read reg resp");
-        console.log(val);
         return val[0];
     }
 
@@ -1222,6 +1221,22 @@ class ESPLoader {
         }
     }
 
+    change_baud = async() => {
+        this.log("Changing baudrate to " + this.baudrate);
+        console.log("Changing baudrate to " + this.baudrate);
+        let second_arg = this.IS_STUB ? this.transport.baudrate : 0;
+        let pkt = this._appendArray(this._int_to_bytearray(this.baudrate), this._int_to_bytearray(second_arg));
+        let resp = await this.command({op:this.ESP_CHANGE_BAUDRATE, data:pkt});
+        this.log("Changed");
+        await this.transport.disconnect();
+        await this._sleep(50);
+        await this.transport.connect({baud:this.baudrate});
+        try {
+            await this.transport.rawRead({timeout:500});
+        } catch (e) {
+        }
+    }
+
     main_fn = async () => {
         await this.detect_chip();
         if (this.chip == null) {
@@ -1237,6 +1252,8 @@ class ESPLoader {
         await this.chip.read_mac(this);
 
         await this.run_stub();
+
+        await this.change_baud();
 
     }
 
