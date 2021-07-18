@@ -1,3 +1,4 @@
+const baudrates = document.getElementById("baudrates");
 const connectButton = document.getElementById("connectButton");
 const disconnectButton = document.getElementById("disconnectButton");
 const resetButton = document.getElementById("resetButton");
@@ -109,18 +110,16 @@ connectButton.onclick = async () => {
     }
 
     try {
-    esploader = new ESPLoader(transport, term);
-    connected = true;
+        esploader = new ESPLoader(transport, baudrates.value, term);
+        connected = true;
 
-    await esploader.main_fn();
-
-    console.log("Flash ID 1");
-    await esploader.flash_id();
+        await esploader.main_fn();
+        await esploader.flash_id();
     } catch(e) {
-        console.log(e);
     }
 
     console.log("Settings done");
+    baudrates.style.display = "none";
     connectButton.style.display = "none";
     disconnectButton.style.display = "initial";
     filesDiv.style.display = "initial";
@@ -151,6 +150,7 @@ disconnectButton.onclick = async () => {
     await transport.disconnect();
     term.clear();
     connected = false;
+    baudrates.style.display = "initial";
     connectButton.style.display = "initial";
     disconnectButton.style.display = "none";
     filesDiv.style.display = "none";
