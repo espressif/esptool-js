@@ -5,6 +5,7 @@
         <title>ESP Tool</title>
         <link rel="stylesheet" href="styles.css" />
         <link rel="stylesheet" href="node_modules/xterm/css/xterm.css" />
+        <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.4.1/css/bootstrap.min.css">
         <link
             href="https://fonts.googleapis.com/css?family=Orbitron"
             rel="stylesheet"
@@ -13,52 +14,63 @@
          <script src="node_modules/xterm/lib/xterm.js"></script>
          <script src="https://cdnjs.cloudflare.com/ajax/libs/pako/2.0.3/pako.js"></script>
          <script src="node_modules/crypto-js/crypto-js.js"></script>
+         <script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.4.1/js/bootstrap.min.js"></script>
     </head>
     <body>
-        <h1>ESP Tool</h1>
-        <div>
+        <h1 align="center"><p><img src="../assets/esp-logo.png" width="42" height="42" style="vertical-align:middle"></img> ESP Tool</p></h1>
+        <h4 align="center">A Serial Flasher utility for Espressif chips</h4>
+        <div class="container">
+            <hr/>
             <div id="program">
-                <h2> Program </h2>
-                <label for="baudrates">Baudrate:</label>
+                <h3> Program </h3>
+                <label for="baudrates" id="lblBaudrate">Baudrate:</label>
+                <label style="display:none" id="lblConnTo">Connected to device: </label>
                 <select name="baudrates" id="baudrates">
                     <option value="921600">921600</option>
                     <option value="460800">460800</option>
                     <option value="230400">230400</option>
                     <option value="115200">115200</option>
                 </select>
-                <input class="button" type="button" id="connectButton" value="Connect" />
-                <input class="button" type="button" id="disconnectButton" value="Disconnect" />
+
+                <input class="btn btn-info btn-sm" type="button" id="connectButton" value="Connect" />
+                <input class="btn btn-warning btn-sm" type="button" id="disconnectButton" value="Disconnect" />
+                <input class="btn btn-danger btn-sm" type="button" id="eraseButton" value="Erase Flash" />
+                <br><br>
                 <div id="files">
-                    <br/>
-                    <input class="button" type="button" id="eraseButton" value="Erase Flash" />
-                    <br/>
-                    <label for="offset1">Bootloader</label>
-                    <input type="text" id="offset1" name="offset1" value="0x1000">
-                    <input type="file" id="selectFile1" name="selected_file1">
-                    <br/>
-                    <label for="offset2">Partition table</label>
-                    <input type="text" id="offset2" name="offset2" value="0x8000">
-                    <input type="file" id="selectFile2" name="selected_file2">
-                    <br/>
-                    <label for="offset3">App</label>
-                    <input type="text" id="offset3" name="offset3" value="0x10000">
-                    <input type="file" id="selectFile3" name="selected_file3">
-                    <br/>
-                    <input class="button" type="button" id="programButton" value="Program" />
+                    <table class="table table-striped" id="fileTable">
+                        <thead class="thead-light">
+                            <tr>
+                                <th>Flash Address</th>
+                                <th>Selected File</th>
+                                <th>Remove </th>
+                            </tr>
+                        </thead>
+                        <tbody id="tableBody">
+                            <tr id="row0">
+                                <td><input type="text" id="offset1" name="offset1" value="0x1000"></td>
+                                <td><input type="file" id="selectFile1" name="selected_file1"></td>
+                                <td><button class="btn disabled"> Remove </button></td>
+                            </tr>
+                        </tbody>
+                    </table>
+                    <input class="btn btn-info btn-sm" type="button" id="addFile" value="Add File" />
+                    <input class="btn btn-info btn-sm" type="button" id="programButton" value="Program" />
                 </div>
                 <output id="list"></output>
-                <br/>
                 <hr/>
             </div>
             <div id="console">
-                <h2>Console </h2>
-                <input class="button" type="button" id="consoleStartButton" value="Start" />
-                <input class="button" type="button" id="consoleStopButton" value="Stop" />
-                <input class="button" type="button" id="resetButton" value="Reset" />
+                <h3>Console </h3>
+                <label style="display:none" id="lblConsoleFor">Connected to device: </label>
+
+                <input class="btn btn-info" type="button" id="consoleStartButton" value="Start" />
+                <input class="btn btn-info" type="button" id="consoleStopButton" value="Stop" />
+                <input class="btn btn-info" type="button" id="resetButton" value="Reset" />
                 <hr/>
             </div>
+            <div id="terminal"></div>
         </div>
-        <div id="terminal"></div>
+
         <script src="index.js" type="module"></script>
     </body>
 </html>
