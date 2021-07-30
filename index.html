@@ -14,6 +14,7 @@
          <script src="node_modules/xterm/lib/xterm.js"></script>
          <script src="https://cdnjs.cloudflare.com/ajax/libs/pako/2.0.3/pako.js"></script>
          <script src="node_modules/crypto-js/crypto-js.js"></script>
+         <script src="https://ajax.googleapis.com/ajax/libs/jquery/2.1.1/jquery.min.js"></script>
          <script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.4.1/js/bootstrap.min.js"></script>
     </head>
     <body>
@@ -36,6 +37,12 @@
                 <input class="btn btn-warning btn-sm" type="button" id="disconnectButton" value="Disconnect" />
                 <input class="btn btn-danger btn-sm" type="button" id="eraseButton" value="Erase Flash" />
                 <br><br>
+
+                <div class="alert alert-danger alert-dismissible" id="alertDiv" style="display:none">
+                    <a href="#" class="close" aria-label="close" onclick="$('.alert').hide()">&times;</a>
+                    <span id="alertmsg"></span>
+                </div>
+
                 <div id="files">
                     <table class="table table-striped" id="fileTable">
                         <thead class="thead-light">

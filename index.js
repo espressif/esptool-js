@@ -14,6 +14,7 @@ const lblBaudrate = document.getElementById("lblBaudrate");
 const lblConnTo = document.getElementById("lblConnTo");
 const tableBody = document.getElementById("tableBody");
 const table = document.getElementById('fileTable');
+const alertDiv = document.getElementById('alertDiv');
 
 //import { Transport } from './cp210x-webusb.js'
 import { Transport } from './webserial.js'
@@ -54,18 +55,16 @@ function convertBinaryStringToUint8Array(bStr) {
 
 function handleFileSelect(evt) {
     var file = evt.target.files[0];
-    console.log(file);
     var reader = new FileReader();
 
     reader.onload = (function(theFile) {
         return function(e) {
             file1 = e.target.result;
-
+            evt.target.data = file1;
         };
     })(file);
 
     reader.readAsBinaryString(file);
-    evt.target.data = file1;
 }
 
 
@@ -185,6 +184,7 @@ disconnectButton.onclick = async () => {
     eraseButton.style.display = "none";
     lblConnTo.style.display = "none";
     filesDiv.style.display = "none";
+    alertDiv.style.display = "none";
     consoleDiv.style.display = "initial";
 };
 
@@ -256,8 +256,12 @@ function validate_program_inputs() {
 
 programButton.onclick = async () => {
     var err = validate_program_inputs();
-    if (err != "success")
-        alert(err);
+    if (err != "success") {
+        const alertMsg = document.getElementById("alertmsg");
+        alertMsg.innerHTML = "<strong>" + err + "</strong>";
+        alertDiv.style.display = "block";
+        return;
+    }
 
     let fileArr = [];
     let offset = 0x1000;
@@ -267,11 +271,11 @@ programButton.onclick = async () => {
         row = table.rows[index];
         var offSetObj = row.cells[0].childNodes[0];
         offset = parseInt(offSetObj.value);
-       
+
         var fileObj = row.cells[1].childNodes[0];
        
         fileArr.push({data:fileObj.data, address:offset});
     }
+    esploader.write_flash({fileArray: fileArr, flash_size: 'keep'});
    
-    await esploader.write_flash({fileArray: fileArr, flash_size: 'keep'});
 }
