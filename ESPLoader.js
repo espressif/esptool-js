@@ -1254,6 +1254,7 @@ class ESPLoader {
         await this.run_stub();
 
         await this.change_baud();
+        return chip;
 
     }
 
