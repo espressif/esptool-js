@@ -3,7 +3,6 @@
     <head>
         <meta charset="utf-8" />
         <title>ESP Tool</title>
-        <link rel="stylesheet" href="styles.css" />
         <link rel="stylesheet" href="node_modules/xterm/css/xterm.css" />
         <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.4.1/css/bootstrap.min.css">
         <link
@@ -20,7 +19,9 @@
     <body>
         <h1 align="center"><p><img src="./assets/esp-logo.png" width="42" height="42" style="vertical-align:middle"></img> ESP Tool</p></h1>
         <h4 align="center">A Serial Flasher utility for Espressif chips</h4>
-        <div class="container">
+        <div id="safariErr" style="display:none"><p align="center" style="color:red">This tool is not supported on Safari browser!</p>
+        </div>
+        <div class="container" id="main">
             <hr/>
             <div id="program">
                 <h3> Program </h3>
@@ -36,9 +37,9 @@
                 <input class="btn btn-info btn-sm" type="button" id="connectButton" value="Connect" />
                 <input class="btn btn-warning btn-sm" type="button" id="disconnectButton" value="Disconnect" />
                 <input class="btn btn-danger btn-sm" type="button" id="eraseButton" value="Erase Flash" />
-                <br><br>
+                <br>
 
-                <div class="alert alert-danger alert-dismissible" id="alertDiv" style="display:none">
+                <div class="alert alert-danger alert-dismissible" id="alertDiv" style="display:none; margin-top:10px">
                     <a href="#" class="close" aria-label="close" onclick="$('.alert').hide()">&times;</a>
                     <span id="alertmsg"></span>
                 </div>
@@ -79,5 +80,15 @@
         </div>
 
         <script src="index.js" type="module"></script>
+        <script>
+            // Safari 3.0+ "[object HTMLElementConstructor]"
+            var isSafari = /constructor/i.test(window.HTMLElement) || (function (p) { return p.toString() === "[object SafariRemoteNotification]"; })(!window['safari'] || (typeof safari !== 'undefined' && window['safari'].pushNotification));
+
+            if(isSafari)
+            {
+               document.getElementById("safariErr").style.display = "inline";
+               document.getElementById("main").style.display = "none";
+            }
+        </script>
     </body>
 </html>
