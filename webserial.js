@@ -100,9 +100,9 @@ class Transport {
     }
 
     read = async ({timeout=0, min_data=12} = {}) => {
-        let t;
-        let packet = null;
-        let value, done;
+        var t;
+        var packet = null;
+        var value, done;
         console.log("Read with timeout " + timeout);
         const reader = this.device.readable.getReader();
         if (timeout > 0) {
@@ -127,7 +127,15 @@ class Transport {
             if (done) {
                 break;
             }
-        } while (packet.length < min_data);
+            if (packet.includes(0xC0, 0) && packet.includes(0xC0, packet.length-1) && (packet.length != 1)) {
+                break;
+            }
+            if (this.slip_reader_enabled == false) {
+                if (packet.length >= min_data) {
+                    break;
+                }
+            }
+        } while (true);
 
         if (done) {
             console.log("timed out");
