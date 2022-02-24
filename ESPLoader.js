@@ -2,13 +2,13 @@
 
 class ESP8266ROM {
     static CHIP_NAME = "ESP8266";
-    static CHIP_DETECT_MAGIC_VALUE = 0xfff0c101;
+    static CHIP_DETECT_MAGIC_VALUE = [0xfff0c101];
 }
 
 class ESP32ROM {
     static CHIP_NAME = "ESP32";
     static IMAGE_CHIP_ID = 0;
-    static CHIP_DETECT_MAGIC_VALUE = 0x00f01d83;
+    static CHIP_DETECT_MAGIC_VALUE = [0x00f01d83];
     static EFUSE_RD_REG_BASE = 0x3ff5a000;
     static DR_REG_SYSCON_BASE = 0x3ff66000;
     static UART_CLKDIV_REG = 0x3ff40014;
@@ -255,7 +255,7 @@ class ESP32ROM {
 class ESP32S2ROM {
     static CHIP_NAME = "ESP32-S2";
     static IMAGE_CHIP_ID = 2;
-    static CHIP_DETECT_MAGIC_VALUE = 0x000007c6;
+    static CHIP_DETECT_MAGIC_VALUE = [0x000007c6];
     static MAC_EFUSE_REG = 0x3f41A044;
     static EFUSE_BASE = 0x3f41A000;
     static UART_CLKDIV_REG = 0x3f400014;
@@ -419,7 +419,7 @@ class ESP32S2ROM {
 class ESP32S3ROM {
     static CHIP_NAME = "ESP32-S3";
     static IMAGE_CHIP_ID = 9;
-    static CHIP_DETECT_MAGIC_VALUE = 0x09;
+    static CHIP_DETECT_MAGIC_VALUE = [0x09];
     static EFUSE_BASE = 0x60007000;
     static MAC_EFUSE_REG = this.EFUSE_BASE + 0x044;
     static UART_CLKDIV_REG = 0x60000014;
@@ -575,7 +575,8 @@ class ESP32S3ROM {
 class ESP32C3ROM {
     static CHIP_NAME = "ESP32-C3";
     static IMAGE_CHIP_ID = 5;
-    static CHIP_DETECT_MAGIC_VALUE = 0x6921506f;
+    // Magic value for ESP32C3 eco 1+2 and ESP32C3 eco3 respectively
+    static CHIP_DETECT_MAGIC_VALUE = [0x6921506f, 0x1B31506F];
     static EFUSE_BASE = 0x60008800;
     static MAC_EFUSE_REG = this.EFUSE_BASE + 0x044;
     static UART_CLKDIV_REG = 0x3ff40014;
@@ -664,7 +665,7 @@ class ESP32C3ROM {
         var block1_addr = this.EFUSE_BASE + 0x044;
         var addr = block1_addr + (4 * num_word);
         var word3 = await loader.read_reg({addr: addr});
-        var pkg_version = (word3 >> 21) & 0x0F;
+        var pkg_version = (word3 >> 21) & 0x07;
         return pkg_version;
     }
 
@@ -987,6 +988,7 @@ class ESPLoader {
     connect = async ({mode='default_reset', attempts=7, detecting=false} = {}) => {
         var i;
         var resp;
+        this.chip = null;
         this.write_char('Connecting...');
         await this.transport.connect();
         for (i = 0 ; i < attempts; i++) {
@@ -1012,7 +1014,7 @@ class ESPLoader {
             console.log("Chip Magic " + chip_magic_value);
             var chips = [ESP8266ROM, ESP32ROM, ESP32S2ROM, ESP32S3ROM, ESP32C3ROM];
             chips.forEach(function (cls) {
-                if (chip_magic_value == cls.CHIP_DETECT_MAGIC_VALUE) {
+                if (cls.CHIP_DETECT_MAGIC_VALUE.includes(chip_magic_value)) {
                     console.log(cls);
                     this.chip = cls;
                 }
