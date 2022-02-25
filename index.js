@@ -172,8 +172,17 @@ function removeRow(btnName) {
     }
 }
 
+// to be called on disconnect - remove any stale references of older connections if any
+function cleanUp() {
+    device = null;
+    transport = null;
+    this.chip = null;
+}
+
 disconnectButton.onclick = async () => {
-    await transport.disconnect();
+    if(transport)
+        await transport.disconnect();
+
     term.clear();
     connected = false;
     baudrates.style.display = "initial";
@@ -184,6 +193,7 @@ disconnectButton.onclick = async () => {
     filesDiv.style.display = "none";
     alertDiv.style.display = "none";
     consoleDiv.style.display = "initial";
+    cleanUp();
 };
 
 consoleStartButton.onclick = async () => {
