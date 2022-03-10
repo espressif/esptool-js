@@ -437,7 +437,7 @@ class ESP32S3BETA2ROM {
 class ESP32C3ROM {
     static CHIP_NAME = "ESP32-C3";
     static IMAGE_CHIP_ID = 5;
-    static CHIP_DETECT_MAGIC_VALUE = 0x6921506f;
+    static CHIP_DETECT_MAGIC_VALUE = 0x1b31506f;
     static EFUSE_BASE = 0x60008800;
     static MAC_EFUSE_REG = this.EFUSE_BASE + 0x044;
     static UART_CLKDIV_REG = 0x3ff40014;
@@ -701,7 +701,7 @@ class ESPLoader {
     }
     flush_input = async () => {
         try {
-            await this.transport.read({timeout:200});
+            await this.transport.read({timeout:200, min_data:1024});
         } catch(e) {
         }
     }
@@ -870,7 +870,8 @@ class ESPLoader {
         await this.flush_input();
 
         if (!detecting) {
-            var chip_magic_value = await this.read_reg({addr:0x40001000});
+            await this._sleep(0);
+            var chip_magic_value = await this.read_reg({addr:0x40001000}) >>> 0;
             console.log("Chip Magic " + chip_magic_value);
             var chips = [ESP8266ROM, ESP32ROM, ESP32S2ROM, ESP32S3BETA2ROM, ESP32C3ROM];
             chips.forEach(function (cls) {
@@ -1253,9 +1254,7 @@ class ESPLoader {
 
         await this.run_stub();
 
-        await this.change_baud();
         return chip;
-
     }
 
     flash_size_bytes = function(flash_size) {
