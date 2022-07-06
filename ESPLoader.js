@@ -641,14 +641,14 @@ class ESPLoader {
     }
 
     log(str) {
-        if (this.transport) {
+        if (this.terminal) {
             this.terminal.writeln(str);
         } else {
             console.log(str);
         }
     }
     write_char(str) {
-        if (this.transport) {
+        if (this.terminal) {
             this.terminal.write(str);
         } else {
             console.log(str);
