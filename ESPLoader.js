@@ -746,6 +746,7 @@ class ESPLoader {
     // Only Stub supported commands
     ESP_ERASE_FLASH = 0xD0;
     ESP_ERASE_REGION = 0xD1;
+    ESP_RUN_USER_CODE = 0xD3;
 
     ESP_IMAGE_MAGIC = 0xe9;
     ESP_CHECKSUM_MAGIC = 0xef;
@@ -1585,6 +1586,23 @@ class ESPLoader {
         var flid_lowbyte = (flashid >> 16) & 0xff;
         this.log("Device: "+((flashid >> 8) & 0xff).toString(16) + flid_lowbyte.toString(16));
         this.log("Detected flash size: " + this.DETECTED_FLASH_SIZES[flid_lowbyte]);
+    }
+
+    soft_reset = async() => {
+        if (!this.IS_STUB) {
+            // 'run user code' is as close to a soft reset as we can do
+            this.flash_begin(0, 0);
+            this.flash_finish(false);
+        } else {
+            if (this.chip.CHIP_NAME != "ESP8266") {
+                throw("Soft resetting is currently only supported on ESP8266");
+            } else {
+                // running user code from stub loader requires some hacks
+                // in the stub loader
+                this.command({op: this.ESP_RUN_USER_CODE, wait_response: false});
+            }
+        }
+
     }
 }
 
