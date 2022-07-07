@@ -1588,6 +1588,12 @@ class ESPLoader {
         this.log("Detected flash size: " + this.DETECTED_FLASH_SIZES[flid_lowbyte]);
     }
 
+    hard_reset = async() => {
+        this.transport.setRTS(true);  // EN->LOW
+        await this._sleep(100);
+        this.transport.setRTS(false);
+    }
+
     soft_reset = async() => {
         if (!this.IS_STUB) {
             // 'run user code' is as close to a soft reset as we can do
