@@ -81,7 +81,6 @@ connectButton.onclick = async () => {
 
     if (device === null) {
         device = await navigator.serial.requestPort({
-            filters: [{ usbVendorId: 0x10c4 }]
         });
         transport = new Transport(device);
     }
@@ -111,7 +110,6 @@ connectButton.onclick = async () => {
 resetButton.onclick = async () => {
     if (device === null) {
         device = await navigator.serial.requestPort({
-            filters: [{ usbVendorId: 0x10c4 }]
         });
         transport = new Transport(device);
     }
@@ -130,7 +128,7 @@ eraseButton.onclick = async () => {
 addFile.onclick = async () => {
     var rowCount = table.rows.length;
     var row = table.insertRow(rowCount);
-
+    
     //Column 1 - Offset
     var cell1 = row.insertCell(0);
     var element1 = document.createElement("input");
@@ -138,7 +136,7 @@ addFile.onclick = async () => {
     element1.id = "offset" + rowCount;
     element1.setAttribute('value', '0x8000');
     cell1.appendChild(element1);
-
+    
     // Column 2 - File selector
     var cell2 = row.insertCell(1);
     var element2 = document.createElement("input");
@@ -147,7 +145,7 @@ addFile.onclick = async () => {
     element2.name = "selected_File" + rowCount;
     element2.addEventListener('change', handleFileSelect, false);
     cell2.appendChild(element2);
-
+    
     // Column 3  - Remove File
     var cell3 = row.insertCell(2);
     var element3 = document.createElement("input");
@@ -174,8 +172,17 @@ function removeRow(btnName) {
     }
 }
 
+// to be called on disconnect - remove any stale references of older connections if any
+function cleanUp() {
+    device = null;
+    transport = null;
+    this.chip = null;
+}
+
 disconnectButton.onclick = async () => {
-    await transport.disconnect();
+    if(transport)
+        await transport.disconnect();
+
     term.clear();
     connected = false;
     baudrates.style.display = "initial";
@@ -186,12 +193,12 @@ disconnectButton.onclick = async () => {
     filesDiv.style.display = "none";
     alertDiv.style.display = "none";
     consoleDiv.style.display = "initial";
+    cleanUp();
 };
 
 consoleStartButton.onclick = async () => {
     if (device === null) {
         device = await navigator.serial.requestPort({
-            filters: [{ usbVendorId: 0x10c4 }]
         });
         transport = new Transport(device);
     }
@@ -227,7 +234,7 @@ function validate_program_inputs() {
     var row;
     let offset = 0;
     let fileData = null;
-
+ 
     // check for mandatory fields
     for (let index = 1; index < rowCount; index ++) {
         row = table.rows[index];
@@ -273,9 +280,9 @@ programButton.onclick = async () => {
         offset = parseInt(offSetObj.value);
 
         var fileObj = row.cells[1].childNodes[0];
-
+       
         fileArr.push({data:fileObj.data, address:offset});
     }
     esploader.write_flash({fileArray: fileArr, flash_size: 'keep'});
-
+   
 }
