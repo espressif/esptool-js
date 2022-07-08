@@ -4,7 +4,6 @@ const MAGIC_TO_CHIP = {
     [0x1b31506f]: () => import('./targets/esp32c3.js'),
     [0x09]: () => import('./targets/esp32s3.js'),
     [0x000007c6]: () => import('./targets/esp32s2.js'),
-    [0xeb004136]: () => import('./targets/esp32s3beta2.js'),
     [0xfff0c101]: () => import('./targets/esp8266.js'),
  }
 
@@ -296,8 +295,10 @@ class ESPLoader {
             console.log("Chip Magic " + chip_magic_value);
 
             if (chip_magic_value in MAGIC_TO_CHIP) {
-                this.chip = (await MAGIC_TO_CHIP[chip_magic_value]).default;
-            }              
+                this.chip = (await MAGIC_TO_CHIP[chip_magic_value]()).default;
+            } else {
+                console.log("Unknown chip magic")
+            }
         }
      }
 
