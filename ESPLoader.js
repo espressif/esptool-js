@@ -755,7 +755,9 @@ class ESPLoader {
         compress=true,
         /* function(fileIndex, written, total) */
         reportProgress=undefined,
-    } = {}) => {
+        /* function(image: string) => string */
+        calculateMD5Hash=undefined
+    }) => {
         console.log("EspLoader program");
         if (flash_size !== 'keep') {
             let flash_end = this.flash_size_bytes(flash_size);
@@ -782,8 +784,11 @@ class ESPLoader {
                 continue;
             }
             image = this._update_image_flash_params(image, address, flash_size, flash_mode, flash_freq);
-            let calcmd5 = CryptoJS.MD5(CryptoJS.enc.Latin1.parse(image));
-            console.log("Image MD5 " + calcmd5);
+            let calcmd5;
+            if (calculateMD5Hash) {
+                calcmd5 = calculateMD5Hash(image);
+                console.log("Image MD5 " + calcmd5);
+            }
             let uncsize = image.length;
             let blocks;
             if (compress) {
@@ -843,13 +848,15 @@ class ESPLoader {
             if (compress) {
                 this.log("Wrote " + uncsize + " bytes (" + bytes_sent + " compressed) at 0x" + address.toString(16) + " in "+(t/1000)+" seconds.");
             }
-            let res = await this.flash_md5sum(address, uncsize);
-            if (new String(res).valueOf() != new String(calcmd5).valueOf()) {
-                this.log("File  md5: " + calcmd5);
-                this.log("Flash md5: " + res);
-                throw new ESPError("MD5 of file does not match data in flash!")
-            } else {
-                this.log("Hash of data verified.");
+            if (calculateMD5Hash) {
+                let res = await this.flash_md5sum(address, uncsize);
+                if (new String(res).valueOf() != new String(calcmd5).valueOf()) {
+                    this.log("File  md5: " + calcmd5);
+                    this.log("Flash md5: " + res);
+                    throw new ESPError("MD5 of file does not match data in flash!")
+                } else {
+                    this.log("Hash of data verified.");
+                }
             }
         }
         this.log("Leaving...");

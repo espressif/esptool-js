@@ -312,7 +312,8 @@ programButton.onclick = async () => {
             flash_size: 'keep',
             reportProgress(fileIndex, written, total) {
                 progressBars[fileIndex].value = written / total * 100;
-            }
+            },
+            calculateMD5Hash: (image) => CryptoJS.MD5(CryptoJS.enc.Latin1.parse(image)),
         });
     } catch (e) {
         console.error(e);
