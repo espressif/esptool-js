@@ -1,7 +1,6 @@
 export default class ESP32S2ROM {
   static CHIP_NAME = "ESP32-S2";
   static IMAGE_CHIP_ID = 2;
-  static CHIP_DETECT_MAGIC_VALUE = [0x000007c6];
   static MAC_EFUSE_REG = 0x3f41a044;
   static EFUSE_BASE = 0x3f41a000;
   static UART_CLKDIV_REG = 0x3f400014;

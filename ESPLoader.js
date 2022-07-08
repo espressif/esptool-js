@@ -1,7 +1,7 @@
 const MAGIC_TO_CHIP = {
     [0x00f01d83]: () => import('./targets/esp32.js'),
-    [0x6921506f]: () => import('./targets/esp32c3.js'),
-    [0x1b31506f]: () => import('./targets/esp32c3.js'),
+    [0x6921506f]: () => import('./targets/esp32c3.js'),  // ESP32C3 eco 1+2
+    [0x1b31506f]: () => import('./targets/esp32c3.js'),  // ESP32C3 eco3
     [0x09]: () => import('./targets/esp32s3.js'),
     [0x000007c6]: () => import('./targets/esp32s2.js'),
     [0xfff0c101]: () => import('./targets/esp8266.js'),

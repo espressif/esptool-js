@@ -1,8 +1,6 @@
 export default class ESP32C3ROM {
   static CHIP_NAME = "ESP32-C3";
   static IMAGE_CHIP_ID = 5;
-  // Magic value for ESP32C3 eco 1+2 and ESP32C3 eco3 respectively
-  static CHIP_DETECT_MAGIC_VALUE = [0x6921506f, 0x1b31506f];
   static EFUSE_BASE = 0x60008800;
   static MAC_EFUSE_REG = this.EFUSE_BASE + 0x044;
   static UART_CLKDIV_REG = 0x3ff40014;
