@@ -19,6 +19,7 @@ const alertDiv = document.getElementById('alertDiv');
 //import { Transport } from './cp210x-webusb.js'
 import { Transport } from './webserial.js'
 import { ESPLoader } from './ESPLoader.js'
+import { ESPError } from './error.js'
 
 let term = new Terminal({cols:120, rows:40});
 term.open(terminal);
@@ -91,8 +92,11 @@ connectButton.onclick = async () => {
 
         chip = await esploader.main_fn();
 
-        await esploader.flash_id();
+        // Temporarily broken
+        // await esploader.flash_id();
     } catch(e) {
+        console.error(e);
+        term.writeln(`Error: ${e.message}`);
     }
 
     console.log("Settings done for :" + chip);
@@ -121,8 +125,14 @@ resetButton.onclick = async () => {
 
 eraseButton.onclick = async () => {
     eraseButton.disabled = true;
-    await esploader.erase_flash();
-    eraseButton.disabled = false;
+    try{
+        await esploader.erase_flash();
+    } catch (e) {
+        console.error(e);
+        term.writeln(`Error: ${e.message}`);
+    } finally {
+        eraseButton.disabled = false;
+    }
 }
 
 addFile.onclick = async () => {
@@ -283,6 +293,10 @@ programButton.onclick = async () => {
        
         fileArr.push({data:fileObj.data, address:offset});
     }
-    esploader.write_flash({fileArray: fileArr, flash_size: 'keep'});
-   
+    try {
+        esploader.write_flash({fileArray: fileArr, flash_size: 'keep'});
+    } catch (e) {
+        console.error(e);
+        term.writeln(`Error: ${e.message}`);
+    }
 }

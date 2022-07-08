@@ -1,4 +1,4 @@
-'use strict';
+import {TimeoutError} from './error.js';
 
 class Transport {
     constructor(device) {
@@ -131,7 +131,7 @@ class Transport {
 
         if (done) {
             console.log("timed out");
-            throw("timeout");
+            throw new TimeoutError("Timeout");
         } else {
             if (timeout > 0) {
                 clearTimeout(t);
@@ -164,7 +164,7 @@ class Transport {
         done = o.done;
 
         if (done) {
-            throw("timeout");
+            throw new TimeoutError("Timeout");
         } else {
             if (timeout > 0) {
                 clearTimeout(t);
