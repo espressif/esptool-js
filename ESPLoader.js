@@ -933,7 +933,7 @@ class ESPLoader {
     }
 
     _connect_attempt = async ({mode='default_reset', esp32r0_delay=false} = {}) => {
-        console.log("_connect_attempt " + esp32r0_delay);
+        console.log("_connect_attempt " + mode + " " + esp32r0_delay);
         if (mode !== 'no_reset') {
             await this.transport.setDTR(false);
             await this.transport.setRTS(true);
@@ -992,11 +992,11 @@ class ESPLoader {
         this.write_char('Connecting...');
         await this.transport.connect();
         for (i = 0 ; i < attempts; i++) {
-            resp = await this._connect_attempt({esp32r0_delay:false});
+            resp = await this._connect_attempt({mode:mode, esp32r0_delay:false});
             if (resp === "success") {
                 break;
             }
-            resp = await this._connect_attempt({esp32r0_delay:true});
+            resp = await this._connect_attempt({mode:mode, esp32r0_delay:true});
             if (resp === "success") {
                 break;
             }
@@ -1023,8 +1023,8 @@ class ESPLoader {
      }
 
 
-    detect_chip = async () => {
-        await this.connect();
+    detect_chip = async ({mode='default_reset'} = {}) => {
+        await this.connect({mode:mode});
         this.write_char("Detecting chip type... ");
         if (this.chip != null) {
             this.log(this.chip.CHIP_NAME);
@@ -1377,8 +1377,8 @@ class ESPLoader {
         }
     }
 
-    main_fn = async () => {
-        await this.detect_chip();
+    main_fn = async ({mode='default_reset'} = {}) => {
+        await this.detect_chip({mode:mode});
         if (this.chip == null) {
             this.log("Error in connecting to board");
             return;
