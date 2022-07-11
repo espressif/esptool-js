@@ -1599,16 +1599,13 @@ class ESPLoader {
             // 'run user code' is as close to a soft reset as we can do
             this.flash_begin(0, 0);
             this.flash_finish(false);
+        } else if (this.chip.CHIP_NAME != "ESP8266") {
+            throw("Soft resetting is currently only supported on ESP8266");
         } else {
-            if (this.chip.CHIP_NAME != "ESP8266") {
-                throw("Soft resetting is currently only supported on ESP8266");
-            } else {
-                // running user code from stub loader requires some hacks
-                // in the stub loader
-                this.command({op: this.ESP_RUN_USER_CODE, wait_response: false});
-            }
+            // running user code from stub loader requires some hacks
+            // in the stub loader
+            this.command({op: this.ESP_RUN_USER_CODE, wait_response: false});
         }
-
     }
 }
 
