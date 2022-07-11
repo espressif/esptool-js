@@ -650,10 +650,11 @@ class ESPLoader {
                     return this.chip;
                 }
             }
-        } catch(e) {
             this.log("Failed to start stub. Unexpected response");
-            return null;
+        } catch(e) {
+            this.log("Failed to start stub. No response");
         }
+        return null;
     }
 
     change_baud = async() => {
