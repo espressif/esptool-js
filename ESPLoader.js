@@ -657,7 +657,7 @@ class ESPLoader {
     }
 
     main_fn = async ({mode='default_reset'} = {}) => {
-        await this.detect_chip();
+        await this.detect_chip({mode});
 
         var chip = await this.chip.get_chip_description(this);
         this.log("Chip is " + chip);
