@@ -1,6 +1,4 @@
-'use strict';
-
-import { TimeoutError } from "./error";
+import { TimeoutError } from "./error.js";
 
 class Transport {
     constructor(device) {
@@ -180,10 +178,6 @@ class Transport {
     }
 
     disconnect = async () => {
-        if (this.reader !== null) {
-            this.reader.cancel();
-            this.reader.releaseLock();
-        }
         await this.device.close();
     }
 }
