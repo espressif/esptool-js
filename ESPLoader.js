@@ -18,13 +18,14 @@ class ESPLoader {
     ESP_MEM_END = 0x06;
     ESP_MEM_DATA = 0x07;
     ESP_WRITE_REG = 0x09;
+    ESP_READ_REG = 0x0A;
+
+    ESP_SPI_ATTACH = 0x0D;
+    ESP_CHANGE_BAUDRATE = 0x0F;
     ESP_FLASH_DEFL_BEGIN = 0x10;
     ESP_FLASH_DEFL_DATA  = 0x11;
     ESP_FLASH_DEFL_END   = 0x12;
     ESP_SPI_FLASH_MD5    = 0x13;
-    ESP_READ_REG = 0x0A;
-    ESP_SPI_ATTACH = 0x0D;
-    ESP_CHANGE_BAUDRATE = 0x0F;
 
     // Only Stub supported commands
     ESP_ERASE_FLASH = 0xD0;
@@ -314,7 +315,7 @@ class ESPLoader {
     }
 
     check_command = async ({op_description="", op=null, data=[], chk=0, timeout=3000} = {}) => {
-        console.log("check_command " + op) ;
+        console.log("check_command " + op_description) ;
         var resp = await this.command({op:op, data:data, chk:chk, timeout:timeout});
         if (resp[1].length > 4) {
             return resp[1];
@@ -325,11 +326,11 @@ class ESPLoader {
 
     mem_begin = async (size, blocks, blocksize, offset) => {
         /* XXX: Add check to ensure that STUB is not getting overwritten */
-        console.log("mem_begin " + size + " " + blocks + " " + blocksize + " " + offset);
+        console.log("mem_begin " + size + " " + blocks + " " + blocksize + " " + offset.toString(16));
         var pkt = this._appendArray(this._int_to_bytearray(size), this._int_to_bytearray(blocks));
         pkt = this._appendArray(pkt, this._int_to_bytearray(blocksize));
         pkt = this._appendArray(pkt, this._int_to_bytearray(offset));
-        await this.check_command({op_description: "write to target RAM", op: this.ESP_MEM_BEGIN, data: pkt});
+        await this.check_command({op_description: "enter RAM download mode", op: this.ESP_MEM_BEGIN, data: pkt});
     }
 
     checksum = function (data) {
@@ -372,7 +373,6 @@ class ESPLoader {
     }
 
     flash_begin = async (size, offset) => {
-
         var num_blocks = Math.floor((size + this.FLASH_WRITE_SIZE - 1) / this.FLASH_WRITE_SIZE);
         var erase_size = this.chip.get_erase_size(offset, size);
 
@@ -398,7 +398,7 @@ class ESPLoader {
         if (size != 0 && this.IS_STUB == false) {
             this.log("Took "+((t2-t1)/1000)+"."+((t2-t1)%1000)+"s to erase flash block");
         }
-
+        return num_blocks;
     }
 
     flash_defl_begin = async (size, compsize, offset) => {
@@ -502,8 +502,8 @@ class ESPLoader {
                 var SPI_DATA_LEN_REG = SPI_USR1_REG;
                 var SPI_MOSI_BITLEN_S = 17;
                 var SPI_MISO_BITLEN_S = 8;
-                mosi_mask = (mosi_bits === 0) ? 0 : (mosi_bits - 1);
-                miso_mask = (miso_bits === 0) ? 0 : (miso_bits - 1);
+                var mosi_mask = (mosi_bits === 0) ? 0 : (mosi_bits - 1);
+                var miso_mask = (miso_bits === 0) ? 0 : (miso_bits - 1);
                 var val = (miso_mask << SPI_MISO_BITLEN_S) | (mosi_mask << SPI_MOSI_BITLEN_S);
                 await this.write_reg({addr:SPI_DATA_LEN_REG, value:val});
             };
@@ -675,7 +675,6 @@ class ESPLoader {
 
         await this.change_baud();
         return chip;
-
     }
 
     flash_size_bytes = function(flash_size) {
