@@ -1,3 +1,5 @@
+import {ESPError, TimeoutError} from "./error.js";
+
 const MAGIC_TO_CHIP = {
     [0x00f01d83]: () => import('./targets/esp32.js'),
     [0x6921506f]: () => import('./targets/esp32c3.js'),  // ESP32C3 eco 1+2
@@ -168,13 +170,13 @@ class ESPLoader {
                             return [val, data];
                         } else if (data[0] != 0 && data[1] == this.ROM_INVALID_RECV_MSG) {
                             await this.flush_input();
-                            throw("unsupported command error");
+                            throw new ESPError("unsupported command error");
                         }
                     }
                 }
-                throw("invalid response")
+                throw new ESPError("invalid response")
             } catch(e) {
-                if (e === "timeout") {
+                if (e instanceof TimeoutError) {
                     throw(e);
                 }
                 console.log(e);
@@ -221,12 +223,12 @@ class ESPLoader {
             return resp;
         } catch(e) {
             console.log("Sync err " + e);
-            throw(e);
+            throw e;
         }
     }
 
     _connect_attempt = async ({mode='default_reset', esp32r0_delay=false} = {}) => {
-        console.log("_connect_attempt " + esp32r0_delay);
+        console.log("_connect_attempt " + mode + " " + esp32r0_delay);
         if (mode !== 'no_reset') {
             await this.transport.setDTR(false);
             await this.transport.setRTS(true);
@@ -252,7 +254,7 @@ class ESPLoader {
                 //var str = new TextDecoder().decode(res);
                 //this.log(str);
             } catch (e) {
-                if (e === "timeout") {
+                if (e instanceof TimeoutError) {
                     break;
                 }
             }
@@ -265,7 +267,7 @@ class ESPLoader {
                 var resp = await this.sync();
                 return "success";
             } catch(error) {
-                if (error === "timeout") {
+                if (error instanceof TimeoutError) {
                     if (esp32r0_delay) {
                         this.write_char('_');
                     } else {
@@ -285,18 +287,17 @@ class ESPLoader {
         this.write_char('Connecting...');
         await this.transport.connect();
         for (i = 0 ; i < attempts; i++) {
-            resp = await this._connect_attempt({esp32r0_delay:false});
+            resp = await this._connect_attempt({mode:mode, esp32r0_delay:false});
             if (resp === "success") {
                 break;
             }
-            resp = await this._connect_attempt({esp32r0_delay:true});
+            resp = await this._connect_attempt({mode:mode, esp32r0_delay:true});
             if (resp === "success") {
                 break;
             }
         }
         if (resp !== "success") {
-            this.log("Failed to connect with the device");
-            return "error";
+            throw new ESPError("Failed to connect with the device");
         }
         this.write_char('\n');
         this.write_char('\r');
@@ -309,14 +310,14 @@ class ESPLoader {
             if (chip_magic_value in MAGIC_TO_CHIP) {
                 this.chip = (await MAGIC_TO_CHIP[chip_magic_value]()).default;
             } else {
-                console.log("Unknown chip magic")
+                throw new ESPError(`Unexpected CHIP magic value ${chip_magic_value}. Failed to autodetect chip type.`);
             }
         }
      }
 
 
-    detect_chip = async () => {
-        await this.connect();
+    detect_chip = async ({mode='default_reset'} = {}) => {
+        await this.connect({mode:mode});
         this.write_char("Detecting chip type... ");
         if (this.chip != null) {
             this.log(this.chip.CHIP_NAME);
@@ -522,10 +523,10 @@ class ESPLoader {
         var SPI_CMD_USR  = (1 << 18);
         var SPI_USR2_COMMAND_LEN_SHIFT = 28;
         if(read_bits > 32) {
-            throw "Reading more than 32 bits back from a SPI flash operation is unsupported";
+            throw new ESPError("Reading more than 32 bits back from a SPI flash operation is unsupported");
         }
         if (data.length > 64) {
-            throw "Writing more than 64 bytes of data with one SPI command is unsupported";
+            throw new ESPError("Writing more than 64 bytes of data with one SPI command is unsupported");
         }
 
         var data_bits = data.length * 8;
@@ -565,7 +566,7 @@ class ESPLoader {
             }
         }
         if (i === 10) {
-            throw "SPI command did not complete in time";
+            throw new ESPError("SPI command did not complete in time");
         }
         var stat = await this.read_reg({addr:SPI_W0_REG});
         await this.write_reg({addr:SPI_USR_REG, value:old_spi_usr});
@@ -652,16 +653,15 @@ class ESPLoader {
                     return this.chip;
                 }
             }
-            this.log("Failed to start stub. Unexpected response");
+            throw new ESPError("Failed to start stub. Unexpected response");
         } catch(e) {
-            this.log("Failed to start stub. No response");
+            throw new ESPError("Failed to start stub. No response");
         }
         return null;
     }
 
     change_baud = async() => {
         this.log("Changing baudrate to " + this.baudrate);
-        console.log("Changing baudrate to " + this.baudrate);
         let second_arg = this.IS_STUB ? this.transport.baudrate : 0;
         let pkt = this._appendArray(this._int_to_bytearray(this.baudrate), this._int_to_bytearray(second_arg));
         let resp = await this.command({op:this.ESP_CHANGE_BAUDRATE, data:pkt});
@@ -675,12 +675,8 @@ class ESPLoader {
         }
     }
 
-    main_fn = async () => {
-        await this.detect_chip();
-        if (this.chip == null) {
-            this.log("Error in connecting to board");
-            return;
-        }
+    main_fn = async ({mode='default_reset'} = {}) => {
+        await this.detect_chip({mode});
 
         var chip = await this.chip.get_chip_description(this);
         this.log("Chip is " + chip);
@@ -712,8 +708,7 @@ class ESPLoader {
 
     parse_flash_size_arg = function(flsz) {
         if (typeof this.chip.FLASH_SIZES[flsz] === 'undefined') {
-            this.log("Flash size " + flsz + " is not supported by this chip type. Supported sizes: " + this.chip.FLASH_SIZES);
-            throw "Invalid flash size";
+            throw new ESPError("Flash size " + flsz + " is not supported by this chip type. Supported sizes: " + this.chip.FLASH_SIZES);
         }
         return this.chip.FLASH_SIZES[flsz];
     }
@@ -772,8 +767,7 @@ class ESPLoader {
             let flash_end = this.flash_size_bytes(flash_size);
             for (var i = 0; i < fileArray.length; i++) {
                 if ((fileArray[i].data.length + fileArray[i].address) > flash_end) {
-                    this.log("Specified file doesn't fit in the available flash");
-                    return;
+                    throw new ESPError(`File ${i + 1} doesn't fit in the available flash`);
                 }
             }
         }
@@ -836,7 +830,7 @@ class ESPLoader {
                         timeout = block_timeout;
                     }
                 } else {
-                    this.log("Yet to handle Non Compressed writes");
+                    throw new ESPError("Yet to handle Non Compressed writes");
                 }
                 bytes_sent += block.length;
                 image = image.slice(this.FLASH_WRITE_SIZE, image.length);
@@ -854,6 +848,7 @@ class ESPLoader {
             if (new String(res).valueOf() != new String(calcmd5).valueOf()) {
                 this.log("File  md5: " + calcmd5);
                 this.log("Flash md5: " + res);
+                throw new ESPError("MD5 of file does not match data in flash!")
             } else {
                 this.log("Hash of data verified.");
             }

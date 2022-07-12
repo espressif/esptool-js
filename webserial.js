@@ -1,5 +1,7 @@
 'use strict';
 
+import { TimeoutError } from "./error";
+
 class Transport {
     constructor(device) {
         this.device = device;
@@ -118,7 +120,7 @@ class Transport {
                 do {
                     const {value, done} = await reader.read();
                     if (done) {
-                        throw("timeout");
+                        throw new TimeoutError("Timeout");
                     }
                     var p = new Uint8Array(this._appendBuffer(packet.buffer, value.buffer));
                     packet = p;
@@ -152,7 +154,7 @@ class Transport {
             }
             const {value, done} = await reader.read();
             if (done) {
-                throw("timeout");
+                throw new TimeoutError("Timeout");
             }
             return value;
         } finally {
@@ -178,6 +180,10 @@ class Transport {
     }
 
     disconnect = async () => {
+        if (this.reader !== null) {
+            this.reader.cancel();
+            this.reader.releaseLock();
+        }
         await this.device.close();
     }
 }
