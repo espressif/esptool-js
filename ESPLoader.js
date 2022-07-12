@@ -153,6 +153,7 @@ class ESPLoader {
 
         if (wait_response) {
             try {
+                // Check up-to next 100 packets for valid response packet
                 for (let i=0 ; i<100 ; i++) {
                     var p = await this.transport.read({timeout: timeout});
                     //console.log("Response " + p);
@@ -641,6 +642,7 @@ class ESPLoader {
         await this.mem_finish(this.chip.ENTRY);
 
         try {
+            // Check up-to next 100 packets to see if stub is running
             for (let i=0 ; i<100 ; i++) {
                 const res = await this.transport.read({timeout: 1000, min_data: 6});
                 if (res[0] === 79 && res[1] === 72 && res[2] === 65 && res[3] === 73) {
