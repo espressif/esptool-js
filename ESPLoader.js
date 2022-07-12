@@ -874,7 +874,7 @@ class ESPLoader {
             this.flash_begin(0, 0);
             this.flash_finish(false);
         } else if (this.chip.CHIP_NAME != "ESP8266") {
-            throw("Soft resetting is currently only supported on ESP8266");
+            throw new ESPError("Soft resetting is currently only supported on ESP8266");
         } else {
             // running user code from stub loader requires some hacks
             // in the stub loader
