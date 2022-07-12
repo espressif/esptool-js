@@ -26,7 +26,7 @@ term.open(terminal);
 
 let device = null;
 let transport;
-let chip = "deFault";
+let chip = null;
 let esploader;
 let file1 = null;
 let connected = false;
@@ -67,9 +67,6 @@ function handleFileSelect(evt) {
 
     reader.readAsBinaryString(file);
 }
-
-
-document.getElementById('selectFile1').addEventListener('change', handleFileSelect, false);
 
 function _sleep(ms) {
     return new Promise(resolve => setTimeout(resolve, ms));
@@ -135,7 +132,7 @@ eraseButton.onclick = async () => {
     }
 }
 
-addFile.onclick = async () => {
+addFile.onclick = () => {
     var rowCount = table.rows.length;
     var row = table.insertRow(rowCount);
     
@@ -144,7 +141,7 @@ addFile.onclick = async () => {
     var element1 = document.createElement("input");
     element1.type = "text";
     element1.id = "offset" + rowCount;
-    element1.setAttribute('value', '0x8000');
+    element1.value = '0x1000';
     cell1.appendChild(element1);
     
     // Column 2 - File selector
@@ -156,18 +153,27 @@ addFile.onclick = async () => {
     element2.addEventListener('change', handleFileSelect, false);
     cell2.appendChild(element2);
     
-    // Column 3  - Remove File
+    // Column 3  - Progress
     var cell3 = row.insertCell(2);
-    var element3 = document.createElement("input");
-    element3.type = "button";
-    var btnName = "button" + rowCount;
-    element3.name = btnName;
-    element3.setAttribute('class', "btn");
-    element3.setAttribute('value', 'Remove'); // or element1.value = "button";
-    element3.onclick = function() {
-            removeRow(btnName);
+    cell3.classList.add("progress-cell");
+    cell3.style.display = 'none'
+    cell3.innerHTML = `<progress value="0" max="100"></progress>`;
+
+    // Column 4  - Remove File
+    var cell4 = row.insertCell(3);
+    cell4.classList.add('action-cell');
+    if (rowCount > 1) {
+        var element4 = document.createElement("input");
+        element4.type = "button";
+        var btnName = "button" + rowCount;
+        element4.name = btnName;
+        element4.setAttribute('class', "btn");
+        element4.setAttribute('value', 'Remove'); // or element1.value = "button";
+        element4.onclick = function() {
+                removeRow(btnName);
+        }
+        cell4.appendChild(element4);
     }
-    cell3.appendChild(element3);
 }
 
 function removeRow(btnName) {
@@ -186,7 +192,7 @@ function removeRow(btnName) {
 function cleanUp() {
     device = null;
     transport = null;
-    this.chip = null;
+    chip = null;
 }
 
 disconnectButton.onclick = async () => {
@@ -280,23 +286,43 @@ programButton.onclick = async () => {
         return;
     }
 
-    let fileArr = [];
+    let fileArray = [];
     let offset = 0x1000;
     var rowCount = table.rows.length;
     var row;
+    const progressBars = [];
     for (let index = 1; index < rowCount; index ++) {
         row = table.rows[index];
         var offSetObj = row.cells[0].childNodes[0];
         offset = parseInt(offSetObj.value);
 
         var fileObj = row.cells[1].childNodes[0];
-       
-        fileArr.push({data:fileObj.data, address:offset});
+
+        progressBars.push(row.cells[2].childNodes[0]);
+
+        row.cells[2].style.display = "initial";
+        row.cells[3].style.display = "none";
+
+        fileArray.push({data:fileObj.data, address:offset});
     }
+
     try {
-        esploader.write_flash({fileArray: fileArr, flash_size: 'keep'});
+        await esploader.write_flash({
+            fileArray,
+            flash_size: 'keep',
+            reportProgress(fileIndex, written, total) {
+                progressBars[fileIndex].value = written / total * 100;
+            }
+        });
     } catch (e) {
         console.error(e);
         term.writeln(`Error: ${e.message}`);
+    } finally {
+        for (let index = 1; index < rowCount; index ++) {
+            row.cells[2].style.display = "none";
+            row.cells[3].style.display = "initial";
+        }
     }
 }
+
+addFile.onclick();
