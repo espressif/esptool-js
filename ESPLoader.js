@@ -746,7 +746,16 @@ class ESPLoader {
         return image;
     }
 
-    write_flash = async ({fileArray=[], flash_size='keep', flash_mode='keep', flash_freq='keep', erase_all=false, compress=true} = {}) => {
+    write_flash = async ({
+        fileArray=[],
+        flash_size='keep',
+        flash_mode='keep',
+        flash_freq='keep',
+        erase_all=false,
+        compress=true,
+        /* function(fileIndex, written, total) */
+        reportProgress=undefined,
+    } = {}) => {
         console.log("EspLoader program");
         if (flash_size !== 'keep') {
             let flash_end = this.flash_size_bytes(flash_size);
@@ -789,6 +798,8 @@ class ESPLoader {
             let seq = 0;
             let bytes_sent = 0;
             let bytes_written = 0;
+            const totalBytes = image.length;
+            if (reportProgress) reportProgress(i, 0, totalBytes);
 
             var d = new Date();
             let t1 = d.getTime();
@@ -822,6 +833,7 @@ class ESPLoader {
                 bytes_sent += block.length;
                 image = image.slice(this.FLASH_WRITE_SIZE, image.length);
                 seq++;
+                if (reportProgress) reportProgress(i, bytes_sent, totalBytes);
             }
             if (this.IS_STUB) {
                 await this.read_reg({addr:this.CHIP_DETECT_MAGIC_REG_ADDR, timeout:timeout});
