@@ -154,33 +154,26 @@ class ESPLoader {
         }
 
         if (wait_response) {
-            try {
-                // Check up-to next 100 packets for valid response packet
-                for (let i=0 ; i<100 ; i++) {
-                    var p = await this.transport.read({timeout: timeout});
-                    //console.log("Response " + p);
-                    const resp = p[0];
-                    const op_ret = p[1];
-                    const len_ret = this._bytearray_to_short(p[2], p[3]);
-                    const val = this._bytearray_to_int(p[4], p[5], p[6], p[7]);
-                    //console.log("Resp "+resp + " " + op_ret + " " + len_ret + " " + val );
-                    const data = p.slice(8);
-                    if (resp == 1) {
-                        if (op == null || op_ret == op) {
-                            return [val, data];
-                        } else if (data[0] != 0 && data[1] == this.ROM_INVALID_RECV_MSG) {
-                            await this.flush_input();
-                            throw new ESPError("unsupported command error");
-                        }
+            // Check up-to next 100 packets for valid response packet
+            for (let i=0 ; i<100 ; i++) {
+                var p = await this.transport.read({timeout: timeout});
+                //console.log("Response " + p);
+                const resp = p[0];
+                const op_ret = p[1];
+                const len_ret = this._bytearray_to_short(p[2], p[3]);
+                const val = this._bytearray_to_int(p[4], p[5], p[6], p[7]);
+                //console.log("Resp "+resp + " " + op_ret + " " + len_ret + " " + val );
+                const data = p.slice(8);
+                if (resp == 1) {
+                    if (op == null || op_ret == op) {
+                        return [val, data];
+                    } else if (data[0] != 0 && data[1] == this.ROM_INVALID_RECV_MSG) {
+                        await this.flush_input();
+                        throw new ESPError("unsupported command error");
                     }
                 }
-                throw new ESPError("invalid response")
-            } catch(e) {
-                if (e instanceof TimeoutError) {
-                    throw(e);
-                }
-                console.log(e);
             }
+            throw new ESPError("invalid response")
         }
     }
 
@@ -642,22 +635,17 @@ class ESPLoader {
         this.log("Running stub...");
         await this.mem_finish(this.chip.ENTRY);
 
-        try {
-            // Check up-to next 100 packets to see if stub is running
-            for (let i=0 ; i<100 ; i++) {
-                const res = await this.transport.read({timeout: 1000, min_data: 6});
-                if (res[0] === 79 && res[1] === 72 && res[2] === 65 && res[3] === 73) {
-                    this.log("Stub running...");
-                    this.IS_STUB = true;
-                    this.FLASH_WRITE_SIZE = 0x4000;
-                    return this.chip;
-                }
+        // Check up-to next 100 packets to see if stub is running
+        for (let i=0 ; i<100 ; i++) {
+            const res = await this.transport.read({timeout: 1000, min_data: 6});
+            if (res[0] === 79 && res[1] === 72 && res[2] === 65 && res[3] === 73) {
+                this.log("Stub running...");
+                this.IS_STUB = true;
+                this.FLASH_WRITE_SIZE = 0x4000;
+                return this.chip;
             }
-            throw new ESPError("Failed to start stub. Unexpected response");
-        } catch(e) {
-            throw new ESPError("Failed to start stub. No response");
         }
-        return null;
+        throw new ESPError("Failed to start stub. Unexpected response");
     }
 
     change_baud = async() => {
