@@ -79,9 +79,11 @@ class Transport {
             i++;
         }
         if (state !== "packet_complete") {
+            this.left_over = data;
             return new Uint8Array(0);
         }
 
+        this.left_over = data.slice(data_end + 2);
         var temp_pkt = new Uint8Array(data_end - data_start + 1);
         var j = 0;
         for (i = data_start; i <= data_end; i++, j++) {
@@ -98,7 +100,6 @@ class Transport {
             temp_pkt[j] = data[i];
         }
         packet = temp_pkt.slice(0, j); /* Remove unused bytes due to escape seq */
-        this.left_over = new Uint8Array(data).slice(i);
         return packet;
     }
 
@@ -118,6 +119,7 @@ class Transport {
                 do {
                     const {value, done} = await reader.read();
                     if (done) {
+                        this.left_over = packet;
                         throw new TimeoutError("Timeout");
                     }
                     var p = new Uint8Array(this._appendBuffer(packet.buffer, value.buffer));
