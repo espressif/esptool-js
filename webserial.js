@@ -108,29 +108,36 @@ class Transport {
         let t;
         let packet = this.left_over;
         this.left_over = new Uint8Array(0);
-        if (packet.length < min_data) {
-            const reader = this.device.readable.getReader();
-            try {
-                if (timeout > 0) {
-                    t = setTimeout(function() {
-                        reader.cancel();
-                    }, timeout);
-                }
-                do {
-                    const {value, done} = await reader.read();
-                    if (done) {
-                        this.left_over = packet;
-                        throw new TimeoutError("Timeout");
-                    }
-                    var p = new Uint8Array(this._appendBuffer(packet.buffer, value.buffer));
-                    packet = p;
-                } while (packet.length < min_data);
-            } finally {
-                if (timeout > 0) {
-                    clearTimeout(t);
-                }
-                reader.releaseLock();
+        if (this.slip_reader_enabled) {
+            const val_final = this.slip_reader(packet);
+            if (val_final.length > 0) {
+                return val_final;
             }
+            packet = this.left_over;
+            this.left_over = new Uint8Array(0);
+        }
+
+        const reader = this.device.readable.getReader();
+        try {
+            if (timeout > 0) {
+                t = setTimeout(function() {
+                    reader.cancel();
+                }, timeout);
+            }
+            do {
+                const {value, done} = await reader.read();
+                if (done) {
+                    this.left_over = packet;
+                    throw new TimeoutError("Timeout");
+                }
+                var p = new Uint8Array(this._appendBuffer(packet.buffer, value.buffer));
+                packet = p;
+            } while (packet.length < min_data);
+        } finally {
+            if (timeout > 0) {
+                clearTimeout(t);
+            }
+            reader.releaseLock();
         }
         if (this.slip_reader_enabled) {
             return this.slip_reader(packet);
