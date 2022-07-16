@@ -767,7 +767,7 @@ class ESPLoader {
         }
 
         if (this.IS_STUB === true && erase_all === true) {
-            this.erase_flash();
+            await this.erase_flash();
         }
         let image, address;
         for (var i = 0; i < fileArray.length; i++) {
