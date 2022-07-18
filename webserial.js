@@ -147,9 +147,9 @@ class Transport {
     }
 
     rawRead = async ({timeout=0} = {}) => {
+        let t;
         let reader = this.device.readable.getReader();
         let done = false;
-        let value = new Uint8Array(0);
 
         this.reader = reader;
         if (timeout > 0) {
