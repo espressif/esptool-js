@@ -35,6 +35,9 @@ class ESPLoader {
     ESP_IMAGE_MAGIC = 0xe9;
     ESP_CHECKSUM_MAGIC = 0xef;
 
+    // Response code(s) sent by ROM
+    ROM_INVALID_RECV_MSG = 0x05   // response if an invalid message is received
+
     ERASE_REGION_TIMEOUT_PER_MB = 30000;
     ERASE_WRITE_TIMEOUT_PER_MB = 40000;
     MD5_TIMEOUT_PER_MB = 8000;
@@ -123,9 +126,10 @@ class ESPLoader {
         }
         return u8_array;
     }
+
     flush_input = async () => {
         try {
-            await this.transport.read({timeout:200});
+            await this.transport.readRaw({timeout:200});
         } catch(e) {
         }
     }
@@ -152,7 +156,8 @@ class ESPLoader {
         }
 
         if (wait_response) {
-            try {
+            // Check up-to next 100 packets for valid response packet
+            for (let i=0 ; i<100 ; i++) {
                 var p = await this.transport.read({timeout: timeout});
                 //console.log("Response " + p);
                 const resp = p[0];
@@ -161,16 +166,16 @@ class ESPLoader {
                 const val = this._bytearray_to_int(p[4], p[5], p[6], p[7]);
                 //console.log("Resp "+resp + " " + op_ret + " " + len_ret + " " + val );
                 const data = p.slice(8);
-                if (op == null || op_ret == op) {
-                    return [val, data];
-                } else {
-                    throw new ESPError("invalid response");
-                }
-            } catch(e) {
-                if (e instanceof TimeoutError) {
-                    throw(e);
+                if (resp == 1) {
+                    if (op == null || op_ret == op) {
+                        return [val, data];
+                    } else if (data[0] != 0 && data[1] == this.ROM_INVALID_RECV_MSG) {
+                        await this.flush_input();
+                        throw new ESPError("unsupported command error");
+                    }
                 }
             }
+            throw new ESPError("invalid response")
         }
     }
 
@@ -294,8 +299,8 @@ class ESPLoader {
         await this.flush_input();
 
         if (!detecting) {
-            var chip_magic_value = await this.read_reg({addr:0x40001000});
-            console.log("Chip Magic " + chip_magic_value);
+            var chip_magic_value = await this.read_reg({addr:0x40001000}) >>> 0;
+            console.log("Chip Magic " + chip_magic_value.toString(16));
 
             if (chip_magic_value in MAGIC_TO_CHIP) {
                 this.chip = (await MAGIC_TO_CHIP[chip_magic_value]()).default;
@@ -631,15 +636,17 @@ class ESPLoader {
         this.log("Running stub...");
         await this.mem_finish(this.chip.ENTRY);
 
-        const res = await this.transport.read({timeout: 1000, min_data: 6});
-        if (res[0] === 79 && res[1] === 72 && res[2] === 65 && res[3] === 73) {
-            this.log("Stub running...");
-            this.IS_STUB = true;
-            this.FLASH_WRITE_SIZE = 0x4000;
-            return this.chip;
-        } else {
-            throw new ESPError("Failed to start stub. Unexpected response");
+        // Check up-to next 100 packets to see if stub is running
+        for (let i=0 ; i<100 ; i++) {
+            const res = await this.transport.read({timeout: 1000, min_data: 6});
+            if (res[0] === 79 && res[1] === 72 && res[2] === 65 && res[3] === 73) {
+                this.log("Stub running...");
+                this.IS_STUB = true;
+                this.FLASH_WRITE_SIZE = 0x4000;
+                return this.chip;
+            }
         }
+        throw new ESPError("Failed to start stub. Unexpected response");
     }
 
     change_baud = async() => {
@@ -685,10 +692,6 @@ class ESPLoader {
             flash_size_b = parseInt(flash_size.slice(0, flash_size.indexOf("MB")))*1024*1024;
         }
         return flash_size_b;
-    }
-
-    pad_array = function(arr,len,fillValue) {
-        return Object.assign(new Array(len).fill(fillValue), arr);
     }
 
     parse_flash_size_arg = function(flsz) {
@@ -774,9 +777,7 @@ class ESPLoader {
         let image, address;
         for (var i = 0; i < fileArray.length; i++) {
             console.log("Data Length " + fileArray[i].data.length);
-            //image = this.pad_array(fileArray[i].data, Math.floor((fileArray[i].data.length + 3)/4) * 4, 0xff);
-            // XXX : handle padding
-            image = fileArray[i].data;
+            image = fileArray[i].data + '\xff\xff\xff\xff'.substring(0, 4 - fileArray[i].data.length % 4);
             address = fileArray[i].address;
             console.log("Image Length " + image.length);
             if (image.length === 0) {
