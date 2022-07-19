@@ -170,22 +170,15 @@ addFile.onclick = () => {
         element4.setAttribute('class', "btn");
         element4.setAttribute('value', 'Remove'); // or element1.value = "button";
         element4.onclick = function() {
-                removeRow(btnName);
+                removeRow(row);
         }
         cell4.appendChild(element4);
     }
 }
 
-function removeRow(btnName) {
-    var rowCount = table.rows.length;
-    for (var i = 0; i < rowCount; i++) {
-        var row = table.rows[i];
-        var rowObj = row.cells[2].childNodes[0];
-        if (rowObj.name == btnName) {
-            table.deleteRow(i);
-            rowCount--;
-        }
-    }
+function removeRow(row) {
+    const rowIndex = Array.from(table.rows).indexOf(row);
+    table.deleteRow(rowIndex);
 }
 
 // to be called on disconnect - remove any stale references of older connections if any
