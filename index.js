@@ -56,6 +56,9 @@ function convertBinaryStringToUint8Array(bStr) {
 
 function handleFileSelect(evt) {
     var file = evt.target.files[0];
+
+    if (!file) return;
+
     var reader = new FileReader();
 
     reader.onload = (function(theFile) {
@@ -264,34 +267,39 @@ function validate_program_inputs() {
         var fileObj = row.cells[1].childNodes[0];
         fileData = fileObj.data;
         if (fileData == null)
-            return "No file selected for row: " + index + "!";
+            return "No file selected for row " + index + "!";
 
     }
     return "success"
 }
 
 programButton.onclick = async () => {
-    var err = validate_program_inputs();
+    const alertMsg = document.getElementById("alertmsg");
+    const err = validate_program_inputs();
+
     if (err != "success") {
-        const alertMsg = document.getElementById("alertmsg");
         alertMsg.innerHTML = "<strong>" + err + "</strong>";
         alertDiv.style.display = "block";
         return;
     }
 
-    let fileArray = [];
-    let offset = 0x1000;
-    var rowCount = table.rows.length;
-    var row;
+    // Hide error message
+    alertDiv.style.display = "none";
+
+    const fileArray = [];
     const progressBars = [];
-    for (let index = 1; index < rowCount; index ++) {
-        row = table.rows[index];
-        var offSetObj = row.cells[0].childNodes[0];
-        offset = parseInt(offSetObj.value);
 
-        var fileObj = row.cells[1].childNodes[0];
+    for (let index = 1; index < table.rows.length; index++) {
+        const row = table.rows[index];
 
-        progressBars.push(row.cells[2].childNodes[0]);
+        const offSetObj = row.cells[0].childNodes[0];
+        const offset = parseInt(offSetObj.value);
+
+        const fileObj = row.cells[1].childNodes[0];
+        const progressBar = row.cells[2].childNodes[0];
+
+        progressBar.value = 0;
+        progressBars.push(progressBar);
 
         row.cells[2].style.display = "initial";
         row.cells[3].style.display = "none";
@@ -312,9 +320,10 @@ programButton.onclick = async () => {
         console.error(e);
         term.writeln(`Error: ${e.message}`);
     } finally {
-        for (let index = 1; index < rowCount; index ++) {
-            row.cells[2].style.display = "none";
-            row.cells[3].style.display = "initial";
+        // Hide progress bars and show erase buttons
+        for (let index = 1; index < table.rows.length; index++) {
+            table.rows[index].cells[2].style.display = "none";
+            table.rows[index].cells[3].style.display = "initial";
         }
     }
 }
