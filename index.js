@@ -19,13 +19,14 @@ const alertDiv = document.getElementById('alertDiv');
 //import { Transport } from './cp210x-webusb.js'
 import { Transport } from './webserial.js'
 import { ESPLoader } from './ESPLoader.js'
+import { ESPError } from './error.js'
 
 let term = new Terminal({cols:120, rows:40});
 term.open(terminal);
 
 let device = null;
 let transport;
-let chip = "deFault";
+let chip = null;
 let esploader;
 let file1 = null;
 let connected = false;
@@ -55,6 +56,9 @@ function convertBinaryStringToUint8Array(bStr) {
 
 function handleFileSelect(evt) {
     var file = evt.target.files[0];
+
+    if (!file) return;
+
     var reader = new FileReader();
 
     reader.onload = (function(theFile) {
@@ -66,9 +70,6 @@ function handleFileSelect(evt) {
 
     reader.readAsBinaryString(file);
 }
-
-
-document.getElementById('selectFile1').addEventListener('change', handleFileSelect, false);
 
 function _sleep(ms) {
     return new Promise(resolve => setTimeout(resolve, ms));
@@ -91,8 +92,11 @@ connectButton.onclick = async () => {
 
         chip = await esploader.main_fn();
 
-        await esploader.flash_id();
+        // Temporarily broken
+        // await esploader.flash_id();
     } catch(e) {
+        console.error(e);
+        term.writeln(`Error: ${e.message}`);
     }
 
     console.log("Settings done for :" + chip);
@@ -121,11 +125,17 @@ resetButton.onclick = async () => {
 
 eraseButton.onclick = async () => {
     eraseButton.disabled = true;
-    await esploader.erase_flash();
-    eraseButton.disabled = false;
+    try{
+        await esploader.erase_flash();
+    } catch (e) {
+        console.error(e);
+        term.writeln(`Error: ${e.message}`);
+    } finally {
+        eraseButton.disabled = false;
+    }
 }
 
-addFile.onclick = async () => {
+addFile.onclick = () => {
     var rowCount = table.rows.length;
     var row = table.insertRow(rowCount);
     
@@ -134,7 +144,7 @@ addFile.onclick = async () => {
     var element1 = document.createElement("input");
     element1.type = "text";
     element1.id = "offset" + rowCount;
-    element1.setAttribute('value', '0x8000');
+    element1.value = '0x1000';
     cell1.appendChild(element1);
     
     // Column 2 - File selector
@@ -146,37 +156,39 @@ addFile.onclick = async () => {
     element2.addEventListener('change', handleFileSelect, false);
     cell2.appendChild(element2);
     
-    // Column 3  - Remove File
+    // Column 3  - Progress
     var cell3 = row.insertCell(2);
-    var element3 = document.createElement("input");
-    element3.type = "button";
-    var btnName = "button" + rowCount;
-    element3.name = btnName;
-    element3.setAttribute('class', "btn");
-    element3.setAttribute('value', 'Remove'); // or element1.value = "button";
-    element3.onclick = function() {
-            removeRow(btnName);
+    cell3.classList.add("progress-cell");
+    cell3.style.display = 'none'
+    cell3.innerHTML = `<progress value="0" max="100"></progress>`;
+
+    // Column 4  - Remove File
+    var cell4 = row.insertCell(3);
+    cell4.classList.add('action-cell');
+    if (rowCount > 1) {
+        var element4 = document.createElement("input");
+        element4.type = "button";
+        var btnName = "button" + rowCount;
+        element4.name = btnName;
+        element4.setAttribute('class', "btn");
+        element4.setAttribute('value', 'Remove'); // or element1.value = "button";
+        element4.onclick = function() {
+                removeRow(row);
+        }
+        cell4.appendChild(element4);
     }
-    cell3.appendChild(element3);
 }
 
-function removeRow(btnName) {
-    var rowCount = table.rows.length;
-    for (var i = 0; i < rowCount; i++) {
-        var row = table.rows[i];
-        var rowObj = row.cells[2].childNodes[0];
-        if (rowObj.name == btnName) {
-            table.deleteRow(i);
-            rowCount--;
-        }
-    }
+function removeRow(row) {
+    const rowIndex = Array.from(table.rows).indexOf(row);
+    table.deleteRow(rowIndex);
 }
 
 // to be called on disconnect - remove any stale references of older connections if any
 function cleanUp() {
     device = null;
     transport = null;
-    this.chip = null;
+    chip = null;
 }
 
 disconnectButton.onclick = async () => {
@@ -255,34 +267,65 @@ function validate_program_inputs() {
         var fileObj = row.cells[1].childNodes[0];
         fileData = fileObj.data;
         if (fileData == null)
-            return "No file selected for row: " + index + "!";
+            return "No file selected for row " + index + "!";
 
     }
     return "success"
 }
 
 programButton.onclick = async () => {
-    var err = validate_program_inputs();
+    const alertMsg = document.getElementById("alertmsg");
+    const err = validate_program_inputs();
+
     if (err != "success") {
-        const alertMsg = document.getElementById("alertmsg");
         alertMsg.innerHTML = "<strong>" + err + "</strong>";
         alertDiv.style.display = "block";
         return;
     }
 
-    let fileArr = [];
-    let offset = 0x1000;
-    var rowCount = table.rows.length;
-    var row;
-    for (let index = 1; index < rowCount; index ++) {
-        row = table.rows[index];
-        var offSetObj = row.cells[0].childNodes[0];
-        offset = parseInt(offSetObj.value);
+    // Hide error message
+    alertDiv.style.display = "none";
 
-        var fileObj = row.cells[1].childNodes[0];
-       
-        fileArr.push({data:fileObj.data, address:offset});
+    const fileArray = [];
+    const progressBars = [];
+
+    for (let index = 1; index < table.rows.length; index++) {
+        const row = table.rows[index];
+
+        const offSetObj = row.cells[0].childNodes[0];
+        const offset = parseInt(offSetObj.value);
+
+        const fileObj = row.cells[1].childNodes[0];
+        const progressBar = row.cells[2].childNodes[0];
+
+        progressBar.value = 0;
+        progressBars.push(progressBar);
+
+        row.cells[2].style.display = "initial";
+        row.cells[3].style.display = "none";
+
+        fileArray.push({data:fileObj.data, address:offset});
     }
-    esploader.write_flash({fileArray: fileArr, flash_size: 'keep'});
-   
+
+    try {
+        await esploader.write_flash({
+            fileArray,
+            flash_size: 'keep',
+            reportProgress(fileIndex, written, total) {
+                progressBars[fileIndex].value = written / total * 100;
+            },
+            calculateMD5Hash: (image) => CryptoJS.MD5(CryptoJS.enc.Latin1.parse(image)),
+        });
+    } catch (e) {
+        console.error(e);
+        term.writeln(`Error: ${e.message}`);
+    } finally {
+        // Hide progress bars and show erase buttons
+        for (let index = 1; index < table.rows.length; index++) {
+            table.rows[index].cells[2].style.display = "none";
+            table.rows[index].cells[3].style.display = "initial";
+        }
+    }
 }
+
+addFile.onclick();
