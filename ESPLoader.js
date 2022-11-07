@@ -48,10 +48,11 @@ class ESPLoader {
 
     DETECTED_FLASH_SIZES = {0x12: '256KB', 0x13: '512KB', 0x14: '1MB', 0x15: '2MB', 0x16: '4MB', 0x17: '8MB', 0x18: '16MB'};
 
-    constructor(transport, baudrate, terminal) {
+    constructor(transport, baudrate, terminal, rom_baudrate = 115200) {
         this.transport = transport;
         this.baudrate = baudrate;
         this.terminal = terminal;
+        this.rom_baudrate = rom_baudrate;
         this.IS_STUB = false;
         this.chip = null;
 
@@ -280,7 +281,7 @@ class ESPLoader {
         var resp;
         this.chip = null;
         this.write_char('Connecting...');
-        await this.transport.connect();
+        await this.transport.connect({baud:this.rom_baudrate});
         for (i = 0 ; i < attempts; i++) {
             resp = await this._connect_attempt({mode:mode, esp32r0_delay:false});
             if (resp === "success") {
