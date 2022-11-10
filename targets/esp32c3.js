@@ -8,7 +8,7 @@ export default class ESP32C3ROM {
   static UART_DATE_REG_ADDR = 0x6000007c;
 
   static FLASH_WRITE_SIZE = 0x400;
-  static BOOTLOADER_FLASH_OFFSET = 0x1000;
+  static BOOTLOADER_FLASH_OFFSET = 0;
 
   static FLASH_SIZES = {
     "1MB": 0x00,
