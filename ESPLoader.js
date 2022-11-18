@@ -250,7 +250,7 @@ class ESPLoader {
                 //var str = new TextDecoder().decode(res);
                 //this.log(str);
             } catch (e) {
-                if (e instanceof TimeoutError) {
+                if (e instanceof Error) {
                     break;
                 }
             }
@@ -263,7 +263,7 @@ class ESPLoader {
                 var resp = await this.sync();
                 return "success";
             } catch(error) {
-                if (error instanceof TimeoutError) {
+                if (error instanceof Error) {
                     if (esp32r0_delay) {
                         this.write_char('_');
                     } else {
