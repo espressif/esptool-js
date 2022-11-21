@@ -11,7 +11,7 @@ export default class ESP32C3ROM extends ROM {
   public UART_DATE_REG_ADDR = 0x6000007c;
 
   public FLASH_WRITE_SIZE = 0x400;
-  public BOOTLOADER_FLASH_OFFSET = 0x1000;
+  public BOOTLOADER_FLASH_OFFSET = 0;
 
   public FLASH_SIZES = {
     "1MB": 0x00,

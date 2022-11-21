@@ -1,0 +1,51 @@
+on:
+  push:
+    tags:
+      - "v*"
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - uses: actions/setup-node@v3
+        with:
+          node-version: '14.x'
+          registry-url: 'https://registry.npmjs.org'
+      - name: Install dependencies and build 🔧
+        run: npm install && npm run build
+      - name: Run tests 
+        run: npm run test
+      - name: Package .vsix
+        run: npm pack
+      - name: Determine version
+        id: version
+        run: "echo ::set-output name=version::${GITHUB_REF:11}"
+      - name: Upload .vsix File
+        uses: actions/upload-artifact@v1
+        with:
+          name: esptool-js-${{ steps.version.outputs.version }}.tgz
+          path: esptool-js-${{ steps.version.outputs.version }}.tgz
+      - name: Create Release
+        id: create_release
+        uses: actions/create-release@v1.0.0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: ${{ github.ref }}
+          release_name: Espressif ESPTOOL-JS ${{ github.ref }}
+          draft: true
+          body: |
+            ### Release Highlights
+
+            ### Features & Enhancements
+
+            <!-- Insert The Features and Enhancements below as points possibly add the link to the PR/commit -->
+
+            ### Bug Fixes
+
+            <!-- Insert The Bug Fixes below as points, also add relevant links -->
+      - name: Publish package on NPM 📦
+        run: npm publish
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}

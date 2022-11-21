@@ -862,7 +862,9 @@ class ESPLoader {
     let image: string, address: number;
     for (let i = 0; i < fileArray.length; i++) {
       this.log("Data Length " + fileArray[i].data.length);
-      image = fileArray[i].data + "\xff\xff\xff\xff".substring(0, 4 - (fileArray[i].data.length % 4));
+      image = fileArray[i].data;
+      const reminder = fileArray[i].data.length % 4;
+      if (reminder > 0) image += "\xff\xff\xff\xff".substring(4 - reminder);
       address = fileArray[i].address;
       this.log("Image Length " + image.length);
       if (image.length === 0) {

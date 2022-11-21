@@ -16,7 +16,7 @@ npm run rollup
 python3 -m http.server 8008
 ```
 
-Then open http://localhost:8008 in Chrome or Edge. `npm run rollup` to build the `bundle.js` used in the example `index.html`.
+Then open http://localhost:8008 in Chrome or Edge. The `npm run rollup` step builds the `bundle.js` used in the example `index.html`.
 
 ## License
 

@@ -15,7 +15,7 @@
     "lint": "eslint . --ext .ts",
     "lintAndFix": "eslint . --ext .ts --fix",
     "prepare": "npm run build",
-    "test": "echo 'test not implemented'",
+    "test": "echo \"Error: no test specified\"",
     "prepublishOnly": "npm run test && npm run lint",
     "rollup": "npm run build && rollup --config"
   },
