@@ -111,7 +111,7 @@ export default class ESP32S2ROM extends ROM {
     const word3 = await loader.read_reg(addr);
     const pkg_version = (word3 >> 21) & 0x0f;
     return pkg_version;
-  };
+  }
 
   public async get_chip_description(loader: ESPLoader) {
     const chip_desc = ["ESP32-S2", "ESP32-S2FH16", "ESP32-S2FH32"];
@@ -121,7 +121,7 @@ export default class ESP32S2ROM extends ROM {
     } else {
       return "unknown ESP32-S2";
     }
-  };
+  }
 
   public async get_chip_features(loader: ESPLoader) {
     const features = ["Wi-Fi"];
@@ -141,11 +141,11 @@ export default class ESP32S2ROM extends ROM {
       features.push("ADC and temperature sensor calibration in BLK2 of efuse");
     }
     return features;
-  };
+  }
 
   public async get_crystal_freq(loader: ESPLoader) {
     return 40;
-  };
+  }
   public _d2h(d: number) {
     const h = (+d).toString(16);
     return h.length === 1 ? "0" + h : h;
@@ -176,7 +176,7 @@ export default class ESP32S2ROM extends ROM {
       ":" +
       this._d2h(mac[5])
     );
-  };
+  }
 
   public get_erase_size(offset: number, size: number) {
     return size;

@@ -101,7 +101,7 @@ export default class ESP32C3ROM extends ROM {
     const word3 = await loader.read_reg(addr);
     const pkg_version = (word3 >> 21) & 0x07;
     return pkg_version;
-  };
+  }
 
   public async get_chip_revision(loader: ESPLoader) {
     const block1_addr = this.EFUSE_BASE + 0x044;
@@ -110,10 +110,10 @@ export default class ESP32C3ROM extends ROM {
     const addr = block1_addr + 4 * num_word;
     const ret = ((await loader.read_reg(addr)) & (0x7 << pos)) >> pos;
     return ret;
-  };
+  }
 
   public async get_chip_description(loader: ESPLoader) {
-    let desc;
+    let desc: string;
     const pkg_ver = await this.get_pkg_version(loader);
     if (pkg_ver === 0) {
       desc = "ESP32-C3";
@@ -123,15 +123,15 @@ export default class ESP32C3ROM extends ROM {
     const chip_rev = await this.get_chip_revision(loader);
     desc += " (revision " + chip_rev + ")";
     return desc;
-  };
+  }
 
   public async get_chip_features(loader: ESPLoader) {
     return ["Wi-Fi"];
-  };
+  }
 
   public async get_crystal_freq(loader: ESPLoader) {
     return 40;
-  };
+  }
 
   public _d2h(d: number) {
     const h = (+d).toString(16);
@@ -164,9 +164,9 @@ export default class ESP32C3ROM extends ROM {
       ":" +
       this._d2h(mac[5])
     );
-  };
+  }
 
   public get_erase_size(offset: number, size: number) {
     return size;
-  };
+  }
 }

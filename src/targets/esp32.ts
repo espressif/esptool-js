@@ -100,14 +100,14 @@ export default class ESP32ROM extends ROM {
     const addr = this.EFUSE_RD_REG_BASE + 4 * offset;
     loader.log("Read efuse " + addr);
     return await loader.read_reg(addr);
-  };
+  }
 
   public async get_pkg_version(loader: ESPLoader) {
     const word3 = await this.read_efuse(loader, 3);
     let pkg_version = (word3 >> 9) & 0x07;
     pkg_version += ((word3 >> 2) & 0x1) << 3;
     return pkg_version;
-  };
+  }
 
   public async get_chip_revision(loader: ESPLoader) {
     const word3 = await this.read_efuse(loader, 3);
@@ -129,7 +129,7 @@ export default class ESP32ROM extends ROM {
       }
     }
     return 0;
-  };
+  }
 
   public async get_chip_description(loader: ESPLoader) {
     const chip_desc = [
@@ -164,7 +164,7 @@ export default class ESP32ROM extends ROM {
       chip_name += "-V3";
     }
     return chip_name + " (revision " + chip_revision + ")";
-  };
+  }
 
   public async get_chip_features(loader: ESPLoader) {
     const features = ["Wi-Fi"];
@@ -218,7 +218,7 @@ export default class ESP32ROM extends ROM {
     features.push(" Coding Scheme " + coding_scheme_arr[coding_scheme]);
 
     return features;
-  };
+  }
 
   public async get_crystal_freq(loader: ESPLoader) {
     const uart_div = (await loader.read_reg(this.UART_CLKDIV_REG)) & this.UART_CLKDIV_MASK;
@@ -233,7 +233,7 @@ export default class ESP32ROM extends ROM {
       loader.log("WARNING: Unsupported crystal in use");
     }
     return norm_xtal;
-  };
+  }
 
   public _d2h(d: number) {
     const h = (+d).toString(16);
@@ -266,5 +266,5 @@ export default class ESP32ROM extends ROM {
       ":" +
       this._d2h(mac[5])
     );
-  };
+  }
 }

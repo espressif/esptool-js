@@ -14,14 +14,16 @@ jobs:
           registry-url: 'https://registry.npmjs.org'
       - name: Install dependencies and build 🔧
         run: npm ci && npm run build
+      - name: Run lint 
+        run: npm run lint
       - name: Run tests 
         run: npm run test
-      - name: Package .vsix
+      - name: Package module
         run: npm pack
       - name: Determine version
         id: version
         run: "echo ::set-output name=version::${GITHUB_REF:11}"
-      - name: Upload .vsix File
+      - name: Upload npm package file
         uses: actions/upload-artifact@v1
         with:
           name: esptool-js-${{ steps.version.outputs.version }}.tgz

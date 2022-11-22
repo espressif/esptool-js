@@ -307,6 +307,7 @@ export class ESPLoader {
     while (i--) {
       try {
         const resp = await this.sync();
+        this.log(resp[0].toString(0));
         return "success";
       } catch (error) {
         this.log(error);
@@ -727,6 +728,7 @@ export class ESPLoader {
     const second_arg = this.IS_STUB ? this.transport.baudrate : 0;
     const pkt = this._appendArray(this._int_to_bytearray(this.baudrate), this._int_to_bytearray(second_arg));
     const resp = await this.command(this.ESP_CHANGE_BAUDRATE, pkt);
+    this.log(resp[0].toString());
     this.log("Changed");
     await this.transport.disconnect();
     await this._sleep(50);
@@ -893,7 +895,7 @@ export class ESPLoader {
       }
       let seq = 0;
       let bytes_sent = 0;
-      const bytes_written = 0;
+      // const bytes_written = 0;
       const totalBytes = image.length;
       if (reportProgress) reportProgress(i, 0, totalBytes);
 

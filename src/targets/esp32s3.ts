@@ -121,13 +121,13 @@ export default class ESP32S3ROM extends ROM {
 
   public async get_chip_description(loader: ESPLoader) {
     return "ESP32-S3";
-  };
+  }
   public async get_chip_features(loader: ESPLoader) {
     return ["Wi-Fi", "BLE"];
-  };
+  }
   public async get_crystal_freq(loader: ESPLoader) {
     return 40;
-  };
+  }
   public _d2h(d: number) {
     const h = (+d).toString(16);
     return h.length === 1 ? "0" + h : h;
@@ -139,7 +139,7 @@ export default class ESP32S3ROM extends ROM {
     if (buf_no == this.UARTDEV_BUF_NO_USB) {
       loader.ESP_RAM_BLOCK = this.USB_RAM_BLOCK;
     }
-  };
+  }
 
   public async read_mac(loader: ESPLoader) {
     let mac0 = await loader.read_reg(this.MAC_EFUSE_REG);
@@ -167,9 +167,9 @@ export default class ESP32S3ROM extends ROM {
       ":" +
       this._d2h(mac[5])
     );
-  };
+  }
 
   public get_erase_size(offset: number, size: number) {
     return size;
-  };
+  }
 }

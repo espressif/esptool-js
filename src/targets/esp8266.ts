@@ -187,9 +187,9 @@ export default class ESP8266ROM extends ROM {
 
   public async read_efuse(loader: ESPLoader, offset: number) {
     const addr = this.EFUSE_RD_REG_BASE + 4 * offset;
-    console.log("Read efuse " + addr);
+    loader.log("Read efuse " + addr);
     return await loader.read_reg(addr);
-  };
+  }
 
   public async get_chip_description(loader: ESPLoader) {
     const efuse3 = await this.read_efuse(loader, 2);
@@ -197,7 +197,7 @@ export default class ESP8266ROM extends ROM {
 
     const is_8285 = ((efuse0 & (1 << 4)) | (efuse3 & (1 << 16))) != 0; // One or the other efuse bit is set for ESP8285
     return is_8285 ? "ESP8285" : "ESP8266EX";
-  };
+  }
 
   public get_chip_features = async (loader: ESPLoader) => {
     const features = ["WiFi"];
@@ -224,7 +224,7 @@ export default class ESP8266ROM extends ROM {
       );
     }
     return norm_xtal;
-  };
+  }
 
   public _d2h(d: number) {
     const h = (+d).toString(16);
@@ -273,9 +273,9 @@ export default class ESP8266ROM extends ROM {
       ":" +
       this._d2h(mac[5])
     );
-  };
+  }
 
   public get_erase_size(offset: number, size: number) {
     return size;
-  };
+  }
 }
