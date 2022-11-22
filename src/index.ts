@@ -1,4 +1,2 @@
-import ESPLoader from "./espLoader";
-import { Transport } from "./webserial";
-
-export default { ESPLoader, Transport };
+export { IEspLoaderTerminal, ESPLoader } from "./esploader";
+export { Transport } from "./webserial";

@@ -1,4 +1,4 @@
-import ESPLoader from "../espLoader";
+import { ESPLoader } from "../esploader";
 import { ROM } from "./rom";
 
 export default class ESP32ROM extends ROM {
@@ -96,20 +96,20 @@ export default class ESP32ROM extends ROM {
     "YjiDW+mNANzr1LUT2ElJKyOShBjc24Bubh7Lmjp/Eifg5awjAiP9ZbJfx620qNfq" +
     "wqvdldrZOj9LCYJ8mer+L0DR4a0UDQAA";
 
-  public read_efuse = async (loader: ESPLoader, offset: number) => {
+  public async read_efuse(loader: ESPLoader, offset: number) {
     const addr = this.EFUSE_RD_REG_BASE + 4 * offset;
     loader.log("Read efuse " + addr);
     return await loader.read_reg(addr);
   };
 
-  public get_pkg_version = async (loader: ESPLoader) => {
+  public async get_pkg_version(loader: ESPLoader) {
     const word3 = await this.read_efuse(loader, 3);
     let pkg_version = (word3 >> 9) & 0x07;
     pkg_version += ((word3 >> 2) & 0x1) << 3;
     return pkg_version;
   };
 
-  public get_chip_revision = async (loader: ESPLoader) => {
+  public async get_chip_revision(loader: ESPLoader) {
     const word3 = await this.read_efuse(loader, 3);
     const word5 = await this.read_efuse(loader, 5);
     const apb_ctl_date = await loader.read_reg(this.DR_REG_SYSCON_BASE + 0x7c);
@@ -131,7 +131,7 @@ export default class ESP32ROM extends ROM {
     return 0;
   };
 
-  public get_chip_description = async (loader: ESPLoader) => {
+  public async get_chip_description(loader: ESPLoader) {
     const chip_desc = [
       "ESP32-D0WDQ6",
       "ESP32-D0WD",
@@ -166,7 +166,7 @@ export default class ESP32ROM extends ROM {
     return chip_name + " (revision " + chip_revision + ")";
   };
 
-  public get_chip_features = async (loader: ESPLoader) => {
+  public async get_chip_features(loader: ESPLoader) {
     const features = ["Wi-Fi"];
     const word3 = await this.read_efuse(loader, 3);
 
@@ -220,7 +220,7 @@ export default class ESP32ROM extends ROM {
     return features;
   };
 
-  public get_crystal_freq = async (loader: ESPLoader) => {
+  public async get_crystal_freq(loader: ESPLoader) {
     const uart_div = (await loader.read_reg(this.UART_CLKDIV_REG)) & this.UART_CLKDIV_MASK;
     const ets_xtal = (loader.transport.baudrate * uart_div) / 1000000 / this.XTAL_CLK_DIVIDER;
     let norm_xtal;
@@ -240,7 +240,7 @@ export default class ESP32ROM extends ROM {
     return h.length === 1 ? "0" + h : h;
   }
 
-  public read_mac = async (loader: ESPLoader) => {
+  public async read_mac(loader: ESPLoader) {
     let mac0 = await this.read_efuse(loader, 1);
     mac0 = mac0 >>> 0;
     let mac1 = await this.read_efuse(loader, 2);

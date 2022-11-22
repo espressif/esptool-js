@@ -17,12 +17,18 @@ const MAGIC_TO_CHIP: { [key: number]: ROM } = {
   0xfff0c101: new ESP8266ROM(),
 };
 
-interface ESPBinFile {
+export interface ESPBinFile {
   data: string;
   address: number;
 }
 
-class ESPLoader {
+export interface IEspLoaderTerminal {
+  clean: () => void;
+  writeLine: (data: string) => void;
+  write: (data: string) => void;
+}
+
+export class ESPLoader {
   ESP_RAM_BLOCK = 0x1800;
   ESP_FLASH_BEGIN = 0x02;
   ESP_FLASH_DATA = 0x03;
@@ -76,17 +82,14 @@ class ESPLoader {
   constructor(
     public transport: Transport,
     private baudrate: number,
-    private terminalCleanFn: () => void,
-    private terminalWriteLineFn: (data: string) => void,
-    private terminalWriteFn: (data: string) => void,
+    private terminal: IEspLoaderTerminal,
     private rom_baudrate = 115200,
   ) {
     this.IS_STUB = false;
-    this.chip = new ESP32ROM();
+    this.chip = null;
     this.FLASH_WRITE_SIZE = 0x4000;
-
-    if (this.terminalCleanFn) {
-      this.terminalCleanFn();
+    if (this.terminal) {
+      this.terminal.clean();
     }
 
     this.log("esptool.js v0.1-dev");
@@ -98,16 +101,16 @@ class ESPLoader {
   }
 
   log(str: string) {
-    if (this.terminalWriteLineFn) {
-      this.terminalWriteLineFn(str);
+    if (this.terminal) {
+      this.terminal.writeLine(str);
     } else {
       // eslint-disable-next-line no-console
       console.log(str);
     }
   }
   write_char(str: string) {
-    if (this.terminalWriteFn) {
-      this.terminalWriteFn(str);
+    if (this.terminal) {
+      this.terminal.write(str);
     } else {
       // eslint-disable-next-line no-console
       console.log(str);
@@ -1004,5 +1007,3 @@ class ESPLoader {
     }
   }
 }
-
-export default ESPLoader;

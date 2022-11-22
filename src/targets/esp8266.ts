@@ -1,4 +1,4 @@
-import ESPLoader from "../espLoader";
+import { ESPLoader } from "../esploader";
 import { ROM } from "./rom";
 
 export default class ESP8266ROM extends ROM {
@@ -185,13 +185,13 @@ export default class ESP8266ROM extends ROM {
     "J4beSjfPH4hJ+tFtSdkibccBEOH+kJSrSew2MdSz8C5GWch459cfjuMcT0Pvo0yI" +
     "bcqT/wWthFLmqB8AAA==";
 
-  public read_efuse = async (loader: ESPLoader, offset: number) => {
+  public async read_efuse(loader: ESPLoader, offset: number) {
     const addr = this.EFUSE_RD_REG_BASE + 4 * offset;
     console.log("Read efuse " + addr);
     return await loader.read_reg(addr);
   };
 
-  public get_chip_description = async (loader: ESPLoader) => {
+  public async get_chip_description(loader: ESPLoader) {
     const efuse3 = await this.read_efuse(loader, 2);
     const efuse0 = await this.read_efuse(loader, 0);
 
@@ -205,7 +205,7 @@ export default class ESP8266ROM extends ROM {
     return features;
   };
 
-  public get_crystal_freq = async (loader: ESPLoader) => {
+  public async get_crystal_freq(loader: ESPLoader) {
     const uart_div = (await loader.read_reg(this.UART_CLKDIV_REG)) & this.UART_CLKDIV_MASK;
     const ets_xtal = (loader.transport.baudrate * uart_div) / 1000000 / this.XTAL_CLK_DIVIDER;
     let norm_xtal;
@@ -231,7 +231,7 @@ export default class ESP8266ROM extends ROM {
     return h.length === 1 ? "0" + h : h;
   }
 
-  public read_mac = async (loader: ESPLoader) => {
+  public async read_mac(loader: ESPLoader) {
     let mac0 = await this.read_efuse(loader, 0);
     mac0 = mac0 >>> 0;
     let mac1 = await this.read_efuse(loader, 1);
@@ -275,7 +275,7 @@ export default class ESP8266ROM extends ROM {
     );
   };
 
-  public get_erase_size = function (offset: number, size: number) {
+  public get_erase_size(offset: number, size: number) {
     return size;
   };
 }

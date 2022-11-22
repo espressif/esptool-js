@@ -1,4 +1,4 @@
-import ESPLoader from "../espLoader";
+import { ESPLoader } from "../esploader";
 import { ROM } from "./rom";
 
 export default class ESP32C3ROM extends ROM {
@@ -94,7 +94,7 @@ export default class ESP32C3ROM extends ROM {
     "pnltVv+9jvHXkU4sXKfxG0NqhL7U68N6/PpKeyfjl0o+XMA5N/wc9+g6UfWl9s83" +
     "J279YCuxbUpfYBg26DI+z0jM/CCTyLqft1P4h/4HprTSLAwNAAA=";
 
-  public get_pkg_version = async (loader: ESPLoader) => {
+  public async get_pkg_version(loader: ESPLoader) {
     const num_word = 3;
     const block1_addr = this.EFUSE_BASE + 0x044;
     const addr = block1_addr + 4 * num_word;
@@ -103,7 +103,7 @@ export default class ESP32C3ROM extends ROM {
     return pkg_version;
   };
 
-  public get_chip_revision = async (loader: ESPLoader) => {
+  public async get_chip_revision(loader: ESPLoader) {
     const block1_addr = this.EFUSE_BASE + 0x044;
     const num_word = 3;
     const pos = 18;
@@ -112,7 +112,7 @@ export default class ESP32C3ROM extends ROM {
     return ret;
   };
 
-  public get_chip_description = async (loader: ESPLoader) => {
+  public async get_chip_description(loader: ESPLoader) {
     let desc;
     const pkg_ver = await this.get_pkg_version(loader);
     if (pkg_ver === 0) {
@@ -125,11 +125,11 @@ export default class ESP32C3ROM extends ROM {
     return desc;
   };
 
-  public get_chip_features = async (loader: ESPLoader) => {
+  public async get_chip_features(loader: ESPLoader) {
     return ["Wi-Fi"];
   };
 
-  public get_crystal_freq = async (loader: ESPLoader) => {
+  public async get_crystal_freq(loader: ESPLoader) {
     return 40;
   };
 
@@ -138,7 +138,7 @@ export default class ESP32C3ROM extends ROM {
     return h.length === 1 ? "0" + h : h;
   }
 
-  public read_mac = async (loader: ESPLoader) => {
+  public async read_mac(loader: ESPLoader) {
     let mac0 = await loader.read_reg(this.MAC_EFUSE_REG);
     mac0 = mac0 >>> 0;
     let mac1 = await loader.read_reg(this.MAC_EFUSE_REG + 4);
@@ -166,7 +166,7 @@ export default class ESP32C3ROM extends ROM {
     );
   };
 
-  public get_erase_size = function (offset: number, size: number) {
+  public get_erase_size(offset: number, size: number) {
     return size;
   };
 }

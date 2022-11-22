@@ -1,4 +1,4 @@
-import ESPLoader from "../espLoader";
+import { ESPLoader } from "../esploader";
 import { ROM } from "./rom";
 
 export default class ESP32S2ROM extends ROM {
@@ -104,7 +104,7 @@ export default class ESP32S2ROM extends ROM {
     "5lUGBV+inIf/Am8w8EfhMoci6RMleHnQiuD71XzwevARlL/cmi84gg9/L+TC1aFI" +
     "PhaAOeuxgvFPCyIcXl5oXscBJKBdOTgbirB0QdA+obr/HyfMWQisDwAA";
 
-  public get_pkg_version = async (loader: ESPLoader) => {
+  public async get_pkg_version(loader: ESPLoader) {
     const num_word = 3;
     const block1_addr = this.EFUSE_BASE + 0x044;
     const addr = block1_addr + 4 * num_word;
@@ -113,7 +113,7 @@ export default class ESP32S2ROM extends ROM {
     return pkg_version;
   };
 
-  public get_chip_description = async (loader: ESPLoader) => {
+  public async get_chip_description(loader: ESPLoader) {
     const chip_desc = ["ESP32-S2", "ESP32-S2FH16", "ESP32-S2FH32"];
     const pkg_ver = await this.get_pkg_version(loader);
     if (pkg_ver >= 0 && pkg_ver <= 2) {
@@ -123,7 +123,7 @@ export default class ESP32S2ROM extends ROM {
     }
   };
 
-  public get_chip_features = async (loader: ESPLoader) => {
+  public async get_chip_features(loader: ESPLoader) {
     const features = ["Wi-Fi"];
     const pkg_ver = await this.get_pkg_version(loader);
     if (pkg_ver == 1) {
@@ -143,14 +143,14 @@ export default class ESP32S2ROM extends ROM {
     return features;
   };
 
-  public get_crystal_freq = async (loader: ESPLoader) => {
+  public async get_crystal_freq(loader: ESPLoader) {
     return 40;
   };
   public _d2h(d: number) {
     const h = (+d).toString(16);
     return h.length === 1 ? "0" + h : h;
   }
-  public read_mac = async (loader: ESPLoader) => {
+  public async read_mac(loader: ESPLoader) {
     let mac0 = await loader.read_reg(this.MAC_EFUSE_REG);
     mac0 = mac0 >>> 0;
     let mac1 = await loader.read_reg(this.MAC_EFUSE_REG + 4);
@@ -178,7 +178,7 @@ export default class ESP32S2ROM extends ROM {
     );
   };
 
-  public override get_erase_size(offset: number, size: number) {
+  public get_erase_size(offset: number, size: number) {
     return size;
   }
 }

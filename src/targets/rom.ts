@@ -1,24 +1,4 @@
-import ESPLoader from "../espLoader";
-
-export enum FLASH_SIZES {
-  "1MB" = 0x00,
-  "2MB" = 0x10,
-  "4MB" = 0x20,
-  "8MB" = 0x30,
-  "16MB" = 0x40,
-}
-
-export enum ESP8266_FLASH_SIZES {
-  "512KB" = 0x00,
-  "256KB" = 0x10,
-  "1MB" = 0x20,
-  "2MB" = 0x30,
-  "4MB" = 0x40,
-  "2MB-c1" = 0x50,
-  "4MB-c1" = 0x60,
-  "8MB" = 0x80,
-  "16MB" = 0x90,
-}
+import { ESPLoader } from "../esploader";
 
 export abstract class ROM {
   // abstract read_efuse(loader: ESPLoader, offset: number): Promise<number>; //esp32
@@ -43,13 +23,7 @@ export abstract class ROM {
     return size;
   }
 
-  FLASH_SIZES: { [key: string]: number } = {
-    "1MB": 0x00,
-    "2MB": 0x10,
-    "4MB": 0x20,
-    "8MB": 0x30,
-    "16MB": 0x40,
-  };
+  abstract FLASH_SIZES: { [key: string]: number };
 
   abstract BOOTLOADER_FLASH_OFFSET: number;
   abstract CHIP_NAME: string;

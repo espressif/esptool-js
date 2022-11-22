@@ -17,7 +17,7 @@ const table = document.getElementById('fileTable');
 const alertDiv = document.getElementById('alertDiv');
 
 // import { Transport } from './cp210x-webusb.js'
-import esptooljs from "./bundle.js";
+import * as esptooljs from "./bundle.js";
 const ESPLoader = esptooljs.ESPLoader;
 const Transport = esptooljs.Transport;
 
@@ -78,16 +78,16 @@ function _sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-function terminalClearFn() {
-  term.clear();
-}
-
-function terminalWrite(data) {
-  term.write(data);
-}
-
-function terminalWriteLn(data) {
-  term.writeln(data);
+let espLoaderTerminal = {
+  clean() {
+    term.clear();
+  },
+  writeLine(data) {
+    term.writeln(data);
+  },
+  write(data) {
+    term.write(data)
+  }
 }
 
 connectButton.onclick = async () => {
@@ -101,7 +101,7 @@ connectButton.onclick = async () => {
   }
 
   try {
-    esploader = new ESPLoader(transport, baudrates.value, terminalClearFn, terminalWriteLn, terminalWrite);
+    esploader = new ESPLoader(transport, baudrates.value, espLoaderTerminal);
     connected = true;
 
     chip = await esploader.main_fn();

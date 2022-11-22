@@ -13,7 +13,7 @@ jobs:
           node-version: '14.x'
           registry-url: 'https://registry.npmjs.org'
       - name: Install dependencies and build 🔧
-        run: npm install && npm run build
+        run: npm ci && npm run build
       - name: Run tests 
         run: npm run test
       - name: Package .vsix

@@ -1,12 +1,13 @@
 {
   "compilerOptions": {
-    "module": "commonjs",
-    "target": "ES5",
+    "module": "ES2020",
+    "target": "ES2019",
     "declaration": true,
     "allowSyntheticDefaultImports": true,
     "outDir": "./lib",
     "moduleResolution": "node",
-    "lib": ["ES2020", "DOM"]
+    "lib": ["ES2020", "DOM"],
+    "importHelpers": true
   },
   "include": ["src/**/*"]
 }
