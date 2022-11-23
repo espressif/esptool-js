@@ -1,7 +1,7 @@
 import { ESPLoader } from "../esploader";
 import { ROM } from "./rom";
 
-export default class ESP32S3ROM extends ROM {
+export class ESP32S3ROM extends ROM {
   public CHIP_NAME = "ESP32-S3";
   public IMAGE_CHIP_ID = 9;
   public EFUSE_BASE = 0x60007000;

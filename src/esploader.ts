@@ -1,25 +1,34 @@
 import { ESPError } from "./error";
 import { inflate, deflate } from "pako";
-import ESP32ROM from "./targets/esp32";
 import { Transport } from "./webserial";
 import { ROM } from "./targets/rom";
-import ESP32C3ROM from "./targets/esp32c3";
-import ESP32S3ROM from "./targets/esp32s3";
-import ESP32S2ROM from "./targets/esp32s2";
-import ESP8266ROM from "./targets/esp8266";
 
-const MAGIC_TO_CHIP: { [key: number]: ROM } = {
-  0x00f01d83: new ESP32ROM(),
-  0x6921506f: new ESP32C3ROM(), // ECO 1+2
-  0x1b31506f: new ESP32C3ROM(), //ECO 3
-  0x09: new ESP32S3ROM(),
-  0x000007c6: new ESP32S2ROM(),
-  0xfff0c101: new ESP8266ROM(),
-};
-
-export interface ESPBinFile {
-  data: string;
-  address: number;
+async function magic2Chip(magic: number): Promise<ROM> {
+  switch (magic) {
+    case 0x00f01d83: {
+      const { ESP32ROM } = await import("./targets/esp32");
+      return new ESP32ROM();
+    }
+    case 0x6921506f:
+    case 0x1b31506f: {
+      const { ESP32C3ROM } = await import("./targets/esp32c3");
+      return new ESP32C3ROM();
+    }
+    case 0x09: {
+      const { ESP32S3ROM } = await import("./targets/esp32s3");
+      return new ESP32S3ROM();
+    }
+    case 0x000007c6: {
+      const { ESP32S2ROM } = await import("./targets/esp32s2");
+      return new ESP32S2ROM();
+    }
+    case 0xfff0c101: {
+      const { ESP8266ROM } = await import("./targets/esp8266");
+      return new ESP8266ROM();
+    }
+    default:
+      return null;
+  }
 }
 
 export interface IEspLoaderTerminal {
@@ -307,7 +316,7 @@ export class ESPLoader {
     while (i--) {
       try {
         const resp = await this.sync();
-        this.log(resp[0].toString(0));
+        this.log(resp[0].toString());
         return "success";
       } catch (error) {
         this.log(error);
@@ -349,10 +358,8 @@ export class ESPLoader {
     if (!detecting) {
       const chip_magic_value = (await this.read_reg(0x40001000)) >>> 0;
       this.log("Chip Magic " + chip_magic_value.toString(16));
-
-      if (chip_magic_value in MAGIC_TO_CHIP) {
-        this.chip = MAGIC_TO_CHIP[chip_magic_value];
-      } else {
+      this.chip = await magic2Chip(chip_magic_value);
+      if (this.chip === null) {
         throw new ESPError(`Unexpected CHIP magic value ${chip_magic_value}. Failed to autodetect chip type.`);
       }
     }
@@ -840,7 +847,10 @@ export class ESPLoader {
   }
 
   async write_flash(
-    fileArray: ESPBinFile[],
+    fileArray: {
+      data: string;
+      address: number;
+    }[],
     flash_size = "keep",
     flash_mode = "keep",
     flash_freq = "keep",

@@ -1,2 +1,2 @@
-export { IEspLoaderTerminal, ESPLoader, ESPBinFile } from "./esploader";
+export { IEspLoaderTerminal, ESPLoader } from "./esploader";
 export { Transport } from "./webserial";

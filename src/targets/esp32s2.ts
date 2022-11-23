@@ -1,7 +1,7 @@
 import { ESPLoader } from "../esploader";
 import { ROM } from "./rom";
 
-export default class ESP32S2ROM extends ROM {
+export class ESP32S2ROM extends ROM {
   public CHIP_NAME = "ESP32-S2";
   public IMAGE_CHIP_ID = 2;
   public MAC_EFUSE_REG = 0x3f41a044;

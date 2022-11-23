@@ -12,6 +12,7 @@ const config = {
     name: "esptooljs",
     file: 'bundle.js',
     format: 'es',
+    inlineDynamicImports: true
   },
   plugins: [
     resolve(),

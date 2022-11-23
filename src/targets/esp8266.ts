@@ -1,7 +1,7 @@
 import { ESPLoader } from "../esploader";
 import { ROM } from "./rom";
 
-export default class ESP8266ROM extends ROM {
+export class ESP8266ROM extends ROM {
   public CHIP_NAME = "ESP8266";
   public CHIP_DETECT_MAGIC_VALUE = [0xfff0c101];
   public EFUSE_RD_REG_BASE = 0x3ff00050;
