@@ -195,7 +195,21 @@ class Transport {
     this.left_over = new Uint8Array(0);
   }
 
+  async sleep(ms: number) {
+    return new Promise((resolve) => setTimeout(resolve, ms));
+  }
+
+  async waitForUnlock(timeout: number) {
+    while (
+      (this.device.readable && this.device.readable.locked) ||
+      (this.device.writable && this.device.writable.locked)
+    ) {
+      await this.sleep(timeout);
+    }
+  }
+
   async disconnect() {
+    await this.waitForUnlock(400);
     await this.device.close();
   }
 }

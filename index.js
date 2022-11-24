@@ -220,6 +220,7 @@ disconnectButton.onclick = async () => {
   cleanUp();
 };
 
+let isConsoleClosed = false;
 consoleStartButton.onclick = async () => {
   if (device === null) {
     device = await navigator.serial.requestPort({});
@@ -231,8 +232,9 @@ consoleStartButton.onclick = async () => {
   programDiv.style.display = 'none';
 
   await transport.connect();
+  isConsoleClosed = false;
 
-  while (true) {
+  while (true && !isConsoleClosed) {
     let val = await transport.rawRead();
     if (typeof val !== 'undefined') {
       term.write(val);
@@ -244,7 +246,9 @@ consoleStartButton.onclick = async () => {
 };
 
 consoleStopButton.onclick = async () => {
+  isConsoleClosed = true;
   await transport.disconnect();
+  await transport.waitForUnlock(1500);
   term.clear();
   consoleStartButton.style.display = 'initial';
   consoleStopButton.style.display = 'none';
