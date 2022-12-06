@@ -1,16 +1,19 @@
-export default class ESP32S3ROM {
-  static CHIP_NAME = "ESP32-S3";
-  static IMAGE_CHIP_ID = 9;
-  static EFUSE_BASE = 0x60007000;
-  static MAC_EFUSE_REG = this.EFUSE_BASE + 0x044;
-  static UART_CLKDIV_REG = 0x60000014;
-  static UART_CLKDIV_MASK = 0xfffff;
-  static UART_DATE_REG_ADDR = 0x60000080;
+import { ESPLoader } from "../esploader";
+import { ROM } from "./rom";
 
-  static FLASH_WRITE_SIZE = 0x400;
-  static BOOTLOADER_FLASH_OFFSET = 0x0;
+export class ESP32S3ROM extends ROM {
+  public CHIP_NAME = "ESP32-S3";
+  public IMAGE_CHIP_ID = 9;
+  public EFUSE_BASE = 0x60007000;
+  public MAC_EFUSE_REG = this.EFUSE_BASE + 0x044;
+  public UART_CLKDIV_REG = 0x60000014;
+  public UART_CLKDIV_MASK = 0xfffff;
+  public UART_DATE_REG_ADDR = 0x60000080;
 
-  static FLASH_SIZES = {
+  public FLASH_WRITE_SIZE = 0x400;
+  public BOOTLOADER_FLASH_OFFSET = 0x0;
+
+  public FLASH_SIZES = {
     "1MB": 0x00,
     "2MB": 0x10,
     "4MB": 0x20,
@@ -18,23 +21,23 @@ export default class ESP32S3ROM {
     "16MB": 0x40,
   };
 
-  static SPI_REG_BASE = 0x60002000;
-  static SPI_USR_OFFS = 0x18;
-  static SPI_USR1_OFFS = 0x1c;
-  static SPI_USR2_OFFS = 0x20;
-  static SPI_MOSI_DLEN_OFFS = 0x24;
-  static SPI_MISO_DLEN_OFFS = 0x28;
-  static SPI_W0_OFFS = 0x58;
+  public SPI_REG_BASE = 0x60002000;
+  public SPI_USR_OFFS = 0x18;
+  public SPI_USR1_OFFS = 0x1c;
+  public SPI_USR2_OFFS = 0x20;
+  public SPI_MOSI_DLEN_OFFS = 0x24;
+  public SPI_MISO_DLEN_OFFS = 0x28;
+  public SPI_W0_OFFS = 0x58;
 
-  static USB_RAM_BLOCK = 0x800;
-  static UARTDEV_BUF_NO_USB = 3;
-  static UARTDEV_BUF_NO = 0x3fcef14c;
+  public USB_RAM_BLOCK = 0x800;
+  public UARTDEV_BUF_NO_USB = 3;
+  public UARTDEV_BUF_NO = 0x3fcef14c;
 
-  static TEXT_START = 0x40378000;
-  static ENTRY = 0x40378978;
-  static DATA_START = 0x3fcb2bf4;
-  static ROM_DATA = "CADKPw==";
-  static ROM_TEXT =
+  public TEXT_START = 0x40378000;
+  public ENTRY = 0x40378978;
+  public DATA_START = 0x3fcb2bf4;
+  public ROM_DATA = "CADKPw==";
+  public ROM_TEXT =
     "" +
     "eJxVV39cU1eWv3mJSYh3aoI0Yozty4tAgrLLD1vAztak1oi1s4PVIrr9A+ok2n7c" +
     "/SDST8DR2feCE4Jih4R2BGpnXuKgwZWtpHUArbMB24hWd9SdWqfWqbZGGUenlFJ/" +
@@ -116,34 +119,34 @@ export default class ESP32S3ROM {
     "A6EOOkSXLzPI/0905+E35NsMZL5N2dQx7VQhTldrENTvyi1fQDWenT4lm8tQK+l3" +
     "KW+3NnXYMAdbYwkNHP1ZTgd8RtiVeVq1Sv50vbRlrKlDTZc48SKV/f8Zky2A";
 
-  static get_chip_description = async (loader) => {
+  public async get_chip_description(loader: ESPLoader) {
     return "ESP32-S3";
-  };
-  static get_chip_features = async (loader) => {
+  }
+  public async get_chip_features(loader: ESPLoader) {
     return ["Wi-Fi", "BLE"];
-  };
-  static get_crystal_freq = async (loader) => {
+  }
+  public async get_crystal_freq(loader: ESPLoader) {
     return 40;
-  };
-  static _d2h(d) {
-    var h = (+d).toString(16);
+  }
+  public _d2h(d: number) {
+    const h = (+d).toString(16);
     return h.length === 1 ? "0" + h : h;
   }
 
-  static _post_connect = async (loader) => {
-    var buf_no = (await loader.read_reg({ addr: this.UARTDEV_BUF_NO })) & 0xff;
+  public async _post_connect(loader: ESPLoader) {
+    const buf_no = (await loader.read_reg(this.UARTDEV_BUF_NO)) & 0xff;
     console.log("In _post_connect " + buf_no);
     if (buf_no == this.UARTDEV_BUF_NO_USB) {
       loader.ESP_RAM_BLOCK = this.USB_RAM_BLOCK;
     }
-  };
+  }
 
-  static read_mac = async (loader) => {
-    var mac0 = await loader.read_reg({ addr: this.MAC_EFUSE_REG });
+  public async read_mac(loader: ESPLoader) {
+    let mac0 = await loader.read_reg(this.MAC_EFUSE_REG);
     mac0 = mac0 >>> 0;
-    var mac1 = await loader.read_reg({ addr: this.MAC_EFUSE_REG + 4 });
+    let mac1 = await loader.read_reg(this.MAC_EFUSE_REG + 4);
     mac1 = (mac1 >>> 0) & 0x0000ffff;
-    var mac = new Uint8Array(6);
+    const mac = new Uint8Array(6);
     mac[0] = (mac1 >> 8) & 0xff;
     mac[1] = mac1 & 0xff;
     mac[2] = (mac0 >> 24) & 0xff;
@@ -164,9 +167,9 @@ export default class ESP32S3ROM {
       ":" +
       this._d2h(mac[5])
     );
-  };
+  }
 
-  static get_erase_size = function (offset, size) {
+  public get_erase_size(offset: number, size: number) {
     return size;
-  };
+  }
 }

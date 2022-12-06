@@ -1,0 +1,36 @@
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  ci:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - uses: actions/setup-node@v3
+        with:
+          node-version: 16
+          registry-url: 'https://registry.npmjs.org'
+      - name: Install dependencies and build 🔧
+        run: npm ci && npm run build
+      - name: Run lint 
+        run: npm run lint
+      - name: Run tests 
+        run: npm run test
+      - name: Package module
+        run: npm pack
+      - name: Determine version
+        id: version
+        run: |
+          ESPTOOLJS_VERSION=$(node -p "require('./package.json').version")
+          echo $ESPTOOLJS_VERSION
+          echo "version=$ESPTOOLJS_VERSION" >> $GITHUB_OUTPUT
+      - name: Upload npm package file
+        uses: actions/upload-artifact@v1
+        with:
+          name: esptool-js-${{ steps.version.outputs.version }}.tgz
+          path: esptool-js-${{ steps.version.outputs.version }}.tgz
