@@ -949,6 +949,17 @@ export class ESPLoader {
         seq++;
         if (reportProgress) reportProgress(i, bytes_sent, totalBytes);
       }
+      
+      // Start - dynamic timeout (Longer time is required with high compression ratio)
+      const compress_timout = (uncsize - bytes_sent) / 100000;
+      if ( compress_timout > 5 ) {
+        // e.g. 1000 milliseconds for every 100kB of compressed image
+        timeout += (compress_timout * 1000);
+        // Logs
+        console.log( "Dynamic timeout: " + timeout );
+      }
+      // End - dynamic timeout
+      
       if (this.IS_STUB) {
         await this.read_reg(this.CHIP_DETECT_MAGIC_REG_ADDR, timeout);
       }
