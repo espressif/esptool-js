@@ -24,7 +24,7 @@ export class ESP8266ROM extends ROM {
     "2MB-c1": 0x50,
     "4MB-c1": 0x60,
     "8MB": 0x80,
-    "16MB": 0x90,
+    "16MB": 0x90
   };
 
   public SPI_REG_BASE = 0x60000200;
@@ -188,7 +188,7 @@ export class ESP8266ROM extends ROM {
   public async read_efuse(loader: ESPLoader, offset: number) {
     const addr = this.EFUSE_RD_REG_BASE + 4 * offset;
     loader.log("Read efuse " + addr);
-    return await loader.read_reg(addr);
+    return await loader.readRegister(addr);
   }
 
   public async get_chip_description(loader: ESPLoader) {
@@ -201,13 +201,16 @@ export class ESP8266ROM extends ROM {
 
   public get_chip_features = async (loader: ESPLoader) => {
     const features = ["WiFi"];
-    if ((await this.get_chip_description(loader)) == "ESP8285") features.push("Embedded Flash");
+    if ((await this.get_chip_description(loader)) == "ESP8285")
+      features.push("Embedded Flash");
     return features;
   };
 
   public async get_crystal_freq(loader: ESPLoader) {
-    const uart_div = (await loader.read_reg(this.UART_CLKDIV_REG)) & this.UART_CLKDIV_MASK;
-    const ets_xtal = (loader.transport.baudrate * uart_div) / 1000000 / this.XTAL_CLK_DIVIDER;
+    const uart_div =
+      (await loader.readRegister(this.UART_CLKDIV_REG)) & this.UART_CLKDIV_MASK;
+    const ets_xtal =
+      (loader.transport.baudrate * uart_div) / 1000000 / this.XTAL_CLK_DIVIDER;
     let norm_xtal;
     if (ets_xtal > 33) {
       norm_xtal = 40;
@@ -220,7 +223,7 @@ export class ESP8266ROM extends ROM {
           ets_xtal +
           "MHz is quite different to normalized freq " +
           norm_xtal +
-          "MHz. Unsupported crystal in use?",
+          "MHz. Unsupported crystal in use?"
       );
     }
     return norm_xtal;

@@ -11,12 +11,12 @@ jobs:
       - uses: actions/setup-node@v3
         with:
           node-version: 16
-          registry-url: 'https://registry.npmjs.org'
+          registry-url: "https://registry.npmjs.org"
       - name: Install dependencies and build 🔧
         run: npm ci && npm run build
-      - name: Run lint 
+      - name: Run lint
         run: npm run lint
-      - name: Run tests 
+      - name: Run tests
         run: npm run test
       - name: Package module
         run: npm pack

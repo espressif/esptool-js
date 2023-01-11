@@ -1,18 +1,23 @@
-class Transport {
-  public slip_reader_enabled = false;
-  public left_over = new Uint8Array(0);
-  public baudrate = 0;
+import { TimeoutError } from "./error.js";
 
-  constructor(public device: SerialPort) {}
+export class Transport {
+  public slip_reader_enabled: boolean;
+  public left_over: Uint8Array;
+  public baudRate: number;
 
-  get_info() {
-    const info = this.device.getInfo();
-    return info.usbVendorId && info.usbProductId
-      ? `WebSerial VendorID 0x${info.usbVendorId.toString(16)} ProductID 0x${info.usbProductId.toString(16)}`
-      : "";
+  constructor(public device: SerialPort) {
+    this.slip_reader_enabled = false;
+    this.left_over = new Uint8Array(0);
   }
 
-  slip_writer(data: Uint8Array) {
+  public get_info() {
+    const info = this.device.getInfo();
+    return `WebSerial VendorID 0x${
+      info.usbVendorId?.toString(16) ?? ""
+    } ProductID 0x${info.usbProductId?.toString(16) ?? ""}`;
+  }
+
+  public slipWriter(data: Uint8Array) {
     let count_esc = 0;
     let i = 0,
       j = 0;
@@ -43,17 +48,17 @@ class Transport {
     return out_data;
   }
 
-  async write(data: Uint8Array) {
-    const out_data = this.slip_writer(data);
+  public async write(data: Uint8Array) {
+    const outputData = this.slipWriter(data);
 
     if (this.device.writable) {
       const writer = this.device.writable.getWriter();
-      await writer.write(out_data);
+      await writer.write(outputData);
       writer.releaseLock();
     }
   }
 
-  _appendBuffer(buffer1: ArrayBuffer, buffer2: ArrayBuffer) {
+  public _appendBuffer(buffer1: Uint8Array, buffer2: Uint8Array) {
     const tmp = new Uint8Array(buffer1.byteLength + buffer2.byteLength);
     tmp.set(new Uint8Array(buffer1), 0);
     tmp.set(new Uint8Array(buffer2), buffer1.byteLength);
@@ -62,7 +67,7 @@ class Transport {
 
   /* this function expects complete packet (hence reader reads for atleast 8 bytes. This function is
    * stateless and returns the first wellformed packet only after replacing escape sequence */
-  slip_reader(data: Uint8Array) {
+  public slip_reader(data: Uint8Array) {
     let i = 0;
     let data_start = 0,
       data_end = 0;
@@ -102,11 +107,14 @@ class Transport {
       }
       temp_pkt[j] = data[i];
     }
-    const packet = temp_pkt.slice(0, j); /* Remove unused bytes due to escape seq */
+    const packet = temp_pkt.slice(
+      0,
+      j
+    ); /* Remove unused bytes due to escape seq */
     return packet;
   }
 
-  async read(timeout = 0, min_data = 12) {
+  public async read(timeout = 0, min_data = 12) {
     console.log("Read with timeout " + timeout);
     let t;
     let packet = this.left_over;
@@ -134,9 +142,9 @@ class Transport {
         const { value, done } = await reader.read();
         if (done) {
           this.left_over = packet;
-          throw new Error("Timeout");
+          throw new TimeoutError("Timeout");
         }
-        const p = new Uint8Array(this._appendBuffer(packet.buffer, value.buffer));
+        const p = new Uint8Array(this._appendBuffer(packet, value));
         packet = p;
       } while (packet.length < min_data);
     } finally {
@@ -151,7 +159,7 @@ class Transport {
     return packet;
   }
 
-  async rawRead(timeout = 0) {
+  public async rawRead(timeout: number) {
     if (this.left_over.length != 0) {
       const p = this.left_over;
       this.left_over = new Uint8Array(0);
@@ -170,7 +178,7 @@ class Transport {
       }
       const { value, done } = await reader.read();
       if (done) {
-        throw new Error("Timeout");
+        throw new TimeoutError("Timeout");
       }
       return value;
     } finally {
@@ -181,25 +189,24 @@ class Transport {
     }
   }
 
-  async setRTS(state: boolean) {
+  public async setRTS(state: boolean) {
     await this.device.setSignals({ requestToSend: state });
   }
 
-  async setDTR(state: boolean) {
+  public async setDTR(state: boolean) {
     await this.device.setSignals({ dataTerminalReady: state });
   }
 
-  async connect(baud = 115200) {
-    await this.device.open({ baudRate: baud });
-    this.baudrate = baud;
+  public async connect(baud?: number) {
+    await this.device.open({ baudRate: baud ?? 115200 });
     this.left_over = new Uint8Array(0);
   }
 
-  async sleep(ms: number) {
+  public async sleep(ms: number) {
     return new Promise((resolve) => setTimeout(resolve, ms));
   }
 
-  async waitForUnlock(timeout: number) {
+  public async waitForUnlock(timeout: number) {
     while (
       (this.device.readable && this.device.readable.locked) ||
       (this.device.writable && this.device.writable.locked)
@@ -208,10 +215,8 @@ class Transport {
     }
   }
 
-  async disconnect() {
+  public async disconnect() {
     await this.waitForUnlock(400);
     await this.device.close();
   }
 }
-
-export { Transport };

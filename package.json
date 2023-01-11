@@ -9,15 +9,10 @@
     "bundle.js"
   ],
   "scripts": {
-    "build": "npm run clean && tsc",
-    "clean": "rimraf lib bundle.js",
-    "format": "prettier --write \"src/**/*.ts\" \"src/**/*.js\"",
-    "lint": "eslint . --ext .ts",
-    "lintAndFix": "eslint . --ext .ts --fix",
-    "prepare": "npm run build",
-    "test": "echo \"Error: no test specified\"",
-    "prepublishOnly": "npm run test && npm run lint",
-    "rollup": "npm run build && rollup --config"
+    "build": "tsc",
+    "format:check": "prettier --check . && eslint src/**/*.ts",
+    "format:fix": "prettier --write . && eslint --fix src/**/*.ts",
+    "rollup": "rollup --config"
   },
   "repository": {
     "type": "git",
