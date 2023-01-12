@@ -84,6 +84,8 @@ export class ESPLoader {
     0x18: "16MB",
   };
 
+  USB_JTAG_SERIAL_PID = 0x1001;
+
   chip: ROM;
   IS_STUB: boolean;
   FLASH_WRITE_SIZE: number;
@@ -278,20 +280,40 @@ export class ESPLoader {
   async _connect_attempt(mode = "default_reset", esp32r0_delay = false) {
     this.log("_connect_attempt " + mode + " " + esp32r0_delay);
     if (mode !== "no_reset") {
-      await this.transport.setDTR(false);
-      await this.transport.setRTS(true);
-      await this._sleep(100);
-      if (esp32r0_delay) {
-        //await this._sleep(1200);
-        await this._sleep(2000);
+      if (this.transport.get_pid() === this.USB_JTAG_SERIAL_PID) {
+        // Custom reset sequence, which is required when the device
+        // is connecting via its USB-JTAG-Serial peripheral
+        await this.transport.setRTS(false);
+        await this.transport.setDTR(false);
+        await this._sleep(100);
+
+        await this.transport.setDTR(true);
+        await this.transport.setRTS(false);
+        await this._sleep(100);
+
+        await this.transport.setRTS(true);
+        await this.transport.setDTR(false);
+        await this.transport.setRTS(true);
+
+        await this._sleep(100);
+        await this.transport.setRTS(false);
+        await this.transport.setDTR(false);
+      } else {
+        await this.transport.setDTR(false);
+        await this.transport.setRTS(true);
+        await this._sleep(100);
+        if (esp32r0_delay) {
+          //await this._sleep(1200);
+          await this._sleep(2000);
+        }
+        await this.transport.setDTR(true);
+        await this.transport.setRTS(false);
+        if (esp32r0_delay) {
+          //await this._sleep(400);
+        }
+        await this._sleep(50);
+        await this.transport.setDTR(false);
       }
-      await this.transport.setDTR(true);
-      await this.transport.setRTS(false);
-      if (esp32r0_delay) {
-        //await this._sleep(400);
-      }
-      await this._sleep(50);
-      await this.transport.setDTR(false);
     }
     let i = 0;
     let keepReading = true;
@@ -999,22 +1021,22 @@ export class ESPLoader {
   }
 
   async hard_reset() {
-    this.transport.setRTS(true); // EN->LOW
+    await this.transport.setRTS(true); // EN->LOW
     await this._sleep(100);
-    this.transport.setRTS(false);
+    await this.transport.setRTS(false);
   }
 
   async soft_reset() {
     if (!this.IS_STUB) {
       // "run user code" is as close to a soft reset as we can do
-      this.flash_begin(0, 0);
-      this.flash_finish(false);
+      await this.flash_begin(0, 0);
+      await this.flash_finish(false);
     } else if (this.chip.CHIP_NAME != "ESP8266") {
       throw new ESPError("Soft resetting is currently only supported on ESP8266");
     } else {
       // running user code from stub loader requires some hacks
       // in the stub loader
-      this.command(this.ESP_RUN_USER_CODE, undefined, undefined, false);
+      await this.command(this.ESP_RUN_USER_CODE, undefined, undefined, false);
     }
   }
 }

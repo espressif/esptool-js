@@ -12,6 +12,10 @@ class Transport {
       : "";
   }
 
+  get_pid() {
+    return this.device.getInfo().usbProductId;
+  }
+
   slip_writer(data: Uint8Array) {
     let count_esc = 0;
     let i = 0,
@@ -181,11 +185,18 @@ class Transport {
     }
   }
 
+  _DTR_state = false;
   async setRTS(state: boolean) {
     await this.device.setSignals({ requestToSend: state });
+    // # Work-around for adapters on Windows using the usbser.sys driver:
+    // # generate a dummy change to DTR so that the set-control-line-state
+    // # request is sent with the updated RTS state and the same DTR state
+    // Referenced to esptool.py
+    await this.setDTR(this._DTR_state);
   }
 
   async setDTR(state: boolean) {
+    this._DTR_state = state;
     await this.device.setSignals({ dataTerminalReady: state });
   }
 
