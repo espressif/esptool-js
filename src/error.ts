@@ -1,5 +1,3 @@
-class ESPError extends Error {}
+export class ESPError extends Error {}
 
-class TimeoutError extends ESPError {}
-
-export { ESPError, TimeoutError };
+export class TimeoutError extends ESPError {}

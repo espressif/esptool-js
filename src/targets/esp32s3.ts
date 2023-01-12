@@ -18,7 +18,7 @@ export class ESP32S3ROM extends ROM {
     "2MB": 0x10,
     "4MB": 0x20,
     "8MB": 0x30,
-    "16MB": 0x40,
+    "16MB": 0x40
   };
 
   public SPI_REG_BASE = 0x60002000;
@@ -134,7 +134,7 @@ export class ESP32S3ROM extends ROM {
   }
 
   public async _post_connect(loader: ESPLoader) {
-    const buf_no = (await loader.read_reg(this.UARTDEV_BUF_NO)) & 0xff;
+    const buf_no = (await loader.readRegister(this.UARTDEV_BUF_NO)) & 0xff;
     console.log("In _post_connect " + buf_no);
     if (buf_no == this.UARTDEV_BUF_NO_USB) {
       loader.ESP_RAM_BLOCK = this.USB_RAM_BLOCK;
@@ -142,9 +142,9 @@ export class ESP32S3ROM extends ROM {
   }
 
   public async read_mac(loader: ESPLoader) {
-    let mac0 = await loader.read_reg(this.MAC_EFUSE_REG);
+    let mac0 = await loader.readRegister(this.MAC_EFUSE_REG);
     mac0 = mac0 >>> 0;
-    let mac1 = await loader.read_reg(this.MAC_EFUSE_REG + 4);
+    let mac1 = await loader.readRegister(this.MAC_EFUSE_REG + 4);
     mac1 = (mac1 >>> 0) & 0x0000ffff;
     const mac = new Uint8Array(6);
     mac[0] = (mac1 >> 8) & 0xff;

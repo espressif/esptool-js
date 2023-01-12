@@ -1,4 +1,2 @@
 node_modules
-lib
-bundle.js
-esptool-js-*.tgz
+dist

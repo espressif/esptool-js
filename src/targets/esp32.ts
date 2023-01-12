@@ -16,7 +16,7 @@ export class ESP32ROM extends ROM {
     "2MB": 0x10,
     "4MB": 0x20,
     "8MB": 0x30,
-    "16MB": 0x40,
+    "16MB": 0x40
   };
 
   public FLASH_WRITE_SIZE = 0x400;
@@ -99,7 +99,7 @@ export class ESP32ROM extends ROM {
   public async read_efuse(loader: ESPLoader, offset: number) {
     const addr = this.EFUSE_RD_REG_BASE + 4 * offset;
     loader.log("Read efuse " + addr);
-    return await loader.read_reg(addr);
+    return await loader.readRegister(addr);
   }
 
   public async get_pkg_version(loader: ESPLoader) {
@@ -112,7 +112,9 @@ export class ESP32ROM extends ROM {
   public async get_chip_revision(loader: ESPLoader) {
     const word3 = await this.read_efuse(loader, 3);
     const word5 = await this.read_efuse(loader, 5);
-    const apb_ctl_date = await loader.read_reg(this.DR_REG_SYSCON_BASE + 0x7c);
+    const apb_ctl_date = await loader.readRegister(
+      this.DR_REG_SYSCON_BASE + 0x7c
+    );
 
     const rev_bit0 = (word3 >> 15) & 0x1;
     const rev_bit1 = (word5 >> 20) & 0x1;
@@ -139,7 +141,7 @@ export class ESP32ROM extends ROM {
       "",
       "ESP32-U4WDH",
       "ESP32-PICO-D4",
-      "ESP32-PICO-V3-02",
+      "ESP32-PICO-V3-02"
     ];
     let chip_name = "";
     const pkg_version = await this.get_pkg_version(loader);
@@ -214,15 +216,22 @@ export class ESP32ROM extends ROM {
 
     const word6 = await this.read_efuse(loader, 6);
     const coding_scheme = word6 & 0x3;
-    const coding_scheme_arr = ["None", "3/4", "Repeat (UNSUPPORTED)", "Invalid"];
+    const coding_scheme_arr = [
+      "None",
+      "3/4",
+      "Repeat (UNSUPPORTED)",
+      "Invalid"
+    ];
     features.push(" Coding Scheme " + coding_scheme_arr[coding_scheme]);
 
     return features;
   }
 
   public async get_crystal_freq(loader: ESPLoader) {
-    const uart_div = (await loader.read_reg(this.UART_CLKDIV_REG)) & this.UART_CLKDIV_MASK;
-    const ets_xtal = (loader.transport.baudrate * uart_div) / 1000000 / this.XTAL_CLK_DIVIDER;
+    const uart_div =
+      (await loader.readRegister(this.UART_CLKDIV_REG)) & this.UART_CLKDIV_MASK;
+    const ets_xtal =
+      (loader.transport.baudrate * uart_div) / 1000000 / this.XTAL_CLK_DIVIDER;
     let norm_xtal;
     if (ets_xtal > 33) {
       norm_xtal = 40;
