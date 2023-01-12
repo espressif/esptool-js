@@ -353,7 +353,6 @@ export class ESPLoader {
     }
     this.write_char("\n");
     this.write_char("\r");
-    await this.flush_input();
 
     if (!detecting) {
       const chip_magic_value = (await this.read_reg(0x40001000)) >>> 0;
