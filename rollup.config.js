@@ -2,6 +2,7 @@ const resolve = require('@rollup/plugin-node-resolve');
 const babel =  require("@rollup/plugin-babel");
 const commonjs = require('@rollup/plugin-commonjs');
 const terser = require('@rollup/plugin-terser');
+const json = require('@rollup/plugin-json');
 
 // rollup.config.js
 /**
@@ -19,6 +20,7 @@ const config = {
     resolve(),
     commonjs(),
     babel({ exclude: 'node_modules/**', babelHelpers: "runtime", skipPreflightCheck: true }),
+    json({ namedExports: false, preferConst: true }),
     terser()
   ],
 };

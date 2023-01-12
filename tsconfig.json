@@ -7,7 +7,8 @@
     "outDir": "./lib",
     "moduleResolution": "node",
     "lib": ["ES2020", "DOM"],
-    "importHelpers": true
+    "importHelpers": true,
+    "resolveJsonModule": true
   },
   "include": ["src/**/*"]
 }
