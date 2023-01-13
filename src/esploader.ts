@@ -708,8 +708,7 @@ export class ESPLoader {
     let chardata = decoded.split("").map(function (x) {
       return x.charCodeAt(0);
     });
-    const bindata = new Uint8Array(chardata);
-    const text = inflate(bindata);
+    const text = new Uint8Array(chardata);
 
     decoded = atob(this.chip.ROM_DATA);
     chardata = decoded.split("").map(function (x) {
