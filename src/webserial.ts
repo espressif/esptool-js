@@ -111,7 +111,6 @@ class Transport {
   }
 
   async read(timeout = 0, min_data = 12) {
-    console.log("Read with timeout " + timeout);
     let t;
     let packet = this.left_over;
     this.left_over = new Uint8Array(0);

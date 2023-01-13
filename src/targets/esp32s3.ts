@@ -56,7 +56,7 @@ export class ESP32S3ROM extends ROM {
 
   public async _post_connect(loader: ESPLoader) {
     const buf_no = (await loader.read_reg(this.UARTDEV_BUF_NO)) & 0xff;
-    console.log("In _post_connect " + buf_no);
+    loader.debug("In _post_connect " + buf_no);
     if (buf_no == this.UARTDEV_BUF_NO_USB) {
       loader.ESP_RAM_BLOCK = this.USB_RAM_BLOCK;
     }
