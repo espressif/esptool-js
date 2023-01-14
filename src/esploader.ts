@@ -1,5 +1,5 @@
 import { ESPError } from "./error";
-import { inflate, deflate } from "pako";
+import { deflate } from "pako";
 import { Transport } from "./webserial";
 import { ROM } from "./targets/rom";
 
