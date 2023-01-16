@@ -44,7 +44,7 @@ export class ESP8266ROM extends ROM {
 
   public async read_efuse(loader: ESPLoader, offset: number) {
     const addr = this.EFUSE_RD_REG_BASE + 4 * offset;
-    loader.log("Read efuse " + addr);
+    loader.debug("Read efuse " + addr);
     return await loader.read_reg(addr);
   }
 
@@ -72,7 +72,7 @@ export class ESP8266ROM extends ROM {
       norm_xtal = 26;
     }
     if (Math.abs(norm_xtal - ets_xtal) > 1) {
-      loader.log(
+      loader.info(
         "WARNING: Detected crystal freq " +
           ets_xtal +
           "MHz is quite different to normalized freq " +
@@ -110,7 +110,7 @@ export class ESP8266ROM extends ROM {
       mac[1] = 0xd0;
       mac[2] = 0x74;
     } else {
-      loader.log("Unknown OUI");
+      loader.error("Unknown OUI");
     }
 
     mac[3] = (mac1 >> 8) & 0xff;

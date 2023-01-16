@@ -12,7 +12,6 @@ const programDiv = document.getElementById('program');
 const consoleDiv = document.getElementById('console');
 const lblBaudrate = document.getElementById('lblBaudrate');
 const lblConnTo = document.getElementById('lblConnTo');
-const tableBody = document.getElementById('tableBody');
 const table = document.getElementById('fileTable');
 const alertDiv = document.getElementById('alertDiv');
 
@@ -30,32 +29,12 @@ let chip = null;
 let esploader;
 let file1 = null;
 let connected = false;
-let index = 1;
 
 disconnectButton.style.display = 'none';
 eraseButton.style.display = 'none';
 consoleStopButton.style.display = 'none';
 filesDiv.style.display = 'none';
 
-function convertUint8ArrayToBinaryString(u8Array) {
-  var i,
-    len = u8Array.length,
-    b_str = '';
-  for (i = 0; i < len; i++) {
-    b_str += String.fromCharCode(u8Array[i]);
-  }
-  return b_str;
-}
-
-function convertBinaryStringToUint8Array(bStr) {
-  var i,
-    len = bStr.length,
-    u8_array = new Uint8Array(len);
-  for (var i = 0; i < len; i++) {
-    u8_array[i] = bStr.charCodeAt(i);
-  }
-  return u8_array;
-}
 
 function handleFileSelect(evt) {
   var file = evt.target.files[0];
@@ -74,10 +53,6 @@ function handleFileSelect(evt) {
   reader.readAsBinaryString(file);
 }
 
-function _sleep(ms) {
-  return new Promise((resolve) => setTimeout(resolve, ms));
-}
-
 let espLoaderTerminal = {
   clean() {
     term.clear();
@@ -91,10 +66,6 @@ let espLoaderTerminal = {
 }
 
 connectButton.onclick = async () => {
-  //    device = await navigator.usb.requestDevice({
-  //        filters: [{ vendorId: 0x10c4 }]
-  //    });
-
   if (device === null) {
     device = await navigator.serial.requestPort({});
     transport = new Transport(device);

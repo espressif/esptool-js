@@ -39,7 +39,7 @@ export class ESP32ROM extends ROM {
 
   public async read_efuse(loader: ESPLoader, offset: number) {
     const addr = this.EFUSE_RD_REG_BASE + 4 * offset;
-    loader.log("Read efuse " + addr);
+    loader.debug("Read efuse " + addr);
     return await loader.read_reg(addr);
   }
 
@@ -171,7 +171,7 @@ export class ESP32ROM extends ROM {
       norm_xtal = 26;
     }
     if (Math.abs(norm_xtal - ets_xtal) > 1) {
-      loader.log("WARNING: Unsupported crystal in use");
+      loader.info("WARNING: Unsupported crystal in use");
     }
     return norm_xtal;
   }
