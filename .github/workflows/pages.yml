@@ -33,7 +33,7 @@ jobs:
       - name: Install Node modules
         run: |
           npm install
-          npm run rollup
+          npm run build
       - name: Setup Pages
         uses: actions/configure-pages@v2
       - name: Upload artifact
