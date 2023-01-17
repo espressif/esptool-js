@@ -12,7 +12,8 @@
     "forceConsistentCasingInFileNames": true,
     "lib": ["ES2020", "DOM"],
     "importHelpers": true,
-    "resolveJsonModule": true
+    "resolveJsonModule": true,
+    "strict": true
   },
   "include": ["src/**/*"]
 }
