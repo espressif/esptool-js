@@ -93,7 +93,7 @@ export class ESPLoader {
   constructor(
     public transport: Transport,
     private baudrate: number,
-    private terminal: IEspLoaderTerminal,
+    private terminal?: IEspLoaderTerminal,
     private rom_baudrate = 115200,
     private debugLogging = false,
   ) {
