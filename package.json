@@ -26,10 +26,8 @@
     "url": "https://github.com/espressif/esptool-js/issues"
   },
   "dependencies": {
-    "crypto-js": "^4.0.0",
     "pako": "^2.1.0",
-    "tslib": "^2.4.1",
-    "xterm": "^4.13.0"
+    "tslib": "^2.4.1"
   },
   "devDependencies": {
     "@rollup/plugin-babel": "^6.0.2",
