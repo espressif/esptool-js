@@ -788,7 +788,9 @@ export class ESPLoader {
 
     await this.run_stub();
 
-    await this.change_baud();
+    if (this.rom_baudrate !== this.baudrate) {
+      await this.change_baud();
+    }
     return chip;
   }
 
