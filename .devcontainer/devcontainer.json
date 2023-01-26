@@ -1,0 +1,18 @@
+{
+	"name": "esptool.js",
+	"image": "mcr.microsoft.com/devcontainers/typescript-node:0-18-bullseye",
+
+	"features": {
+		"ghcr.io/devcontainers-contrib/features/npm-package:1": {
+			"package": "http-server"
+		}
+	},
+	"forwardPorts": [ 5001 ],
+	"customizations": {
+		"vscode": {
+			"settings": {
+				"task.allowAutomaticTasks": "on"
+			}
+		}
+	}
+}
