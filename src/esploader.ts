@@ -104,7 +104,7 @@ export class ESPLoader {
       this.terminal.clean();
     }
 
-    this.info("esptool.js v0.1-dev");
+    this.info("esptool.js");
     this.info("Serial port " + this.transport.get_info());
   }
 
