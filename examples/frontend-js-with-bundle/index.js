@@ -15,8 +15,10 @@ const lblConnTo = document.getElementById('lblConnTo');
 const table = document.getElementById('fileTable');
 const alertDiv = document.getElementById('alertDiv');
 
-// import { Transport } from './cp210x-webusb.js'
-import * as esptooljs from "./bundle.js";
+// This is a frontend example of Esptool-JS using local bundle file
+// To optimize use a CDN hosted version like
+// https://unpkg.com/esptool-js@0.2.0/bundle.js
+import * as esptooljs from "../../bundle.js";
 const ESPLoader = esptooljs.ESPLoader;
 const Transport = esptooljs.Transport;
 
