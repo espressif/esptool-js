@@ -3,3 +3,4 @@ lib
 bundle.js
 esptool-js-*.tgz
 .vscode/settings.json
+.parcel-cache

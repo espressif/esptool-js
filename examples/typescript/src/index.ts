@@ -1,34 +1,37 @@
-const baudrates = document.getElementById("baudrates");
-const connectButton = document.getElementById("connectButton");
-const disconnectButton = document.getElementById("disconnectButton");
-const resetButton = document.getElementById("resetButton");
-const consoleStartButton = document.getElementById("consoleStartButton");
-const consoleStopButton = document.getElementById("consoleStopButton");
-const eraseButton = document.getElementById("eraseButton");
+const baudrates = document.getElementById("baudrates") as HTMLSelectElement;
+const connectButton = document.getElementById("connectButton") as HTMLButtonElement;
+const disconnectButton = document.getElementById("disconnectButton") as HTMLButtonElement;
+const resetButton = document.getElementById("resetButton") as HTMLButtonElement;
+const consoleStartButton = document.getElementById("consoleStartButton") as HTMLButtonElement;
+const consoleStopButton = document.getElementById("consoleStopButton") as HTMLButtonElement;
+const eraseButton = document.getElementById("eraseButton") as HTMLButtonElement;
+const addFileButton = document.getElementById("addFile") as HTMLButtonElement;
 const programButton = document.getElementById("programButton");
 const filesDiv = document.getElementById("files");
 const terminal = document.getElementById("terminal");
 const programDiv = document.getElementById("program");
 const consoleDiv = document.getElementById("console");
 const lblBaudrate = document.getElementById("lblBaudrate");
+const lblConsoleFor = document.getElementById("lblConsoleFor");
 const lblConnTo = document.getElementById("lblConnTo");
-const table = document.getElementById("fileTable");
+const table = document.getElementById("fileTable") as HTMLTableElement;
 const alertDiv = document.getElementById("alertDiv");
 
-// import { Transport } from './cp210x-webusb.js'
-import * as esptooljs from "./bundle.js";
-const ESPLoader = esptooljs.ESPLoader;
-const Transport = esptooljs.Transport;
+// This is a frontend example of Esptool-JS using local bundle file
+// To optimize use a CDN hosted version like
+// https://unpkg.com/esptool-js@0.2.0/bundle.js
+import { ESPLoader, FlashOptions, LoaderOptions, Transport } from "../../../lib";
 
-let term = new Terminal({ cols: 120, rows: 40 });
+declare let Terminal; // Terminal is imported in HTML script
+declare let CryptoJS; // CryptoJS is imported in HTML script
+
+const term = new Terminal({ cols: 120, rows: 40 });
 term.open(terminal);
 
 let device = null;
-let transport;
-let chip = null;
-let esploader;
-let file1 = null;
-let connected = false;
+let transport: Transport;
+let chip: string = null;
+let esploader: ESPLoader;
 
 disconnectButton.style.display = "none";
 eraseButton.style.display = "none";
@@ -36,23 +39,20 @@ consoleStopButton.style.display = "none";
 filesDiv.style.display = "none";
 
 function handleFileSelect(evt) {
-  var file = evt.target.files[0];
+  const file = evt.target.files[0];
 
   if (!file) return;
 
-  var reader = new FileReader();
+  const reader = new FileReader();
 
-  reader.onload = (function (theFile) {
-    return function (e) {
-      file1 = e.target.result;
-      evt.target.data = file1;
-    };
-  })(file);
+  reader.onload = (ev: ProgressEvent<FileReader>) => {
+    evt.target.data = ev.target.result;
+  };
 
   reader.readAsBinaryString(file);
 }
 
-let espLoaderTerminal = {
+const espLoaderTerminal = {
   clean() {
     term.clear();
   },
@@ -71,13 +71,12 @@ connectButton.onclick = async () => {
   }
 
   try {
-    const loaderOptions = {
-      transport: transport,
-      baudrate: baudrates.value,
-      terminal: espLoaderTerminal
-    };
-    esploader = new ESPLoader(loaderOptions);
-    connected = true;
+    const flashOptions = {
+      transport,
+      baudrate: parseInt(baudrates.value),
+      terminal: espLoaderTerminal,
+    } as LoaderOptions;
+    esploader = new ESPLoader(flashOptions);
 
     chip = await esploader.main_fn();
 
@@ -123,21 +122,21 @@ eraseButton.onclick = async () => {
   }
 };
 
-addFile.onclick = () => {
-  var rowCount = table.rows.length;
-  var row = table.insertRow(rowCount);
+addFileButton.onclick = () => {
+  const rowCount = table.rows.length;
+  const row = table.insertRow(rowCount);
 
   //Column 1 - Offset
-  var cell1 = row.insertCell(0);
-  var element1 = document.createElement("input");
+  const cell1 = row.insertCell(0);
+  const element1 = document.createElement("input");
   element1.type = "text";
   element1.id = "offset" + rowCount;
   element1.value = "0x1000";
   cell1.appendChild(element1);
 
   // Column 2 - File selector
-  var cell2 = row.insertCell(1);
-  var element2 = document.createElement("input");
+  const cell2 = row.insertCell(1);
+  const element2 = document.createElement("input");
   element2.type = "file";
   element2.id = "selectFile" + rowCount;
   element2.name = "selected_File" + rowCount;
@@ -145,18 +144,18 @@ addFile.onclick = () => {
   cell2.appendChild(element2);
 
   // Column 3  - Progress
-  var cell3 = row.insertCell(2);
+  const cell3 = row.insertCell(2);
   cell3.classList.add("progress-cell");
   cell3.style.display = "none";
   cell3.innerHTML = `<progress value="0" max="100"></progress>`;
 
   // Column 4  - Remove File
-  var cell4 = row.insertCell(3);
+  const cell4 = row.insertCell(3);
   cell4.classList.add("action-cell");
   if (rowCount > 1) {
-    var element4 = document.createElement("input");
+    const element4 = document.createElement("input");
     element4.type = "button";
-    var btnName = "button" + rowCount;
+    const btnName = "button" + rowCount;
     element4.name = btnName;
     element4.setAttribute("class", "btn");
     element4.setAttribute("value", "Remove"); // or element1.value = "button";
@@ -183,7 +182,6 @@ disconnectButton.onclick = async () => {
   if (transport) await transport.disconnect();
 
   term.clear();
-  connected = false;
   baudrates.style.display = "initial";
   connectButton.style.display = "initial";
   disconnectButton.style.display = "none";
@@ -210,7 +208,7 @@ consoleStartButton.onclick = async () => {
   isConsoleClosed = false;
 
   while (true && !isConsoleClosed) {
-    let val = await transport.rawRead();
+    const val = await transport.rawRead();
     if (typeof val !== "undefined") {
       term.write(val);
     } else {
@@ -231,9 +229,9 @@ consoleStopButton.onclick = async () => {
 };
 
 function validate_program_inputs() {
-  let offsetArr = [];
-  var rowCount = table.rows.length;
-  var row;
+  const offsetArr = [];
+  const rowCount = table.rows.length;
+  let row;
   let offset = 0;
   let fileData = null;
 
@@ -242,7 +240,7 @@ function validate_program_inputs() {
     row = table.rows[index];
 
     //offset fields checks
-    var offSetObj = row.cells[0].childNodes[0];
+    const offSetObj = row.cells[0].childNodes[0];
     offset = parseInt(offSetObj.value);
 
     // Non-numeric or blank offset
@@ -251,7 +249,7 @@ function validate_program_inputs() {
     else if (offsetArr.includes(offset)) return "Offset field in row " + index + " is already in use!";
     else offsetArr.push(offset);
 
-    var fileObj = row.cells[1].childNodes[0];
+    const fileObj = row.cells[1].childNodes[0];
     fileData = fileObj.data;
     if (fileData == null) return "No file selected for row " + index + "!";
   }
@@ -278,33 +276,31 @@ programButton.onclick = async () => {
     const row = table.rows[index];
 
     const offSetObj = row.cells[0].childNodes[0];
-    const offset = parseInt(offSetObj.value);
+    const offset = parseInt(offSetObj.textContent);
 
     const fileObj = row.cells[1].childNodes[0];
     const progressBar = row.cells[2].childNodes[0];
 
-    progressBar.value = 0;
+    progressBar.textContent = "0";
     progressBars.push(progressBar);
 
     row.cells[2].style.display = "initial";
     row.cells[3].style.display = "none";
 
-    fileArray.push({ data: fileObj.data, address: offset });
+    fileArray.push({ data: fileObj.textContent, address: offset });
   }
 
   try {
-    const flashOptions = {
-      fileArray,
+    const flashOptions: FlashOptions = {
+      fileArray: fileArray,
       flashSize: "keep",
-      flashMode: undefined,
-      flashFreq: undefined,
       eraseAll: false,
       compress: true,
       reportProgress: (fileIndex, written, total) => {
         progressBars[fileIndex].value = (written / total) * 100;
       },
       calculateMD5Hash: (image) => CryptoJS.MD5(CryptoJS.enc.Latin1.parse(image)),
-    };
+    } as FlashOptions;
     await esploader.write_flash(flashOptions);
   } catch (e) {
     console.error(e);
@@ -318,4 +314,4 @@ programButton.onclick = async () => {
   }
 };
 
-addFile.onclick();
+addFileButton.onclick(this);
