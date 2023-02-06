@@ -3,7 +3,7 @@ import { deflate } from "pako";
 import { Transport } from "./webserial";
 import { ROM } from "./targets/rom";
 
-async function magic2Chip(magic: number): Promise<ROM> {
+async function magic2Chip(magic: number): Promise<ROM | null> {
   switch (magic) {
     case 0x00f01d83: {
       const { ESP32ROM } = await import("./targets/esp32");
@@ -86,7 +86,7 @@ export class ESPLoader {
 
   USB_JTAG_SERIAL_PID = 0x1001;
 
-  chip: ROM;
+  chip!: ROM;
   IS_STUB: boolean;
   FLASH_WRITE_SIZE: number;
 
@@ -98,7 +98,6 @@ export class ESPLoader {
     private debugLogging = false,
   ) {
     this.IS_STUB = false;
-    this.chip = null;
     this.FLASH_WRITE_SIZE = 0x4000;
     if (this.terminal) {
       this.terminal.clean();
@@ -189,7 +188,7 @@ export class ESPLoader {
     try {
       await this.transport.rawRead(200);
     } catch (e) {
-      this.error(e);
+      this.error((e as Error).message);
     }
   }
 
@@ -328,7 +327,7 @@ export class ESPLoader {
         const res = await this.transport.read(1000);
         i += res.length;
       } catch (e) {
-        this.debug(e);
+        this.debug((e as Error).message);
         if (e instanceof Error) {
           keepReading = false;
           break;
@@ -344,7 +343,6 @@ export class ESPLoader {
         this.debug(resp[0].toString());
         return "success";
       } catch (error) {
-        this.debug(error);
         if (error instanceof Error) {
           if (esp32r0_delay) {
             this.info("_", false);
@@ -381,9 +379,11 @@ export class ESPLoader {
     if (!detecting) {
       const chip_magic_value = (await this.read_reg(0x40001000)) >>> 0;
       this.debug("Chip Magic " + chip_magic_value.toString(16));
-      this.chip = await magic2Chip(chip_magic_value);
+      const chip = await magic2Chip(chip_magic_value);
       if (this.chip === null) {
         throw new ESPError(`Unexpected CHIP magic value ${chip_magic_value}. Failed to autodetect chip type.`);
+      } else {
+        this.chip = chip as ROM;
       }
     }
   }
@@ -768,7 +768,7 @@ export class ESPLoader {
     try {
       await this.transport.rawRead(500);
     } catch (e) {
-      this.debug(e);
+      this.debug((e as Error).message);
     }
   }
 
@@ -912,7 +912,7 @@ export class ESPLoader {
         continue;
       }
       image = this._update_image_flash_params(image, address, flash_size, flash_mode, flash_freq);
-      let calcmd5: string;
+      let calcmd5: string | null = null;
       if (calculateMD5Hash) {
         calcmd5 = calculateMD5Hash(image);
         this.debug("Image MD5 " + calcmd5);

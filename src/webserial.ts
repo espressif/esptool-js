@@ -122,7 +122,7 @@ class Transport {
       packet = this.left_over;
       this.left_over = new Uint8Array(0);
     }
-    if (typeof this.device.readable == "undefined") {
+    if (this.device.readable == null) {
       return this.left_over;
     }
 
