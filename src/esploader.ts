@@ -1,5 +1,5 @@
 import { ESPError } from "./error";
-import { deflate } from "pako";
+import { Data, deflate, Inflate } from "pako";
 import { Transport } from "./webserial";
 import { ROM } from "./targets/rom";
 
@@ -935,32 +935,39 @@ export class ESPLoader {
       const t1 = d.getTime();
 
       let timeout = 5000;
+      // Create a decompressor to keep track of the size of uncompressed data
+      // to be written in each chunk.
+      const inflate = new Inflate({ chunkSize: 1 });
+      let total_len_uncompressed = 0;
+      inflate.onData = function (chunk: Data): void {
+        total_len_uncompressed += chunk.byteLength;
+      };
       while (image.length > 0) {
         this.debug("Write loop " + address + " " + seq + " " + blocks);
         this.info(
           "Writing at 0x" +
-            (address + seq * this.FLASH_WRITE_SIZE).toString(16) +
+            (address + total_len_uncompressed).toString(16) +
             "... (" +
             Math.floor((100 * (seq + 1)) / blocks) +
             "%)",
         );
         const block = this.bstrToUi8(image.slice(0, this.FLASH_WRITE_SIZE));
+
         if (compress) {
-          /*
-                let block_uncompressed = pako.inflate(block).length;
-                //let len_uncompressed = block_uncompressed.length;
-                bytes_written += block_uncompressed;
-                if (this.timeout_per_mb(this.ERASE_WRITE_TIMEOUT_PER_MB, block_uncompressed) > 3000) {
-                    block_timeout = this.timeout_per_mb(this.ERASE_WRITE_TIMEOUT_PER_MB, block_uncompressed);
-                } else {
-                    block_timeout = 3000;
-                }*/ // XXX: Partial block inflate seems to be unsupported in Pako. Hardcoding timeout
-          const block_timeout = 5000;
+          const len_uncompressed_previous = total_len_uncompressed;
+          inflate.push(block, false);
+          const block_uncompressed = total_len_uncompressed - len_uncompressed_previous;
+          let block_timeout = 3000;
+          if (this.timeout_per_mb(this.ERASE_WRITE_TIMEOUT_PER_MB, block_uncompressed) > 3000) {
+            block_timeout = this.timeout_per_mb(this.ERASE_WRITE_TIMEOUT_PER_MB, block_uncompressed);
+          }
           if (this.IS_STUB === false) {
+            // ROM code writes block to flash before ACKing
             timeout = block_timeout;
           }
           await this.flash_defl_block(block, seq, timeout);
           if (this.IS_STUB) {
+            // Stub ACKs when block is received, then writes to flash while receiving the block after it
             timeout = block_timeout;
           }
         } else {
