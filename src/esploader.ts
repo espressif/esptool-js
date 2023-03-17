@@ -14,6 +14,10 @@ async function magic2Chip(magic: number): Promise<ROM | null> {
       const { ESP32C3ROM } = await import("./targets/esp32c3");
       return new ESP32C3ROM();
     }
+    case 0x2CE0806F: {
+      const { ESP32C6ROM } = await import("./targets/esp32c6");
+      return new ESP32C6ROM();
+    }
     case 0x09: {
       const { ESP32S3ROM } = await import("./targets/esp32s3");
       return new ESP32S3ROM();
@@ -517,7 +521,8 @@ export class ESPLoader {
     if (
       (this.chip.CHIP_NAME === "ESP32-S2" ||
         this.chip.CHIP_NAME === "ESP32-S3" ||
-        this.chip.CHIP_NAME === "ESP32-C3") &&
+        this.chip.CHIP_NAME === "ESP32-C3" ||
+        this.chip.CHIP_NAME === "ESP32-C6") &&
       this.IS_STUB === false
     ) {
       pkt = this._appendArray(pkt, this._int_to_bytearray(0));
