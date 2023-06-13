@@ -9,50 +9,39 @@ This repository contains a Javascript implementation of [esptool](https://github
 
 CDN
 
-``
+`https://unpkg.com/esptool-js/lib/index.js?module`
 
-or import as npm package
+NPM
 
 `npm install --save esptool-js`
 
+Yarn
+
 `yarn add --save esptool-js`
 
-Example code:
+Example typescript code:
 
 ```ts
 import { ESPLoader, Transport } from "esptool-js";
 
-const portFilters : { usbVendorId?: number | undefined; usbProductId?: number | undefined;}[] = [];
-const device = await navigator.serial.requestPort({ filters: portFilters });
+const device = await navigator.serial.requestPort();
 const transport = new Transport(device);
+const baudRateInteger = 115200;
 
-// You can use any JavaScript compatible terminal by wrapping a helper object like this:
-let espLoaderTerminal = {
-  clean() {
-    // Implement the clean function for your terminal here.
-  },
-  writeLine(data) {
-    // Implement the writeLine function for your terminal here.
-  },
-  write(data) {
-    // Implement the write function for your terminal here.
-  },
-};
-
-const esploader: ESPLoader = new ESPLoader(transport, baudRateInteger, espLoaderTerminal);
+const esploader: ESPLoader = new ESPLoader(transport, baudRateInteger);
 
 chip = await esploader.main_fn(); // Start connection with serial device, return device information string.
 
 const binaryFilesArray: {data: string; address: string;}[] = [
   {data: "file1DataHere", address: "0x1000"}
 ];
-const flash_size = "keep";
-const flash_mode = "keep";
-const flash_freq = "keep";
-const erase_all = false;
+const flashSize = "keep";
+const flashMode = "keep";
+const flashFreq = "keep";
+const eraseAll = false;
 const compress = true;
 
-// A function that will be executed on each file progress update
+// A function that will be executed on each file flash progress update
 const reportProgress: (fileIndex: number, written: number, total: number) => void;
 
 // A function used to do hash data verification where image is the binaryFilesArray[i].data
@@ -76,6 +65,30 @@ await transport.disconnect();
 
 ```
 
+## Define port filters for device
+
+```js
+const portFilters : { usbVendorId?: number | undefined; usbProductId?: number | undefined;}[] = [];
+const device = await navigator.serial.requestPort({ filters: portFilters });
+```
+
+## Inject a Terminal to use with esptool-js
+
+```js
+// You can use any JavaScript compatible terminal by wrapping a helper object like this:
+let espLoaderTerminal = {
+  clean() {
+    // Implement the clean function for your terminal here.
+  },
+  writeLine(data) {
+    // Implement the writeLine function for your terminal here.
+  },
+  write(data) {
+    // Implement the write function for your terminal here.
+  },
+};
+```
+
 ## Live demo
 
 Visit https://espressif.github.io/esptool-js/ to see this tool in action.
@@ -87,10 +100,12 @@ Visit https://espressif.github.io/esptool-js/ to see this tool in action.
 ```
 npm install
 npm run build
-python3 -m http.server 8008
+cd examples/typescript
+npm install
+npm run dev
 ```
 
-Then open http://localhost:8008 in Chrome or Edge. The `npm run build` step builds the `bundle.js` used in the example `index.html`.
+Then open http://localhost:8008 in Chrome or Edge. The `npm run build` step builds the `lib` used in the example `examples/typescript/index.html`.
 
 ## License
 

@@ -32,7 +32,6 @@ let device = null;
 let transport: Transport;
 let chip: string = null;
 let esploader: ESPLoader;
-let file1 = null;
 
 disconnectButton.style.display = "none";
 eraseButton.style.display = "none";
@@ -46,12 +45,16 @@ function handleFileSelect(evt) {
 
   var reader = new FileReader();
 
-  reader.onload = (function (theFile) {
-    return function (e) {
-      file1 = e.target.result;
-      evt.target.data = file1;
-    };
-  })(file);
+  // reader.onload = (function (theFile) {
+  //   return function (e) {
+  //     file1 = e.target.result;
+  //     evt.target.data = file1;
+  //   };
+  // })(file);
+
+  reader.onload = ( ev: ProgressEvent<FileReader>) => {
+    evt.target.data = ev.target.result;
+  }
 
   reader.readAsBinaryString(file);
 }

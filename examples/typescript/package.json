@@ -1,7 +1,8 @@
 {
-  "name": "esptool-js-backend-example",
+  "name": "typescript",
   "version": "1.0.0",
   "description": "This an example of using esptool-js with parcel and typescript",
+  "source": "src/index.html",
   "scripts": {
     "dev": "parcel src/index.html",
     "build": "npm run clean && parcel build src/index.html",

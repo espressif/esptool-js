@@ -36,6 +36,9 @@ jobs:
       - name: Build project
         run: |
           npm run build
+          cd examples/typescript
+          npm install
+          npm run build
       - name: Setup Pages
         uses: actions/configure-pages@v2
       - name: Upload artifact
