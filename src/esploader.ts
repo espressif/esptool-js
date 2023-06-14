@@ -295,7 +295,7 @@ export class ESPLoader {
         // is connecting via its USB-JTAG-Serial peripheral
         await usbJTAGSerialReset(this.transport);
       } else {
-        let strSequence = esp32r0_delay ? "D0|R1|W100|W2000|D1|R0|W50|D0": "D0|R1|W100|D1|R0|W50|D0";
+        const strSequence = esp32r0_delay ? "D0|R1|W100|W2000|D1|R0|W50|D0" : "D0|R1|W100|D1|R0|W50|D0";
         await customReset(this.transport, strSequence);
       }
     }

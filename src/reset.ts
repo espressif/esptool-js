@@ -76,19 +76,19 @@ export function validateCustomResetStringSequence(seqStr: string): boolean {
 
 /**
  * Custom reset strategy defined with a string.
- * 
+ *
  * The sequenceString input string consists of individual commands divided by "|".
- * 
+ *
  * Commands (e.g. R0) are defined by a code (R) and an argument (0).
- * 
+ *
  * The commands are:
- * 
+ *
  * D: setDTR - 1=True / 0=False
- * 
+ *
  * R: setRTS - 1=True / 0=False
- * 
+ *
  * W: Wait (time delay) - positive integer number (miliseconds)
- * 
+ *
  * "D0|R1|W100|D1|R0|W50|D0" represents the classic reset strategy
  */
 export async function customReset(transport: Transport, sequenceString: string) {
