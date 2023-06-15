@@ -3,6 +3,25 @@ import { Data, deflate, Inflate } from "pako";
 import { Transport } from "./webserial";
 import { ROM } from "./targets/rom";
 
+export interface FlashOptions {
+  fileArray: { data: string; address: number }[];
+  flashSize: string;
+  flashMode: string;
+  flashFreq: string;
+  eraseAll: boolean;
+  compress: boolean;
+  reportProgress?: (fileIndex: number, written: number, total: number) => void;
+  calculateMD5Hash?: (image: string) => string;
+}
+
+export interface LoaderOptions {
+  transport: Transport;
+  baudrate: number;
+  terminal?: IEspLoaderTerminal;
+  romBaudrate: number;
+  debugLogging?: boolean;
+}
+
 async function magic2Chip(magic: number): Promise<ROM | null> {
   switch (magic) {
     case 0x00f01d83: {
@@ -94,17 +113,27 @@ export class ESPLoader {
   IS_STUB: boolean;
   FLASH_WRITE_SIZE: number;
 
-  constructor(
-    public transport: Transport,
-    private baudrate: number,
-    private terminal?: IEspLoaderTerminal,
-    private rom_baudrate = 115200,
-    private debugLogging = false,
-  ) {
+  public transport: Transport;
+  private baudrate: number;
+  private terminal?: IEspLoaderTerminal;
+  private romBaudrate = 115200;
+  private debugLogging = false;
+
+  constructor(options: LoaderOptions) {
     this.IS_STUB = false;
     this.FLASH_WRITE_SIZE = 0x4000;
-    if (this.terminal) {
+
+    this.transport = options.transport;
+    this.baudrate = options.baudrate;
+    if (options.romBaudrate) {
+      this.romBaudrate = options.romBaudrate;
+    }
+    if (options.terminal) {
+      this.terminal = options.terminal;
       this.terminal.clean();
+    }
+    if (options.debugLogging) {
+      this.debugLogging = options.debugLogging;
     }
 
     this.info("esptool.js");
@@ -364,7 +393,7 @@ export class ESPLoader {
     let i;
     let resp;
     this.info("Connecting...", false);
-    await this.transport.connect(this.rom_baudrate);
+    await this.transport.connect(this.romBaudrate);
     for (i = 0; i < attempts; i++) {
       resp = await this._connect_attempt(mode, false);
       if (resp === "success") {
@@ -792,7 +821,7 @@ export class ESPLoader {
 
     await this.run_stub();
 
-    if (this.rom_baudrate !== this.baudrate) {
+    if (this.romBaudrate !== this.baudrate) {
       await this.change_baud();
     }
     return chip;
@@ -875,55 +904,41 @@ export class ESPLoader {
     return image;
   }
 
-  async write_flash(
-    fileArray: {
-      data: string;
-      address: number;
-    }[],
-    flash_size = "keep",
-    flash_mode = "keep",
-    flash_freq = "keep",
-    erase_all = false,
-    compress = true,
-    /* function(fileIndex, written, total) */
-    reportProgress?: (fileIndex: number, written: number, total: number) => void,
-    /* function(image: string) => string */
-    calculateMD5Hash?: (image: string) => string,
-  ) {
+  async write_flash(options: FlashOptions) {
     this.debug("EspLoader program");
-    if (flash_size !== "keep") {
-      const flash_end = this.flash_size_bytes(flash_size);
-      for (let i = 0; i < fileArray.length; i++) {
-        if (fileArray[i].data.length + fileArray[i].address > flash_end) {
+    if (options.flashSize !== "keep") {
+      const flash_end = this.flash_size_bytes(options.flashSize);
+      for (let i = 0; i < options.fileArray.length; i++) {
+        if (options.fileArray[i].data.length + options.fileArray[i].address > flash_end) {
           throw new ESPError(`File ${i + 1} doesn't fit in the available flash`);
         }
       }
     }
 
-    if (this.IS_STUB === true && erase_all === true) {
+    if (this.IS_STUB === true && options.eraseAll === true) {
       await this.erase_flash();
     }
     let image: string, address: number;
-    for (let i = 0; i < fileArray.length; i++) {
-      this.debug("Data Length " + fileArray[i].data.length);
-      image = fileArray[i].data;
-      const reminder = fileArray[i].data.length % 4;
+    for (let i = 0; i < options.fileArray.length; i++) {
+      this.debug("Data Length " + options.fileArray[i].data.length);
+      image = options.fileArray[i].data;
+      const reminder = options.fileArray[i].data.length % 4;
       if (reminder > 0) image += "\xff\xff\xff\xff".substring(4 - reminder);
-      address = fileArray[i].address;
+      address = options.fileArray[i].address;
       this.debug("Image Length " + image.length);
       if (image.length === 0) {
         this.debug("Warning: File is empty");
         continue;
       }
-      image = this._update_image_flash_params(image, address, flash_size, flash_mode, flash_freq);
+      image = this._update_image_flash_params(image, address, options.flashSize, options.flashMode, options.flashFreq);
       let calcmd5: string | null = null;
-      if (calculateMD5Hash) {
-        calcmd5 = calculateMD5Hash(image);
+      if (options.calculateMD5Hash) {
+        calcmd5 = options.calculateMD5Hash(image);
         this.debug("Image MD5 " + calcmd5);
       }
       const uncsize = image.length;
       let blocks: number;
-      if (compress) {
+      if (options.compress) {
         const uncimage = this.bstrToUi8(image);
         image = this.ui8ToBstr(deflate(uncimage, { level: 9 }));
         blocks = await this.flash_defl_begin(uncsize, image.length, address);
@@ -933,7 +948,7 @@ export class ESPLoader {
       let seq = 0;
       let bytes_sent = 0;
       const totalBytes = image.length;
-      if (reportProgress) reportProgress(i, 0, totalBytes);
+      if (options.reportProgress) options.reportProgress(i, 0, totalBytes);
 
       let d = new Date();
       const t1 = d.getTime();
@@ -957,7 +972,7 @@ export class ESPLoader {
         );
         const block = this.bstrToUi8(image.slice(0, this.FLASH_WRITE_SIZE));
 
-        if (compress) {
+        if (options.compress) {
           const len_uncompressed_previous = total_len_uncompressed;
           inflate.push(block, false);
           const block_uncompressed = total_len_uncompressed - len_uncompressed_previous;
@@ -980,14 +995,14 @@ export class ESPLoader {
         bytes_sent += block.length;
         image = image.slice(this.FLASH_WRITE_SIZE, image.length);
         seq++;
-        if (reportProgress) reportProgress(i, bytes_sent, totalBytes);
+        if (options.reportProgress) options.reportProgress(i, bytes_sent, totalBytes);
       }
       if (this.IS_STUB) {
         await this.read_reg(this.CHIP_DETECT_MAGIC_REG_ADDR, timeout);
       }
       d = new Date();
       const t = d.getTime() - t1;
-      if (compress) {
+      if (options.compress) {
         this.info(
           "Wrote " +
             uncsize +
@@ -1015,7 +1030,7 @@ export class ESPLoader {
 
     if (this.IS_STUB) {
       await this.flash_begin(0, 0);
-      if (compress) {
+      if (options.compress) {
         await this.flash_defl_finish();
       } else {
         await this.flash_finish();
