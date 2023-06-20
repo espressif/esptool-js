@@ -2,6 +2,7 @@ import { ESPError } from "./error";
 import { Data, deflate, Inflate } from "pako";
 import { Transport } from "./webserial";
 import { ROM } from "./targets/rom";
+import { ESP32C3ROM } from "./targets/esp32c3";
 
 async function magic2Chip(magic: number): Promise<ROM | null> {
   switch (magic) {
@@ -17,6 +18,10 @@ async function magic2Chip(magic: number): Promise<ROM | null> {
     case 0x2ce0806f: {
       const { ESP32C6ROM } = await import("./targets/esp32c6");
       return new ESP32C6ROM();
+    }
+    case 0xD7B73E80:{
+      const { ESP32H2ROM } = await import("./targets/esp32h2");
+      return new ESP32H2ROM();
     }
     case 0x09: {
       const { ESP32S3ROM } = await import("./targets/esp32s3");
