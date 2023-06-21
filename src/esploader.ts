@@ -2,7 +2,6 @@ import { ESPError } from "./error";
 import { Data, deflate, Inflate } from "pako";
 import { Transport } from "./webserial";
 import { ROM } from "./targets/rom";
-import { ESP32C3ROM } from "./targets/esp32c3";
 
 async function magic2Chip(magic: number): Promise<ROM | null> {
   switch (magic) {
