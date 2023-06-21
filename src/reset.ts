@@ -45,10 +45,14 @@ export async function hardReset(transport: Transport, usingUsbOtg = false) {
   }
 }
 
-type Command = "D" | "R" | "W";
+type CmdsArgsTypes = {
+  D: boolean;
+  R: boolean;
+  W: number;
+};
 
 export function validateCustomResetStringSequence(seqStr: string): boolean {
-  const commands: Command[] = ["D", "R", "W"];
+  const commands: (keyof CmdsArgsTypes)[] = ["D", "R", "W"];
 
   const commandsList = seqStr.split("|");
 
@@ -56,7 +60,7 @@ export function validateCustomResetStringSequence(seqStr: string): boolean {
     const code = cmd[0];
     const arg = cmd.slice(1);
 
-    if (!commands.includes(code as Command)) {
+    if (!commands.includes(code as keyof CmdsArgsTypes)) {
       return false; // Invalid command code
     }
 
@@ -92,7 +96,7 @@ export function validateCustomResetStringSequence(seqStr: string): boolean {
  * "D0|R1|W100|D1|R0|W50|D0" represents the classic reset strategy
  */
 export async function customReset(transport: Transport, sequenceString: string) {
-  const resetDictionary: { [key: string]: (arg: any) => Promise<void> } = {
+  const resetDictionary: { [K in keyof CmdsArgsTypes]: (arg: CmdsArgsTypes[K]) => Promise<void> } = {
     D: async (arg: boolean) => await transport.setDTR(arg),
     R: async (arg: boolean) => await transport.setRTS(arg),
     W: async (delay: number) => await sleep(delay),
@@ -104,7 +108,13 @@ export async function customReset(transport: Transport, sequenceString: string) 
     }
     const cmds = sequenceString.split("|");
     for (const cmd of cmds) {
-      await resetDictionary[cmd[0]](cmd.slice(1));
+      const cmdKey = cmd[0];
+      const cmdVal = cmd.slice(1);
+      if (cmdKey === "W") {
+        await resetDictionary["W"](Number(cmdVal));
+      } else if (cmdKey === "D" || cmdKey === "R") {
+        await resetDictionary[cmdKey as "D" | "R"](cmdVal === "1");
+      }
     }
   } catch (error) {
     throw new Error("Invalid custom reset sequence");
