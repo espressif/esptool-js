@@ -2,6 +2,7 @@ import { ESPError } from "./error";
 import { Data, deflate, Inflate } from "pako";
 import { Transport } from "./webserial";
 import { ROM } from "./targets/rom";
+import { customReset, usbJTAGSerialReset } from "./reset";
 
 async function magic2Chip(magic: number): Promise<ROM | null> {
   switch (magic) {
@@ -296,36 +297,10 @@ export class ESPLoader {
       if (this.transport.get_pid() === this.USB_JTAG_SERIAL_PID) {
         // Custom reset sequence, which is required when the device
         // is connecting via its USB-JTAG-Serial peripheral
-        await this.transport.setRTS(false);
-        await this.transport.setDTR(false);
-        await this._sleep(100);
-
-        await this.transport.setDTR(true);
-        await this.transport.setRTS(false);
-        await this._sleep(100);
-
-        await this.transport.setRTS(true);
-        await this.transport.setDTR(false);
-        await this.transport.setRTS(true);
-
-        await this._sleep(100);
-        await this.transport.setRTS(false);
-        await this.transport.setDTR(false);
+        await usbJTAGSerialReset(this.transport);
       } else {
-        await this.transport.setDTR(false);
-        await this.transport.setRTS(true);
-        await this._sleep(100);
-        if (esp32r0_delay) {
-          //await this._sleep(1200);
-          await this._sleep(2000);
-        }
-        await this.transport.setDTR(true);
-        await this.transport.setRTS(false);
-        if (esp32r0_delay) {
-          //await this._sleep(400);
-        }
-        await this._sleep(50);
-        await this.transport.setDTR(false);
+        const strSequence = esp32r0_delay ? "D0|R1|W100|W2000|D1|R0|W50|D0" : "D0|R1|W100|D1|R0|W50|D0";
+        await customReset(this.transport, strSequence);
       }
     }
     let i = 0;
