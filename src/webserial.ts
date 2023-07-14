@@ -61,13 +61,13 @@ class Transport {
   public leftOver = new Uint8Array(0);
   public baudrate = 0;
 
-  constructor(public device: SerialPort) {}
+  constructor(public device: SerialPort, public tracing = false) {}
 
   /**
    * Request the serial device vendor ID and Product ID as string.
    * @returns {string} Return the device VendorID and ProductID from SerialPortInfo as formatted string.
    */
-  getInfo() {
+  getInfo(): string {
     const info = this.device.getInfo();
     return info.usbVendorId && info.usbProductId
       ? `WebSerial VendorID 0x${info.usbVendorId.toString(16)} ProductID 0x${info.usbProductId.toString(16)}`
@@ -76,10 +76,39 @@ class Transport {
 
   /**
    * Request the serial device product id from SerialPortInfo.
-   * @returns {string} Return the product ID.
+   * @returns {number | undefined} Return the product ID.
    */
-  getPid() {
+  getPid(): number | undefined {
     return this.device.getInfo().usbProductId;
+  }
+
+  /**
+   * Format received or sent data (read/write) in Hexadecimal format for tracing output.
+   * @param {Uint8Array} buffer Binary unsigned 8 bit array data to format.
+   * @returns {string} Formatted in hexadecimal data string.
+   */
+  hexDump(buffer: Uint8Array): string {
+    const bufferStr = String.fromCharCode(...[].slice.call(buffer));
+    const BLOCK_SIZE = 16;
+    const lines = [];
+    const hex = "0123456789ABCDEF";
+
+    for (let b = 0; b < bufferStr.length; b += BLOCK_SIZE) {
+      const block = bufferStr.slice(b, Math.min(b + BLOCK_SIZE, bufferStr.length));
+      const addr = "0000" + b.toString(16).slice(-4);
+      let codes = block
+        .split("")
+        .map((ch) => {
+          const code = ch.charCodeAt(0);
+          return " " + hex[(0xf0 & code) >> 4] + hex[0x0f & code];
+        })
+        .join("");
+      codes += "   ".repeat(BLOCK_SIZE - block.length);
+      let chars = block.replace(/[\\x00-\\x1F\\x20]/g, ".");
+      chars += " ".repeat(BLOCK_SIZE - block.length);
+      lines.push(`${addr} ${codes} ${chars}`);
+    }
+    return lines.join("\n");
   }
 
   /**
@@ -127,6 +156,10 @@ class Transport {
 
     if (this.device.writable) {
       const writer = this.device.writable.getWriter();
+      if (this.tracing) {
+        console.log("Write bytes");
+        console.log(this.hexDump(outData));
+      }
       await writer.write(outData);
       writer.releaseLock();
     }
@@ -239,8 +272,19 @@ class Transport {
       }
       reader.releaseLock();
     }
+
+    if (this.tracing) {
+      console.log("Read bytes");
+      console.log(this.hexDump(packet));
+    }
+
     if (this.slipReaderEnabled) {
-      return this.slipReader(packet);
+      const slipReaderResult = this.slipReader(packet);
+      if (this.tracing) {
+        console.log("Slip reader results");
+        console.log(this.hexDump(slipReaderResult));
+      }
+      return slipReaderResult;
     }
     return packet;
   }
@@ -270,6 +314,10 @@ class Transport {
       const { value, done } = await reader.read();
       if (done) {
         throw new Error("Timeout");
+      }
+      if (this.tracing) {
+        console.log("Raw Read bytes");
+        console.log(value);
       }
       return value;
     } finally {
