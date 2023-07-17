@@ -275,10 +275,10 @@ programButton.onclick = async () => {
   for (let index = 1; index < table.rows.length; index++) {
     const row = table.rows[index];
 
-    const offSetObj = row.cells[0].childNodes[0];
-    const offset = parseInt(offSetObj.textContent);
+    const offSetObj = row.cells[0].childNodes[0] as HTMLInputElement;
+    const offset = parseInt(offSetObj.value);
 
-    const fileObj = row.cells[1].childNodes[0];
+    const fileObj = row.cells[1].childNodes[0] as ChildNode & { data: string };
     const progressBar = row.cells[2].childNodes[0];
 
     progressBar.textContent = "0";
@@ -287,7 +287,7 @@ programButton.onclick = async () => {
     row.cells[2].style.display = "initial";
     row.cells[3].style.display = "none";
 
-    fileArray.push({ data: fileObj.textContent, address: offset });
+    fileArray.push({ data: fileObj.data, address: offset });
   }
 
   try {
