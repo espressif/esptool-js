@@ -60,6 +60,8 @@ class Transport {
   public slipReaderEnabled = false;
   public leftOver = new Uint8Array(0);
   public baudrate = 0;
+  private traceLog: string = "";
+  private lastTraceTime = Date.now();
 
   constructor(public device: SerialPort, public tracing = false) {}
 
@@ -85,30 +87,55 @@ class Transport {
   /**
    * Format received or sent data (read/write) in Hexadecimal format for tracing output.
    * @param {Uint8Array} buffer Binary unsigned 8 bit array data to format.
-   * @returns {string} Formatted in hexadecimal data string.
    */
-  hexDump(buffer: Uint8Array): string {
-    const bufferStr = String.fromCharCode(...[].slice.call(buffer));
-    const BLOCK_SIZE = 16;
-    const lines = [];
-    const hex = "0123456789ABCDEF";
+  trace(message: Uint8Array) {
+    const delta = Date.now() - this.lastTraceTime;
+    const prefix = `TRACE ${delta.toFixed(2)}`;
+    const traceMessage = `${prefix} ${this.hexConvert(message)}`;
+    console.log(traceMessage);
+    this.traceLog += traceMessage + "\n";
+  }
 
-    for (let b = 0; b < bufferStr.length; b += BLOCK_SIZE) {
-      const block = bufferStr.slice(b, Math.min(b + BLOCK_SIZE, bufferStr.length));
-      const addr = "0000" + b.toString(16).slice(-4);
-      let codes = block
-        .split("")
-        .map((ch) => {
-          const code = ch.charCodeAt(0);
-          return " " + hex[(0xf0 & code) >> 4] + hex[0x0f & code];
-        })
-        .join("");
-      codes += "   ".repeat(BLOCK_SIZE - block.length);
-      let chars = block.replace(/[\\x00-\\x1F\\x20]/g, ".");
-      chars += " ".repeat(BLOCK_SIZE - block.length);
-      lines.push(`${addr} ${codes} ${chars}`);
+  async returnTrace() {
+    try {
+      await navigator.clipboard.writeText(this.traceLog);
+      console.log("Text copied to clipboard!");
+    } catch (err) {
+      console.error("Failed to copy text:", err);
     }
-    return lines.join("\n");
+  }
+
+  private hexify(s: string, uppercase: boolean = true): string {
+    const format_str = uppercase ? "%02X" : "%02x";
+    return s
+      .split("")
+      .map((c) => {
+        const charCode = c.charCodeAt(0);
+        return format_str.replace(/%02([xX])/g, (_, caseFormat) =>
+          caseFormat === "X" ? charCode.toString(16).toUpperCase() : charCode.toString(16),
+        );
+      })
+      .join("");
+  }
+
+  hexConvert(buffer: Uint8Array) {
+    const bufferStr = String.fromCharCode(...[].slice.call(buffer));
+    if (bufferStr.length > 16) {
+      let result = "";
+      let s = bufferStr;
+      while (s.length > 0) {
+        const line = s.slice(0, 16);
+        const ascii_line = line
+          .split("")
+          .map((c) => (c === " " || (c >= " " && c <= "~" && c !== "  ") ? c : "."))
+          .join("");
+        s = s.slice(16);
+        result += `\n    ${this.hexify(line.slice(0, 8))} ${this.hexify(line.slice(8))} | ${ascii_line}`;
+      }
+      return result;
+    } else {
+      return this.hexify(bufferStr);
+    }
   }
 
   /**
@@ -158,7 +185,7 @@ class Transport {
       const writer = this.device.writable.getWriter();
       if (this.tracing) {
         console.log("Write bytes");
-        console.log(this.hexDump(outData));
+        this.trace(outData);
       }
       await writer.write(outData);
       writer.releaseLock();
@@ -275,14 +302,14 @@ class Transport {
 
     if (this.tracing) {
       console.log("Read bytes");
-      console.log(this.hexDump(packet));
+      this.trace(packet);
     }
 
     if (this.slipReaderEnabled) {
       const slipReaderResult = this.slipReader(packet);
       if (this.tracing) {
         console.log("Slip reader results");
-        console.log(this.hexDump(slipReaderResult));
+        this.trace(slipReaderResult);
       }
       return slipReaderResult;
     }
@@ -317,7 +344,7 @@ class Transport {
       }
       if (this.tracing) {
         console.log("Raw Read bytes");
-        console.log(value);
+        this.trace(value);
       }
       return value;
     } finally {
