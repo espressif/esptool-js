@@ -6,6 +6,21 @@ function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
+/**
+ * Execute a classic set of commands that will reset the chip.
+ *
+ * Commands (e.g. R0) are defined by a code (R) and an argument (0).
+ *
+ * The commands are:
+ *
+ * D: setDTR - 1=True / 0=False
+ *
+ * R: setRTS - 1=True / 0=False
+ *
+ * W: Wait (time delay) - positive integer number (miliseconds)
+ *
+ * "D0|R1|W100|D1|R0|W50|D0" represents the classic reset strategy
+ */
 export async function classicReset(transport: Transport, resetDelay = DEFAULT_RESET_DELAY) {
   await transport.setDTR(false);
   await transport.setRTS(true);
@@ -16,6 +31,19 @@ export async function classicReset(transport: Transport, resetDelay = DEFAULT_RE
   await transport.setDTR(false);
 }
 
+/**
+ * Execute a set of commands for USB JTAG serial reset.
+ *
+ * Commands (e.g. R0) are defined by a code (R) and an argument (0).
+ *
+ * The commands are:
+ *
+ * D: setDTR - 1=True / 0=False
+ *
+ * R: setRTS - 1=True / 0=False
+ *
+ * W: Wait (time delay) - positive integer number (miliseconds)
+ */
 export async function usbJTAGSerialReset(transport: Transport) {
   await transport.setRTS(false);
   await transport.setDTR(false);
@@ -34,6 +62,19 @@ export async function usbJTAGSerialReset(transport: Transport) {
   await transport.setDTR(false);
 }
 
+/**
+ * Execute a set of commands that will hard reset the chip.
+ *
+ * Commands (e.g. R0) are defined by a code (R) and an argument (0).
+ *
+ * The commands are:
+ *
+ * D: setDTR - 1=True / 0=False
+ *
+ * R: setRTS - 1=True / 0=False
+ *
+ * W: Wait (time delay) - positive integer number (miliseconds)
+ */
 export async function hardReset(transport: Transport, usingUsbOtg = false) {
   if (usingUsbOtg) {
     await sleep(200);

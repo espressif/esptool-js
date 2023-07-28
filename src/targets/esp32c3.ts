@@ -36,7 +36,7 @@ export class ESP32C3ROM extends ROM {
   public ROM_DATA = ESP32C3_STUB.data;
   public ROM_TEXT = ESP32C3_STUB.text;
 
-  public async get_pkg_version(loader: ESPLoader) {
+  public async getPkgVersion(loader: ESPLoader): Promise<number> {
     const num_word = 3;
     const block1_addr = this.EFUSE_BASE + 0x044;
     const addr = block1_addr + 4 * num_word;
@@ -45,7 +45,7 @@ export class ESP32C3ROM extends ROM {
     return pkg_version;
   }
 
-  public async get_chip_revision(loader: ESPLoader) {
+  public async getChipRevision(loader: ESPLoader): Promise<number> {
     const block1_addr = this.EFUSE_BASE + 0x044;
     const num_word = 3;
     const pos = 18;
@@ -54,24 +54,24 @@ export class ESP32C3ROM extends ROM {
     return ret;
   }
 
-  public async get_chip_description(loader: ESPLoader) {
+  public async getChipDescription(loader: ESPLoader) {
     let desc: string;
-    const pkg_ver = await this.get_pkg_version(loader);
+    const pkg_ver = await this.getPkgVersion(loader);
     if (pkg_ver === 0) {
       desc = "ESP32-C3";
     } else {
       desc = "unknown ESP32-C3";
     }
-    const chip_rev = await this.get_chip_revision(loader);
+    const chip_rev = await this.getChipRevision(loader);
     desc += " (revision " + chip_rev + ")";
     return desc;
   }
 
-  public async get_chip_features(loader: ESPLoader) {
+  public async getChipFeatures(loader: ESPLoader) {
     return ["Wi-Fi"];
   }
 
-  public async get_crystal_freq(loader: ESPLoader) {
+  public async getCrystalFreq(loader: ESPLoader) {
     return 40;
   }
 
@@ -80,7 +80,7 @@ export class ESP32C3ROM extends ROM {
     return h.length === 1 ? "0" + h : h;
   }
 
-  public async read_mac(loader: ESPLoader) {
+  public async readMac(loader: ESPLoader) {
     let mac0 = await loader.read_reg(this.MAC_EFUSE_REG);
     mac0 = mac0 >>> 0;
     let mac1 = await loader.read_reg(this.MAC_EFUSE_REG + 4);
@@ -108,7 +108,7 @@ export class ESP32C3ROM extends ROM {
     );
   }
 
-  public get_erase_size(offset: number, size: number) {
+  public getEraseSize(offset: number, size: number) {
     return size;
   }
 }

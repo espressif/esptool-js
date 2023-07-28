@@ -37,22 +37,22 @@ export class ESP32ROM extends ROM {
   public ROM_DATA = ESP32_STUB.data;
   public ROM_TEXT = ESP32_STUB.text;
 
-  public async read_efuse(loader: ESPLoader, offset: number) {
+  public async readEfuse(loader: ESPLoader, offset: number): Promise<number> {
     const addr = this.EFUSE_RD_REG_BASE + 4 * offset;
     loader.debug("Read efuse " + addr);
     return await loader.read_reg(addr);
   }
 
-  public async get_pkg_version(loader: ESPLoader) {
-    const word3 = await this.read_efuse(loader, 3);
+  public async getPkgVersion(loader: ESPLoader): Promise<number> {
+    const word3 = await this.readEfuse(loader, 3);
     let pkg_version = (word3 >> 9) & 0x07;
     pkg_version += ((word3 >> 2) & 0x1) << 3;
     return pkg_version;
   }
 
-  public async get_chip_revision(loader: ESPLoader) {
-    const word3 = await this.read_efuse(loader, 3);
-    const word5 = await this.read_efuse(loader, 5);
+  public async getChipRevision(loader: ESPLoader): Promise<number> {
+    const word3 = await this.readEfuse(loader, 3);
+    const word5 = await this.readEfuse(loader, 5);
     const apb_ctl_date = await loader.read_reg(this.DR_REG_SYSCON_BASE + 0x7c);
 
     const rev_bit0 = (word3 >> 15) & 0x1;
@@ -72,7 +72,7 @@ export class ESP32ROM extends ROM {
     return 0;
   }
 
-  public async get_chip_description(loader: ESPLoader) {
+  public async getChipDescription(loader: ESPLoader) {
     const chip_desc = [
       "ESP32-D0WDQ6",
       "ESP32-D0WD",
@@ -83,10 +83,10 @@ export class ESP32ROM extends ROM {
       "ESP32-PICO-V3-02",
     ];
     let chip_name = "";
-    const pkg_version = await this.get_pkg_version(loader);
-    const chip_revision = await this.get_chip_revision(loader);
+    const pkg_version = await this.getPkgVersion(loader);
+    const chip_revision = await this.getChipRevision(loader);
     const rev3 = chip_revision == 3;
-    const single_core = (await this.read_efuse(loader, 3)) & (1 << 0);
+    const single_core = (await this.readEfuse(loader, 3)) & (1 << 0);
 
     if (single_core != 0) {
       chip_desc[0] = "ESP32-S0WDQ6";
@@ -107,9 +107,9 @@ export class ESP32ROM extends ROM {
     return chip_name + " (revision " + chip_revision + ")";
   }
 
-  public async get_chip_features(loader: ESPLoader) {
+  public async getChipFeatures(loader: ESPLoader) {
     const features = ["Wi-Fi"];
-    const word3 = await this.read_efuse(loader, 3);
+    const word3 = await this.readEfuse(loader, 3);
 
     const chip_ver_dis_bt = word3 & (1 << 1);
     if (chip_ver_dis_bt === 0) {
@@ -133,7 +133,7 @@ export class ESP32ROM extends ROM {
       }
     }
 
-    const pkg_version = await this.get_pkg_version(loader);
+    const pkg_version = await this.getPkgVersion(loader);
     if ([2, 4, 5, 6].indexOf(pkg_version) !== -1) {
       features.push(" Embedded Flash");
     }
@@ -142,7 +142,7 @@ export class ESP32ROM extends ROM {
       features.push(" Embedded PSRAM");
     }
 
-    const word4 = await this.read_efuse(loader, 4);
+    const word4 = await this.readEfuse(loader, 4);
     const adc_vref = (word4 >> 8) & 0x1f;
     if (adc_vref !== 0) {
       features.push(" VRef calibration in efuse");
@@ -153,7 +153,7 @@ export class ESP32ROM extends ROM {
       features.push(" BLK3 partially reserved");
     }
 
-    const word6 = await this.read_efuse(loader, 6);
+    const word6 = await this.readEfuse(loader, 6);
     const coding_scheme = word6 & 0x3;
     const coding_scheme_arr = ["None", "3/4", "Repeat (UNSUPPORTED)", "Invalid"];
     features.push(" Coding Scheme " + coding_scheme_arr[coding_scheme]);
@@ -161,7 +161,7 @@ export class ESP32ROM extends ROM {
     return features;
   }
 
-  public async get_crystal_freq(loader: ESPLoader) {
+  public async getCrystalFreq(loader: ESPLoader) {
     const uart_div = (await loader.read_reg(this.UART_CLKDIV_REG)) & this.UART_CLKDIV_MASK;
     const ets_xtal = (loader.transport.baudrate * uart_div) / 1000000 / this.XTAL_CLK_DIVIDER;
     let norm_xtal;
@@ -181,10 +181,10 @@ export class ESP32ROM extends ROM {
     return h.length === 1 ? "0" + h : h;
   }
 
-  public async read_mac(loader: ESPLoader) {
-    let mac0 = await this.read_efuse(loader, 1);
+  public async readMac(loader: ESPLoader) {
+    let mac0 = await this.readEfuse(loader, 1);
     mac0 = mac0 >>> 0;
-    let mac1 = await this.read_efuse(loader, 2);
+    let mac1 = await this.readEfuse(loader, 2);
     mac1 = mac1 >>> 0;
     const mac = new Uint8Array(6);
     mac[0] = (mac1 >> 8) & 0xff;

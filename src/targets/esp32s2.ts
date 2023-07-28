@@ -36,7 +36,7 @@ export class ESP32S2ROM extends ROM {
   public ROM_DATA = ESP32S2_STUB.data;
   public ROM_TEXT = ESP32S2_STUB.text;
 
-  public async get_pkg_version(loader: ESPLoader) {
+  public async getPkgVersion(loader: ESPLoader): Promise<number> {
     const num_word = 3;
     const block1_addr = this.EFUSE_BASE + 0x044;
     const addr = block1_addr + 4 * num_word;
@@ -45,9 +45,9 @@ export class ESP32S2ROM extends ROM {
     return pkg_version;
   }
 
-  public async get_chip_description(loader: ESPLoader) {
+  public async getChipDescription(loader: ESPLoader) {
     const chip_desc = ["ESP32-S2", "ESP32-S2FH16", "ESP32-S2FH32"];
-    const pkg_ver = await this.get_pkg_version(loader);
+    const pkg_ver = await this.getPkgVersion(loader);
     if (pkg_ver >= 0 && pkg_ver <= 2) {
       return chip_desc[pkg_ver];
     } else {
@@ -55,9 +55,9 @@ export class ESP32S2ROM extends ROM {
     }
   }
 
-  public async get_chip_features(loader: ESPLoader) {
+  public async getChipFeatures(loader: ESPLoader) {
     const features = ["Wi-Fi"];
-    const pkg_ver = await this.get_pkg_version(loader);
+    const pkg_ver = await this.getPkgVersion(loader);
     if (pkg_ver == 1) {
       features.push("Embedded 2MB Flash");
     } else if (pkg_ver == 2) {
@@ -75,14 +75,14 @@ export class ESP32S2ROM extends ROM {
     return features;
   }
 
-  public async get_crystal_freq(loader: ESPLoader) {
+  public async getCrystalFreq(loader: ESPLoader) {
     return 40;
   }
   public _d2h(d: number) {
     const h = (+d).toString(16);
     return h.length === 1 ? "0" + h : h;
   }
-  public async read_mac(loader: ESPLoader) {
+  public async readMac(loader: ESPLoader) {
     let mac0 = await loader.read_reg(this.MAC_EFUSE_REG);
     mac0 = mac0 >>> 0;
     let mac1 = await loader.read_reg(this.MAC_EFUSE_REG + 4);
@@ -110,7 +110,7 @@ export class ESP32S2ROM extends ROM {
     );
   }
 
-  public get_erase_size(offset: number, size: number) {
+  public getEraseSize(offset: number, size: number) {
     return size;
   }
 }

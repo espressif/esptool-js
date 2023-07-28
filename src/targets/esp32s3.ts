@@ -40,13 +40,13 @@ export class ESP32S3ROM extends ROM {
   public ROM_DATA = ESP32S3_STUB.data;
   public ROM_TEXT = ESP32S3_STUB.text;
 
-  public async get_chip_description(loader: ESPLoader) {
+  public async getChipDescription(loader: ESPLoader) {
     return "ESP32-S3";
   }
-  public async get_chip_features(loader: ESPLoader) {
+  public async getChipFeatures(loader: ESPLoader) {
     return ["Wi-Fi", "BLE"];
   }
-  public async get_crystal_freq(loader: ESPLoader) {
+  public async getCrystalFreq(loader: ESPLoader) {
     return 40;
   }
   public _d2h(d: number) {
@@ -54,7 +54,7 @@ export class ESP32S3ROM extends ROM {
     return h.length === 1 ? "0" + h : h;
   }
 
-  public async _post_connect(loader: ESPLoader) {
+  public async postConnect(loader: ESPLoader) {
     const buf_no = (await loader.read_reg(this.UARTDEV_BUF_NO)) & 0xff;
     loader.debug("In _post_connect " + buf_no);
     if (buf_no == this.UARTDEV_BUF_NO_USB) {
@@ -62,7 +62,7 @@ export class ESP32S3ROM extends ROM {
     }
   }
 
-  public async read_mac(loader: ESPLoader) {
+  public async readMac(loader: ESPLoader) {
     let mac0 = await loader.read_reg(this.MAC_EFUSE_REG);
     mac0 = mac0 >>> 0;
     let mac1 = await loader.read_reg(this.MAC_EFUSE_REG + 4);
@@ -90,7 +90,7 @@ export class ESP32S3ROM extends ROM {
     );
   }
 
-  public get_erase_size(offset: number, size: number) {
+  public getEraseSize(offset: number, size: number) {
     return size;
   }
 }
