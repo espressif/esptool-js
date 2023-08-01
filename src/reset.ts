@@ -2,6 +2,7 @@ import { Transport } from "./webserial";
 
 const DEFAULT_RESET_DELAY = 50;
 
+/** Sleep function helper */
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
@@ -20,6 +21,8 @@ function sleep(ms: number): Promise<void> {
  * W: Wait (time delay) - positive integer number (miliseconds)
  *
  * "D0|R1|W100|D1|R0|W50|D0" represents the classic reset strategy
+ * @param {Transport} transport Transport class to perform serial communication.
+ * @param {number} resetDelay Delay in milliseconds for reset.
  */
 export async function classicReset(transport: Transport, resetDelay = DEFAULT_RESET_DELAY) {
   await transport.setDTR(false);
@@ -43,6 +46,7 @@ export async function classicReset(transport: Transport, resetDelay = DEFAULT_RE
  * R: setRTS - 1=True / 0=False
  *
  * W: Wait (time delay) - positive integer number (miliseconds)
+ * @param {Transport} transport Transport class to perform serial communication.
  */
 export async function usbJTAGSerialReset(transport: Transport) {
   await transport.setRTS(false);
@@ -74,6 +78,8 @@ export async function usbJTAGSerialReset(transport: Transport) {
  * R: setRTS - 1=True / 0=False
  *
  * W: Wait (time delay) - positive integer number (miliseconds)
+ * @param {Transport} transport Transport class to perform serial communication.
+ * @param {boolean} usingUsbOtg is it using USB-OTG ?
  */
 export async function hardReset(transport: Transport, usingUsbOtg = false) {
   if (usingUsbOtg) {
@@ -92,6 +98,22 @@ type CmdsArgsTypes = {
   W: number;
 };
 
+/**
+ * Validate a sequence string based on the following format:
+ *
+ * Commands (e.g. R0) are defined by a code (R) and an argument (0).
+ *
+ * The commands are:
+ *
+ * D: setDTR - 1=True / 0=False
+ *
+ * R: setRTS - 1=True / 0=False
+ *
+ * W: Wait (time delay) - positive integer number (miliseconds)
+ *
+ * @param seqStr Sequence string to validate
+ * @returns {boolean} Is the sequence string valid ?
+ */
 export function validateCustomResetStringSequence(seqStr: string): boolean {
   const commands: (keyof CmdsArgsTypes)[] = ["D", "R", "W"];
 
@@ -135,6 +157,9 @@ export function validateCustomResetStringSequence(seqStr: string): boolean {
  * W: Wait (time delay) - positive integer number (miliseconds)
  *
  * "D0|R1|W100|D1|R0|W50|D0" represents the classic reset strategy
+ *
+ * @param {Transport} transport Transport class to perform serial communication.
+ * @param {string} sequenceString Custom string sequence for reset strategy
  */
 export async function customReset(transport: Transport, sequenceString: string) {
   const resetDictionary: { [K in keyof CmdsArgsTypes]: (arg: CmdsArgsTypes[K]) => Promise<void> } = {

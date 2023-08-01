@@ -4,34 +4,105 @@ import { Transport, SerialOptions } from "./webserial";
 import { ROM } from "./targets/rom";
 import { customReset, usbJTAGSerialReset } from "./reset";
 
+/**
+ * Options for flashing a device with firmware.
+ * @interface FlashOptions
+ */
 export interface FlashOptions {
+  /**
+   * An array of file objects representing the data to be flashed.
+   * @type {Array<{ data: string; address: number }>}
+   */
   fileArray: { data: string; address: number }[];
+
+  /**
+   * The size of the flash memory to be used.
+   * @type {string}
+   */
   flashSize: string;
+
+  /**
+   * The flash mode to be used (e.g., QIO, QOUT, DIO, DOUT).
+   * @type {string}
+   */
   flashMode: string;
+
+  /**
+   * The flash frequency to be used (e.g., 40MHz, 80MHz).
+   * @type {string}
+   */
   flashFreq: string;
+
+  /**
+   * Flag indicating whether to erase all existing data in the flash memory before flashing.
+   * @type {boolean}
+   */
   eraseAll: boolean;
+
+  /**
+   * Flag indicating whether to compress the data before flashing.
+   * @type {boolean}
+   */
   compress: boolean;
+
+  /**
+   * A function to report the progress of the flashing operation (optional).
+   * @type {(fileIndex: number, written: number, total: number) => void}
+   */
   reportProgress?: (fileIndex: number, written: number, total: number) => void;
+
+  /**
+   * A function to calculate the MD5 hash of the firmware image (optional).
+   * @type {(image: string) => string}
+   */
   calculateMD5Hash?: (image: string) => string;
 }
 
 /**
- * Options to initialize the ESPLoader class.
- * {
- *   transport: A Transport class that provide serial communication to the chip
- *   baudrate: The baud rate used for connecting the device
- *   terminal?: A IEspLoaderTerminal wrapper interface to call the terminal
- *   romBaudrate: The baudrate described by the chip ROM class;
- *   debugLogging: Enable/Disable logging for debug
- * }
+ * Options to configure ESPLoader.
+ * @interface LoaderOptions
  */
 export interface LoaderOptions {
+  /**
+   * The transport mechanism to communicate with the device.
+   * @type {Transport}
+   */
   transport: Transport;
+
+  /**
+   * The port to initialize the transport class.
+   * @type {SerialPort}
+   */
   port?: SerialPort;
-  baudrate: number;
+
+  /**
+   * Set of options for SerialPort class.
+   * @type {Transport}
+   */
   serialOptions?: SerialOptions;
+
+  /**
+   * The baud rate to be used for communication with the device.
+   * @type {number}
+   */
+  baudrate: number;
+
+  /**
+   * An optional terminal interface to interact with the loader during the process.
+   * @type {IEspLoaderTerminal}
+   */
   terminal?: IEspLoaderTerminal;
+
+  /**
+   * The baud rate to be used during the initial ROM communication with the device.
+   * @type {number}
+   */
   romBaudrate: number;
+
+  /**
+   * Flag indicating whether to enable debug logging for the loader (optional).
+   * @type {boolean}
+   */
   debugLogging?: boolean;
 }
 
@@ -82,6 +153,7 @@ async function magic2Chip(magic: number): Promise<ROM | null> {
  * A wrapper around your implementation of a terminal by
  * implementing the clean, write and writeLine methods
  * which are called by the ESPLoader class.
+ * @interface IEspLoaderTerminal
  */
 export interface IEspLoaderTerminal {
   /**
@@ -100,19 +172,6 @@ export interface IEspLoaderTerminal {
   write: (data: string) => void;
 }
 
-/**
- * An ESP loader class to perform serial communication
- * such as read and write flash memory and registers.
- *
- * LoaderOptions:
- * {
- *   transport: Transport;
- *   baudrate: number;
- *   terminal?: IEspLoaderTerminal;
- *   romBaudrate: number;
- *   debugLogging?: boolean;
- * }
- */
 export class ESPLoader {
   ESP_RAM_BLOCK = 0x1800;
   ESP_FLASH_BEGIN = 0x02;
@@ -186,22 +245,9 @@ export class ESPLoader {
   private debugLogging = false;
 
   /**
-   * Create a new ESPLoader instance using a LoaderOptions object.
-   * @param {LoaderOptions} options - Options for ESPLoader.
-   *
-   * {
-   *
-   *   transport: Transport;
-   *
-   *   baudrate: number;
-   *
-   *   terminal?: IEspLoaderTerminal;
-   *
-   *   romBaudrate: number;
-   *
-   *   debugLogging?: boolean;
-   *
-   * }
+   * Create a new ESPLoader to perform serial communication
+   * such as read/write flash memory and registers using a LoaderOptions object.
+   * @param {LoaderOptions} options - LoaderOptions object argument for ESPLoader.
    */
   constructor(options: LoaderOptions) {
     this.IS_STUB = false;
@@ -227,7 +273,7 @@ export class ESPLoader {
     }
 
     this.info("esptool.js");
-    this.info("Serial port " + this.transport.get_info());
+    this.info("Serial port " + this.transport.getInfo());
   }
 
   _sleep(ms: number) {
@@ -373,7 +419,10 @@ export class ESPLoader {
     return u8_array;
   }
 
-  async flush_input() {
+  /**
+   * Flush the serial input by raw read with 200 ms timeout.
+   */
+  async flushInput() {
     try {
       await this.transport.rawRead(200);
     } catch (e) {
@@ -393,7 +442,7 @@ export class ESPLoader {
         if (op == null || op_ret == op) {
           return [val, data];
         } else if (data[0] != 0 && data[1] == this.ROM_INVALID_RECV_MSG) {
-          await this.flush_input();
+          await this.flushInput();
           throw new ESPError("unsupported command error");
         }
       }
@@ -402,13 +451,13 @@ export class ESPLoader {
   }
 
   /**
-   * Run a serial command in the chip
+   * Write a serial command to the chip
    * @param {number} op - Operation number
-   * @param {string} data - Unsigned 8 bit array
-   * @param {number} chk - binary string input
-   * @param {boolean} waitResponse - binary string input
-   * @param {number} btimeoutStr - binary string input
-   * @returns {[number, Uint8Array]} Return a 8 bit unsigned integer array.
+   * @param {Uint8Array} data - Unsigned 8 bit array
+   * @param {number} chk - channel number
+   * @param {boolean} waitResponse - wait for response ?
+   * @param {number} timeout - timeout number in milliseconds
+   * @returns {Promise<[number, Uint8Array]>} Return a number and a 8 bit unsigned integer array.
    */
   async command(
     op: number | null = null,
@@ -442,12 +491,26 @@ export class ESPLoader {
     return this.read_packet(op, timeout);
   }
 
-  async read_reg(addr: number, timeout = 3000) {
+  /**
+   * Read a register from chip.
+   * @param {number} addr - Register address number
+   * @param {number} timeout - Timeout in milliseconds (Default: 3000ms)
+   * @returns {number} - Command number value
+   */
+  async readReg(addr: number, timeout = 3000) {
     const pkt = this._intToByteArray(addr);
     const val = await this.command(this.ESP_READ_REG, pkt, undefined, undefined, timeout);
     return val[0];
   }
 
+  /**
+   * Write a number value to register address in chip.
+   * @param {number} addr - Register address number
+   * @param {number} value - Number value to write in register
+   * @param {number} mask - Hex number for mask
+   * @param {number} delay_us Delay number
+   * @param {number} delay_after_us Delay after previous delay
+   */
   async write_reg(addr: number, value: number, mask = 0xffffffff, delay_us = 0, delay_after_us = 0) {
     let pkt = this._appendArray(this._intToByteArray(addr), this._intToByteArray(value));
     pkt = this._appendArray(pkt, this._intToByteArray(mask));
@@ -460,9 +523,12 @@ export class ESPLoader {
       pkt = this._appendArray(pkt, this._intToByteArray(delay_after_us));
     }
 
-    await this.check_command("write target memory", this.ESP_WRITE_REG, pkt);
+    await this.checkCommand("write target memory", this.ESP_WRITE_REG, pkt);
   }
 
+  /**
+   * Sync chip by sending sync command.
+   */
   async sync() {
     this.debug("Sync");
     const cmd = new Uint8Array(36);
@@ -484,10 +550,16 @@ export class ESPLoader {
     }
   }
 
-  async _connect_attempt(mode = "default_reset", esp32r0_delay = false) {
+  /**
+   * Attempt to connect to the chip by sending a reset sequence and later a sync command.
+   * @param {string} mode - Reset mode to use
+   * @param {boolean} esp32r0_delay - Enable delay for ESP32 R0
+   * @returns {string} - Returns 'success' or 'error' message.
+   */
+  async _connectAttempt(mode = "default_reset", esp32r0_delay = false) {
     this.debug("_connect_attempt " + mode + " " + esp32r0_delay);
     if (mode !== "no_reset") {
-      if (this.transport.get_pid() === this.USB_JTAG_SERIAL_PID) {
+      if (this.transport.getPid() === this.USB_JTAG_SERIAL_PID) {
         // Custom reset sequence, which is required when the device
         // is connecting via its USB-JTAG-Serial peripheral
         await usbJTAGSerialReset(this.transport);
@@ -532,17 +604,23 @@ export class ESPLoader {
     return "error";
   }
 
+  /**
+   * Perform a connection to chip.
+   * @param mode - Reset mode to use. Example: 'default_reset' | 'no_reset'
+   * @param attempts - Number of connection attempts
+   * @param detecting - Detect the connected chip
+   */
   async connect(mode = "default_reset", attempts = 7, detecting = false) {
     let i;
     let resp;
     this.info("Connecting...", false);
     await this.transport.connect(this.romBaudrate, this.serialOptions);
     for (i = 0; i < attempts; i++) {
-      resp = await this._connect_attempt(mode, false);
+      resp = await this._connectAttempt(mode, false);
       if (resp === "success") {
         break;
       }
-      resp = await this._connect_attempt(mode, true);
+      resp = await this._connectAttempt(mode, true);
       if (resp === "success") {
         break;
       }
@@ -553,7 +631,7 @@ export class ESPLoader {
     this.info("\n\r", false);
 
     if (!detecting) {
-      const chip_magic_value = (await this.read_reg(0x40001000)) >>> 0;
+      const chip_magic_value = (await this.readReg(0x40001000)) >>> 0;
       this.debug("Chip Magic " + chip_magic_value.toString(16));
       const chip = await magic2Chip(chip_magic_value);
       if (this.chip === null) {
@@ -564,7 +642,11 @@ export class ESPLoader {
     }
   }
 
-  async detect_chip(mode = "default_reset") {
+  /**
+   * Connect and detect the existing chip.
+   * @param mode Reset mode to use for connection.
+   */
+  async detectChip(mode = "default_reset") {
     await this.connect(mode);
     this.info("Detecting chip type... ", false);
     if (this.chip != null) {
@@ -574,7 +656,16 @@ export class ESPLoader {
     }
   }
 
-  async check_command(
+  /**
+   * Execute the command and check the command response.
+   * @param {string} op_description Command operation description.
+   * @param {number} op Command operation number
+   * @param {Uint8Array} data Command value
+   * @param {number} chk Checksum to use
+   * @param {number} timeout TImeout number in milliseconds (ms)
+   * @returns {number} Command result
+   */
+  async checkCommand(
     op_description = "",
     op: number | null = null,
     data: Uint8Array = new Uint8Array(0),
@@ -590,15 +681,27 @@ export class ESPLoader {
     }
   }
 
-  async mem_begin(size: number, blocks: number, blocksize: number, offset: number) {
+  /**
+   * Start downloading an application image to RAM
+   * @param {number} size Image size number
+   * @param {number} blocks Number of data blocks
+   * @param {number} blocksize Size of each data block
+   * @param {number} offset Image offset number
+   */
+  async memBegin(size: number, blocks: number, blocksize: number, offset: number) {
     /* XXX: Add check to ensure that STUB is not getting overwritten */
     this.debug("mem_begin " + size + " " + blocks + " " + blocksize + " " + offset.toString(16));
     let pkt = this._appendArray(this._intToByteArray(size), this._intToByteArray(blocks));
     pkt = this._appendArray(pkt, this._intToByteArray(blocksize));
     pkt = this._appendArray(pkt, this._intToByteArray(offset));
-    await this.check_command("enter RAM download mode", this.ESP_MEM_BEGIN, pkt);
+    await this.checkCommand("enter RAM download mode", this.ESP_MEM_BEGIN, pkt);
   }
 
+  /**
+   * Get the checksum for given unsigned 8-bit array
+   * @param {Uint8Array} data Unsigned 8-bit integer array
+   * @returns - Array checksum
+   */
   checksum = function (data: Uint8Array) {
     let i;
     let chk = 0xef;
@@ -609,27 +712,46 @@ export class ESPLoader {
     return chk;
   };
 
-  async mem_block(buffer: Uint8Array, seq: number) {
+  /**
+   * Send a block of image to RAM
+   * @param buffer Unsigned 8-bit array
+   * @param seq Sequence number
+   */
+  async memBlock(buffer: Uint8Array, seq: number) {
     let pkt = this._appendArray(this._intToByteArray(buffer.length), this._intToByteArray(seq));
     pkt = this._appendArray(pkt, this._intToByteArray(0));
     pkt = this._appendArray(pkt, this._intToByteArray(0));
     pkt = this._appendArray(pkt, buffer);
     const checksum = this.checksum(buffer);
-    await this.check_command("write to target RAM", this.ESP_MEM_DATA, pkt, checksum);
+    await this.checkCommand("write to target RAM", this.ESP_MEM_DATA, pkt, checksum);
   }
 
-  async mem_finish(entrypoint: number) {
+  /**
+   * Leave RAM download mode and run application
+   * @param {number} entrypoint - Entrypoint number
+   */
+  async memFinish(entrypoint: number) {
     const is_entry = entrypoint === 0 ? 1 : 0;
     const pkt = this._appendArray(this._intToByteArray(is_entry), this._intToByteArray(entrypoint));
-    await this.check_command("leave RAM download mode", this.ESP_MEM_END, pkt, undefined, 50); // XXX: handle non-stub with diff timeout
+    await this.checkCommand("leave RAM download mode", this.ESP_MEM_END, pkt, undefined, 50); // XXX: handle non-stub with diff timeout
   }
 
-  async flash_spi_attach(hspi_arg: number) {
+  /**
+   * Configure SPI flash pins
+   * @param {number} hspi_arg -  Argument for SPI attachment
+   */
+  async flashSpiAttach(hspi_arg: number) {
     const pkt = this._intToByteArray(hspi_arg);
-    await this.check_command("configure SPI flash pins", this.ESP_SPI_ATTACH, pkt);
+    await this.checkCommand("configure SPI flash pins", this.ESP_SPI_ATTACH, pkt);
   }
 
-  timeout_per_mb = function (seconds_per_mb: number, size_bytes: number) {
+  /**
+   * Scale timeouts which are size-specific.
+   * @param {number} seconds_per_mb Seconds per megabytes as number
+   * @param {number} size_bytes Size bytes number
+   * @returns {number} - Scaled timeout for specified size.
+   */
+  timeoutPerMb = function (seconds_per_mb: number, size_bytes: number) {
     const result = seconds_per_mb * (size_bytes / 1000000);
     if (result < 3000) {
       return 3000;
@@ -638,7 +760,13 @@ export class ESPLoader {
     }
   };
 
-  async flash_begin(size: number, offset: number) {
+  /**
+   * Start downloading to Flash (performs an erase)
+   * @param {number} size Size to erase
+   * @param {number} offset Offset to erase
+   * @returns {number} Number of blocks (of size self.FLASH_WRITE_SIZE) to write.
+   */
+  async flashBegin(size: number, offset: number) {
     const num_blocks = Math.floor((size + this.FLASH_WRITE_SIZE - 1) / this.FLASH_WRITE_SIZE);
     const erase_size = this.chip.getEraseSize(offset, size);
 
@@ -647,7 +775,7 @@ export class ESPLoader {
 
     let timeout = 3000;
     if (this.IS_STUB == false) {
-      timeout = this.timeout_per_mb(this.ERASE_REGION_TIMEOUT_PER_MB, size);
+      timeout = this.timeoutPerMb(this.ERASE_REGION_TIMEOUT_PER_MB, size);
     }
 
     this.debug(
@@ -660,7 +788,7 @@ export class ESPLoader {
       pkt = this._appendArray(pkt, this._intToByteArray(0)); // XXX: Support encrypted
     }
 
-    await this.check_command("enter Flash download mode", this.ESP_FLASH_BEGIN, pkt, undefined, timeout);
+    await this.checkCommand("enter Flash download mode", this.ESP_FLASH_BEGIN, pkt, undefined, timeout);
 
     const t2 = d.getTime();
     if (size != 0 && this.IS_STUB == false) {
@@ -669,7 +797,14 @@ export class ESPLoader {
     return num_blocks;
   }
 
-  async flash_defl_begin(size: number, compsize: number, offset: number) {
+  /**
+   * Start downloading compressed data to Flash (performs an erase)
+   * @param {number} size Write size
+   * @param {number} compsize Compressed size
+   * @param {number} offset
+   * @returns {number} Returns number of blocks (size self.FLASH_WRITE_SIZE) to write.
+   */
+  async flashDeflBegin(size: number, compsize: number, offset: number) {
     const num_blocks = Math.floor((compsize + this.FLASH_WRITE_SIZE - 1) / this.FLASH_WRITE_SIZE);
     const erase_blocks = Math.floor((size + this.FLASH_WRITE_SIZE - 1) / this.FLASH_WRITE_SIZE);
 
@@ -682,7 +817,7 @@ export class ESPLoader {
       timeout = 3000;
     } else {
       write_size = erase_blocks * this.FLASH_WRITE_SIZE;
-      timeout = this.timeout_per_mb(this.ERASE_REGION_TIMEOUT_PER_MB, write_size);
+      timeout = this.timeoutPerMb(this.ERASE_REGION_TIMEOUT_PER_MB, write_size);
     }
     this.info("Compressed " + size + " bytes to " + compsize + "...");
 
@@ -698,7 +833,7 @@ export class ESPLoader {
     ) {
       pkt = this._appendArray(pkt, this._intToByteArray(0));
     }
-    await this.check_command("enter compressed flash mode", this.ESP_FLASH_DEFL_BEGIN, pkt, undefined, timeout);
+    await this.checkCommand("enter compressed flash mode", this.ESP_FLASH_DEFL_BEGIN, pkt, undefined, timeout);
     const t2 = d.getTime();
     if (size != 0 && this.IS_STUB === false) {
       this.info("Took " + (t2 - t1) / 1000 + "." + ((t2 - t1) % 1000) + "s to erase flash block");
@@ -706,7 +841,13 @@ export class ESPLoader {
     return num_blocks;
   }
 
-  async flash_block(data: Uint8Array, seq: number, timeout: number) {
+  /**
+   * Write block to flash, retry if fail
+   * @param {Uint8Array} data Unsigned 8-bit array data.
+   * @param {number} seq Sequence number
+   * @param {number} timeout Timeout in milliseconds (ms)
+   */
+  async flashBlock(data: Uint8Array, seq: number, timeout: number) {
     let pkt = this._appendArray(this._intToByteArray(data.length), this._intToByteArray(seq));
     pkt = this._appendArray(pkt, this._intToByteArray(0));
     pkt = this._appendArray(pkt, this._intToByteArray(0));
@@ -714,10 +855,16 @@ export class ESPLoader {
 
     const checksum = this.checksum(data);
 
-    await this.check_command("write to target Flash after seq " + seq, this.ESP_FLASH_DATA, pkt, checksum, timeout);
+    await this.checkCommand("write to target Flash after seq " + seq, this.ESP_FLASH_DATA, pkt, checksum, timeout);
   }
 
-  async flash_defl_block(data: Uint8Array, seq: number, timeout: number) {
+  /**
+   * Write block to flash, send compressed, retry if fail
+   * @param {Uint8Array} data Unsigned int 8-bit array data to write
+   * @param {number} seq Sequence number
+   * @param {number} timeout Timeout in milliseconds (ms)
+   */
+  async flashDeflBlock(data: Uint8Array, seq: number, timeout: number) {
     let pkt = this._appendArray(this._intToByteArray(data.length), this._intToByteArray(seq));
     pkt = this._appendArray(pkt, this._intToByteArray(0));
     pkt = this._appendArray(pkt, this._intToByteArray(0));
@@ -726,7 +873,7 @@ export class ESPLoader {
     const checksum = this.checksum(data);
     this.debug("flash_defl_block " + data[0].toString(16) + " " + data[1].toString(16));
 
-    await this.check_command(
+    await this.checkCommand(
       "write compressed data to flash after seq " + seq,
       this.ESP_FLASH_DEFL_DATA,
       pkt,
@@ -735,21 +882,44 @@ export class ESPLoader {
     );
   }
 
-  async flash_finish(reboot = false) {
+  /**
+   * Leave flash mode and run/reboot
+   * @param {boolean} reboot Reboot after leaving flash mode ?
+   */
+  async flashFinish(reboot = false) {
     const val = reboot ? 0 : 1;
     const pkt = this._intToByteArray(val);
 
-    await this.check_command("leave Flash mode", this.ESP_FLASH_END, pkt);
+    await this.checkCommand("leave Flash mode", this.ESP_FLASH_END, pkt);
   }
 
-  async flash_defl_finish(reboot = false) {
+  /**
+   * Leave compressed flash mode and run/reboot
+   * @param {boolean} reboot Reboot after leaving flash mode ?
+   */
+  async flashDeflFinish(reboot = false) {
     const val = reboot ? 0 : 1;
     const pkt = this._intToByteArray(val);
 
-    await this.check_command("leave compressed flash mode", this.ESP_FLASH_DEFL_END, pkt);
+    await this.checkCommand("leave compressed flash mode", this.ESP_FLASH_DEFL_END, pkt);
   }
 
-  async run_spiflash_command(spiflash_command: number, data: Uint8Array, read_bits: number) {
+  /**
+   * Run an arbitrary SPI flash command.
+   *
+   * This function uses the "USR_COMMAND" functionality in the ESP
+   * SPI hardware, rather than the precanned commands supported by
+   * hardware. So the value of spiflash_command is an actual command
+   * byte, sent over the wire.
+   *
+   * After writing command byte, writes 'data' to MOSI and then
+   * reads back 'read_bits' of reply on MISO. Result is a number.
+   * @param {number} spiflash_command
+   * @param {Uint8Array} data
+   * @param {number} read_bits
+   * @returns {number} Register SPI_W0_REG value
+   */
+  async runSpiflashCommand(spiflash_command: number, data: Uint8Array, read_bits: number) {
     // SPI_USR register flags
     const SPI_USR_COMMAND = 1 << 31;
     const SPI_USR_MISO = 1 << 28;
@@ -797,8 +967,8 @@ export class ESPLoader {
     }
 
     const data_bits = data.length * 8;
-    const old_spi_usr = await this.read_reg(SPI_USR_REG);
-    const old_spi_usr2 = await this.read_reg(SPI_USR2_REG);
+    const old_spi_usr = await this.readReg(SPI_USR_REG);
+    const old_spi_usr2 = await this.readReg(SPI_USR2_REG);
     let flags = SPI_USR_COMMAND;
     let i;
     if (read_bits > 0) {
@@ -827,7 +997,7 @@ export class ESPLoader {
     }
     await this.write_reg(SPI_CMD_REG, SPI_CMD_USR);
     for (i = 0; i < 10; i++) {
-      val = (await this.read_reg(SPI_CMD_REG)) & SPI_CMD_USR;
+      val = (await this.readReg(SPI_CMD_REG)) & SPI_CMD_USR;
       if (val == 0) {
         break;
       }
@@ -835,23 +1005,31 @@ export class ESPLoader {
     if (i === 10) {
       throw new ESPError("SPI command did not complete in time");
     }
-    const stat = await this.read_reg(SPI_W0_REG);
+    const stat = await this.readReg(SPI_W0_REG);
     await this.write_reg(SPI_USR_REG, old_spi_usr);
     await this.write_reg(SPI_USR2_REG, old_spi_usr2);
     return stat;
   }
 
-  async read_flash_id() {
+  /**
+   * Read flash id by executing the SPIFLASH_RDID flash command.
+   * @returns Register SPI_W0_REG value
+   */
+  async readFlashId() {
     const SPIFLASH_RDID = 0x9f;
     const pkt = new Uint8Array(0);
-    return await this.run_spiflash_command(SPIFLASH_RDID, pkt, 24);
+    return await this.runSpiflashCommand(SPIFLASH_RDID, pkt, 24);
   }
 
-  async erase_flash() {
+  /**
+   * Execute the erase flash command
+   * @returns {Promise<number | Uint8Array>} Erase flash command result
+   */
+  async eraseFlash(): Promise<number | Uint8Array> {
     this.info("Erasing flash (this may take a while)...");
     let d = new Date();
     const t1 = d.getTime();
-    const ret = await this.check_command(
+    const ret = await this.checkCommand(
       "erase flash",
       this.ESP_ERASE_FLASH,
       undefined,
@@ -864,17 +1042,28 @@ export class ESPLoader {
     return ret;
   }
 
-  toHex(buffer: number | Uint8Array) {
+  /**
+   * Convert a number or unsigned 8-bit array to hex string
+   * @param {number | Uint8Array } buffer Data to convert to hex string.
+   * @returns {string} A hex string
+   */
+  toHex(buffer: number | Uint8Array): string {
     return Array.prototype.map.call(buffer, (x) => ("00" + x.toString(16)).slice(-2)).join("");
   }
 
-  async flash_md5sum(addr: number, size: number) {
-    const timeout = this.timeout_per_mb(this.MD5_TIMEOUT_PER_MB, size);
+  /**
+   * Calculate the MD5 Checksum command
+   * @param addr Address number
+   * @param size Package size
+   * @returns {string} MD5 Checksum string
+   */
+  async flashMd5sum(addr: number, size: number): Promise<string> {
+    const timeout = this.timeoutPerMb(this.MD5_TIMEOUT_PER_MB, size);
     let pkt = this._appendArray(this._intToByteArray(addr), this._intToByteArray(size));
     pkt = this._appendArray(pkt, this._intToByteArray(0));
     pkt = this._appendArray(pkt, this._intToByteArray(0));
 
-    let res = await this.check_command("calculate md5sum", this.ESP_SPI_FLASH_MD5, pkt, undefined, timeout);
+    let res = await this.checkCommand("calculate md5sum", this.ESP_SPI_FLASH_MD5, pkt, undefined, timeout);
     if (res instanceof Uint8Array && res.length > 16) {
       res = res.slice(0, 16);
     }
@@ -887,7 +1076,7 @@ export class ESPLoader {
     pkt = this._appendArray(pkt, this._intToByteArray(0x1000));
     pkt = this._appendArray(pkt, this._intToByteArray(1024));
 
-    const res = await this.check_command("read flash", this.ESP_READ_FLASH, pkt);
+    const res = await this.checkCommand("read flash", this.ESP_READ_FLASH, pkt);
 
     if (res != 0) {
       throw new ESPError("Failed to read memory: " + res);
@@ -914,16 +1103,20 @@ export class ESPLoader {
     return resp;
   }
 
-  async run_stub() {
+  /**
+   * Upload the flasher ROM bootloader (flasher stub) to the chip.
+   * @returns {ROM} The Chip ROM
+   */
+  async runStub() {
     this.info("Uploading stub...");
 
-    let decoded = atob(this.chip.ROM_TEXT);
+    let decoded = Buffer.from(this.chip.ROM_TEXT).toString("base64");
     let chardata = decoded.split("").map(function (x) {
       return x.charCodeAt(0);
     });
     const text = new Uint8Array(chardata);
 
-    decoded = atob(this.chip.ROM_DATA);
+    decoded = Buffer.from(this.chip.ROM_DATA).toString("base64");
     chardata = decoded.split("").map(function (x) {
       return x.charCodeAt(0);
     });
@@ -932,23 +1125,23 @@ export class ESPLoader {
     let blocks = Math.floor((text.length + this.ESP_RAM_BLOCK - 1) / this.ESP_RAM_BLOCK);
     let i;
 
-    await this.mem_begin(text.length, blocks, this.ESP_RAM_BLOCK, this.chip.TEXT_START);
+    await this.memBegin(text.length, blocks, this.ESP_RAM_BLOCK, this.chip.TEXT_START);
     for (i = 0; i < blocks; i++) {
       const from_offs = i * this.ESP_RAM_BLOCK;
       const to_offs = from_offs + this.ESP_RAM_BLOCK;
-      await this.mem_block(text.slice(from_offs, to_offs), i);
+      await this.memBlock(text.slice(from_offs, to_offs), i);
     }
 
     blocks = Math.floor((data.length + this.ESP_RAM_BLOCK - 1) / this.ESP_RAM_BLOCK);
-    await this.mem_begin(data.length, blocks, this.ESP_RAM_BLOCK, this.chip.DATA_START);
+    await this.memBegin(data.length, blocks, this.ESP_RAM_BLOCK, this.chip.DATA_START);
     for (i = 0; i < blocks; i++) {
       const from_offs = i * this.ESP_RAM_BLOCK;
       const to_offs = from_offs + this.ESP_RAM_BLOCK;
-      await this.mem_block(data.slice(from_offs, to_offs), i);
+      await this.memBlock(data.slice(from_offs, to_offs), i);
     }
 
     this.info("Running stub...");
-    await this.mem_finish(this.chip.ENTRY);
+    await this.memFinish(this.chip.ENTRY);
 
     // Check up-to next 100 packets to see if stub is running
     for (let i = 0; i < 100; i++) {
@@ -963,7 +1156,10 @@ export class ESPLoader {
     throw new ESPError("Failed to start stub. Unexpected response");
   }
 
-  async change_baud() {
+  /**
+   * Change the chip baudrate.
+   */
+  async changeBaud() {
     this.info("Changing baudrate to " + this.baudrate);
     const second_arg = this.IS_STUB ? this.transport.baudrate : 0;
     const pkt = this._appendArray(this._intToByteArray(this.baudrate), this._intToByteArray(second_arg));
@@ -991,8 +1187,13 @@ export class ESPLoader {
     }
   }
 
-  async main_fn(mode = "default_reset") {
-    await this.detect_chip(mode);
+  /**
+   * Execute the main function of ESPLoader.
+   * @param {string} mode Reset mode to use
+   * @returns {ROM} chip ROM
+   */
+  async main(mode = "default_reset") {
+    await this.detectChip(mode);
 
     const chip = await this.chip.getChipDescription(this);
     this.info("Chip is " + chip);
@@ -1005,15 +1206,20 @@ export class ESPLoader {
       await this.chip.postConnect(this);
     }
 
-    await this.run_stub();
+    await this.runStub();
 
     if (this.romBaudrate !== this.baudrate) {
-      await this.change_baud();
+      await this.changeBaud();
     }
     return chip;
   }
 
-  flash_size_bytes = function (flash_size: string) {
+  /**
+   * Get flash size bytes from flash size string.
+   * @param flash_size Flash Size string
+   * @returns {number} Flash size bytes
+   */
+  flashSizeBytes = function (flash_size: string) {
     let flash_size_b = -1;
     if (flash_size.indexOf("KB") !== -1) {
       flash_size_b = parseInt(flash_size.slice(0, flash_size.indexOf("KB"))) * 1024;
@@ -1023,7 +1229,12 @@ export class ESPLoader {
     return flash_size_b;
   };
 
-  parse_flash_size_arg(flsz: string) {
+  /**
+   * Parse a given flash size string to a number
+   * @param flsz Flash size to request
+   * @returns {number} Flash size number
+   */
+  parseFlashSizeArg(flsz: string) {
     if (typeof this.chip.FLASH_SIZES[flsz] === "undefined") {
       throw new ESPError(
         "Flash size " + flsz + " is not supported by this chip type. Supported sizes: " + this.chip.FLASH_SIZES,
@@ -1032,21 +1243,24 @@ export class ESPLoader {
     return this.chip.FLASH_SIZES[flsz];
   }
 
-  _update_image_flash_params(
-    image: string,
-    address: number,
-    flash_size: string,
-    flash_mode: string,
-    flash_freq: string,
-  ) {
-    this.debug("_update_image_flash_params " + flash_size + " " + flash_mode + " " + flash_freq);
+  /**
+   * Update the image flash parameters with given arguments.
+   * @param {string} image binary image as string
+   * @param {number} address flash address number
+   * @param {string} flashSize Flash size string
+   * @param {string} flashMode Flash mode string
+   * @param {string} flashFreq Flash frequency string
+   * @returns {string} modified image string
+   */
+  _updateImageFlashParams(image: string, address: number, flashSize: string, flashMode: string, flashFreq: string) {
+    this.debug("_update_image_flash_params " + flashSize + " " + flashMode + " " + flashFreq);
     if (image.length < 8) {
       return image;
     }
     if (address != this.chip.BOOTLOADER_FLASH_OFFSET) {
       return image;
     }
-    if (flash_size === "keep" && flash_mode === "keep" && flash_freq === "keep") {
+    if (flashSize === "keep" && flashMode === "keep" && flashFreq === "keep") {
       this.info("Not changing the image");
       return image;
     }
@@ -1065,18 +1279,18 @@ export class ESPLoader {
 
     /* XXX: Yet to implement actual image verification */
 
-    if (flash_mode !== "keep") {
+    if (flashMode !== "keep") {
       const flash_modes: { [key: string]: number } = { qio: 0, qout: 1, dio: 2, dout: 3 };
-      a_flash_mode = flash_modes[flash_mode];
+      a_flash_mode = flash_modes[flashMode];
     }
     let a_flash_freq = flash_size_freq & 0x0f;
-    if (flash_freq !== "keep") {
+    if (flashFreq !== "keep") {
       const flash_freqs: { [key: string]: number } = { "40m": 0, "26m": 1, "20m": 2, "80m": 0xf };
-      a_flash_freq = flash_freqs[flash_freq];
+      a_flash_freq = flash_freqs[flashFreq];
     }
     let a_flash_size = flash_size_freq & 0xf0;
-    if (flash_size !== "keep") {
-      a_flash_size = this.parse_flash_size_arg(flash_size);
+    if (flashSize !== "keep") {
+      a_flash_size = this.parseFlashSizeArg(flashSize);
     }
 
     const flash_params = (a_flash_mode << 8) | (a_flash_freq + a_flash_size);
@@ -1090,10 +1304,14 @@ export class ESPLoader {
     return image;
   }
 
-  async write_flash(options: FlashOptions) {
+  /**
+   * Write set of file images into given address based on given FlashOptions object.
+   * @param {FlashOptions} options FlashOptions to configure how and what to write into flash.
+   */
+  async writeFlash(options: FlashOptions) {
     this.debug("EspLoader program");
     if (options.flashSize !== "keep") {
-      const flash_end = this.flash_size_bytes(options.flashSize);
+      const flash_end = this.flashSizeBytes(options.flashSize);
       for (let i = 0; i < options.fileArray.length; i++) {
         if (options.fileArray[i].data.length + options.fileArray[i].address > flash_end) {
           throw new ESPError(`File ${i + 1} doesn't fit in the available flash`);
@@ -1102,7 +1320,7 @@ export class ESPLoader {
     }
 
     if (this.IS_STUB === true && options.eraseAll === true) {
-      await this.erase_flash();
+      await this.eraseFlash();
     }
     let image: string, address: number;
     for (let i = 0; i < options.fileArray.length; i++) {
@@ -1116,7 +1334,7 @@ export class ESPLoader {
         this.debug("Warning: File is empty");
         continue;
       }
-      image = this._update_image_flash_params(image, address, options.flashSize, options.flashMode, options.flashFreq);
+      image = this._updateImageFlashParams(image, address, options.flashSize, options.flashMode, options.flashFreq);
       let calcmd5: string | null = null;
       if (options.calculateMD5Hash) {
         calcmd5 = options.calculateMD5Hash(image);
@@ -1127,9 +1345,9 @@ export class ESPLoader {
       if (options.compress) {
         const uncimage = this.bstrToUi8(image);
         image = this.ui8ToBstr(deflate(uncimage, { level: 9 }));
-        blocks = await this.flash_defl_begin(uncsize, image.length, address);
+        blocks = await this.flashDeflBegin(uncsize, image.length, address);
       } else {
-        blocks = await this.flash_begin(uncsize, address);
+        blocks = await this.flashBegin(uncsize, address);
       }
       let seq = 0;
       let bytes_sent = 0;
@@ -1163,14 +1381,14 @@ export class ESPLoader {
           inflate.push(block, false);
           const block_uncompressed = total_len_uncompressed - len_uncompressed_previous;
           let block_timeout = 3000;
-          if (this.timeout_per_mb(this.ERASE_WRITE_TIMEOUT_PER_MB, block_uncompressed) > 3000) {
-            block_timeout = this.timeout_per_mb(this.ERASE_WRITE_TIMEOUT_PER_MB, block_uncompressed);
+          if (this.timeoutPerMb(this.ERASE_WRITE_TIMEOUT_PER_MB, block_uncompressed) > 3000) {
+            block_timeout = this.timeoutPerMb(this.ERASE_WRITE_TIMEOUT_PER_MB, block_uncompressed);
           }
           if (this.IS_STUB === false) {
             // ROM code writes block to flash before ACKing
             timeout = block_timeout;
           }
-          await this.flash_defl_block(block, seq, timeout);
+          await this.flashDeflBlock(block, seq, timeout);
           if (this.IS_STUB) {
             // Stub ACKs when block is received, then writes to flash while receiving the block after it
             timeout = block_timeout;
@@ -1184,7 +1402,7 @@ export class ESPLoader {
         if (options.reportProgress) options.reportProgress(i, bytes_sent, totalBytes);
       }
       if (this.IS_STUB) {
-        await this.read_reg(this.CHIP_DETECT_MAGIC_REG_ADDR, timeout);
+        await this.readReg(this.CHIP_DETECT_MAGIC_REG_ADDR, timeout);
       }
       d = new Date();
       const t = d.getTime() - t1;
@@ -1202,7 +1420,7 @@ export class ESPLoader {
         );
       }
       if (calcmd5) {
-        const res = await this.flash_md5sum(address, uncsize);
+        const res = await this.flashMd5sum(address, uncsize);
         if (new String(res).valueOf() != new String(calcmd5).valueOf()) {
           this.info("File  md5: " + calcmd5);
           this.info("Flash md5: " + res);
@@ -1215,18 +1433,21 @@ export class ESPLoader {
     this.info("Leaving...");
 
     if (this.IS_STUB) {
-      await this.flash_begin(0, 0);
+      await this.flashBegin(0, 0);
       if (options.compress) {
-        await this.flash_defl_finish();
+        await this.flashDeflFinish();
       } else {
-        await this.flash_finish();
+        await this.flashFinish();
       }
     }
   }
 
-  async flash_id() {
+  /**
+   * Read SPI flash manufacturer and device id.
+   */
+  async flashId() {
     this.debug("flash_id");
-    const flashid = await this.read_flash_id();
+    const flashid = await this.readFlashId();
     this.info("Manufacturer: " + (flashid & 0xff).toString(16));
     const flid_lowbyte = (flashid >> 16) & 0xff;
     this.info("Device: " + ((flashid >> 8) & 0xff).toString(16) + flid_lowbyte.toString(16));
@@ -1235,22 +1456,28 @@ export class ESPLoader {
 
   async get_flash_size() {
     this.debug("flash_id");
-    const flashid = await this.read_flash_id();
+    const flashid = await this.readFlashId();
     const flid_lowbyte = (flashid >> 16) & 0xff;
     return this.DETECTED_FLASH_SIZES_NUM[flid_lowbyte];
   }
 
-  async hard_reset() {
+  /**
+   * Perform a chip hard reset by setting RTS to LOW and then HIGH.
+   */
+  async hardReset() {
     await this.transport.setRTS(true); // EN->LOW
     await this._sleep(100);
     await this.transport.setRTS(false);
   }
 
-  async soft_reset() {
+  /**
+   * Soft reset the device chip. Soft reset with run user code is the closest.
+   */
+  async softReset() {
     if (!this.IS_STUB) {
       // "run user code" is as close to a soft reset as we can do
-      await this.flash_begin(0, 0);
-      await this.flash_finish(false);
+      await this.flashBegin(0, 0);
+      await this.flashFinish(false);
     } else if (this.chip.CHIP_NAME != "ESP8266") {
       throw new ESPError("Soft resetting is currently only supported on ESP8266");
     } else {

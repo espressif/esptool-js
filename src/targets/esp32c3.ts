@@ -40,7 +40,7 @@ export class ESP32C3ROM extends ROM {
     const num_word = 3;
     const block1_addr = this.EFUSE_BASE + 0x044;
     const addr = block1_addr + 4 * num_word;
-    const word3 = await loader.read_reg(addr);
+    const word3 = await loader.readReg(addr);
     const pkg_version = (word3 >> 21) & 0x07;
     return pkg_version;
   }
@@ -50,7 +50,7 @@ export class ESP32C3ROM extends ROM {
     const num_word = 3;
     const pos = 18;
     const addr = block1_addr + 4 * num_word;
-    const ret = ((await loader.read_reg(addr)) & (0x7 << pos)) >> pos;
+    const ret = ((await loader.readReg(addr)) & (0x7 << pos)) >> pos;
     return ret;
   }
 
@@ -81,9 +81,9 @@ export class ESP32C3ROM extends ROM {
   }
 
   public async readMac(loader: ESPLoader) {
-    let mac0 = await loader.read_reg(this.MAC_EFUSE_REG);
+    let mac0 = await loader.readReg(this.MAC_EFUSE_REG);
     mac0 = mac0 >>> 0;
-    let mac1 = await loader.read_reg(this.MAC_EFUSE_REG + 4);
+    let mac1 = await loader.readReg(this.MAC_EFUSE_REG + 4);
     mac1 = (mac1 >>> 0) & 0x0000ffff;
     const mac = new Uint8Array(6);
     mac[0] = (mac1 >> 8) & 0xff;

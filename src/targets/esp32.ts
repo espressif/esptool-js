@@ -40,7 +40,7 @@ export class ESP32ROM extends ROM {
   public async readEfuse(loader: ESPLoader, offset: number): Promise<number> {
     const addr = this.EFUSE_RD_REG_BASE + 4 * offset;
     loader.debug("Read efuse " + addr);
-    return await loader.read_reg(addr);
+    return await loader.readReg(addr);
   }
 
   public async getPkgVersion(loader: ESPLoader): Promise<number> {
@@ -53,7 +53,7 @@ export class ESP32ROM extends ROM {
   public async getChipRevision(loader: ESPLoader): Promise<number> {
     const word3 = await this.readEfuse(loader, 3);
     const word5 = await this.readEfuse(loader, 5);
-    const apb_ctl_date = await loader.read_reg(this.DR_REG_SYSCON_BASE + 0x7c);
+    const apb_ctl_date = await loader.readReg(this.DR_REG_SYSCON_BASE + 0x7c);
 
     const rev_bit0 = (word3 >> 15) & 0x1;
     const rev_bit1 = (word5 >> 20) & 0x1;
@@ -162,7 +162,7 @@ export class ESP32ROM extends ROM {
   }
 
   public async getCrystalFreq(loader: ESPLoader) {
-    const uart_div = (await loader.read_reg(this.UART_CLKDIV_REG)) & this.UART_CLKDIV_MASK;
+    const uart_div = (await loader.readReg(this.UART_CLKDIV_REG)) & this.UART_CLKDIV_MASK;
     const ets_xtal = (loader.transport.baudrate * uart_div) / 1000000 / this.XTAL_CLK_DIVIDER;
     let norm_xtal;
     if (ets_xtal > 33) {

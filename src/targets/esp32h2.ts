@@ -59,7 +59,7 @@ export class ESP32H2ROM extends ROM {
   }
 
   public async postConnect(loader: ESPLoader) {
-    const buf_no = (await loader.read_reg(this.UARTDEV_BUF_NO)) & 0xff;
+    const buf_no = (await loader.readReg(this.UARTDEV_BUF_NO)) & 0xff;
     loader.debug("In _post_connect " + buf_no);
     if (buf_no == this.UARTDEV_BUF_NO_USB) {
       loader.ESP_RAM_BLOCK = this.USB_RAM_BLOCK;
@@ -67,9 +67,9 @@ export class ESP32H2ROM extends ROM {
   }
 
   public async readMac(loader: ESPLoader) {
-    let mac0 = await loader.read_reg(this.MAC_EFUSE_REG);
+    let mac0 = await loader.readReg(this.MAC_EFUSE_REG);
     mac0 = mac0 >>> 0;
-    let mac1 = await loader.read_reg(this.MAC_EFUSE_REG + 4);
+    let mac1 = await loader.readReg(this.MAC_EFUSE_REG + 4);
     mac1 = (mac1 >>> 0) & 0x0000ffff;
     const mac = new Uint8Array(6);
     mac[0] = (mac1 >> 8) & 0xff;

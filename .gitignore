@@ -1,6 +1,7 @@
 node_modules
 lib
 bundle.js
+docs
 esptool-js-*.tgz
 .vscode/settings.json
 .parcel-cache
