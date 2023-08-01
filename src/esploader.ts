@@ -528,6 +528,7 @@ export class ESPLoader {
 
   /**
    * Sync chip by sending sync command.
+   * @returns {[number, Uint8Array]} Command result
    */
   async sync() {
     this.debug("Sync");

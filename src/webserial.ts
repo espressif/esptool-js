@@ -113,7 +113,7 @@ class Transport {
   /**
    * Take a data array and return the first well formed packet after
    * replacing the escape sequence. Reads at least 8 bytes.
-   * @param data Unsigned 8 bit array from the device read stream.
+   * @param {Uint8Array} data Unsigned 8 bit array from the device read stream.
    * @returns {Uint8Array}
    */
   slipReader(data: Uint8Array) {
@@ -162,8 +162,8 @@ class Transport {
 
   /**
    * Read from serial device using the device ReadableStream.
-   * @param timeout Read timeout number
-   * @param minData Minimum packet array length
+   * @param {number} timeout Read timeout number
+   * @param {number} minData Minimum packet array length
    * @returns {Uint8Array} 8 bit unsigned data array read from device.
    */
   async read(timeout = 0, minData = 12) {
