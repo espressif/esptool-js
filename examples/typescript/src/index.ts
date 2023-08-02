@@ -38,6 +38,16 @@ eraseButton.style.display = "none";
 consoleStopButton.style.display = "none";
 filesDiv.style.display = "none";
 
+/**
+ * The built in Event object.
+ * @external Event
+ * @see {@link https://developer.mozilla.org/en-US/docs/Web/API/Event}
+ */
+
+/**
+ * File reader handler to read given local file.
+ * @param {Event} evt File Select event
+ */
 function handleFileSelect(evt) {
   const file = evt.target.files[0];
 
@@ -78,7 +88,7 @@ connectButton.onclick = async () => {
     } as LoaderOptions;
     esploader = new ESPLoader(flashOptions);
 
-    chip = await esploader.main_fn();
+    chip = await esploader.main();
 
     // Temporarily broken
     // await esploader.flash_id();
@@ -113,7 +123,7 @@ resetButton.onclick = async () => {
 eraseButton.onclick = async () => {
   eraseButton.disabled = true;
   try {
-    await esploader.erase_flash();
+    await esploader.eraseFlash();
   } catch (e) {
     console.error(e);
     term.writeln(`Error: ${e.message}`);
@@ -166,12 +176,24 @@ addFileButton.onclick = () => {
   }
 };
 
-function removeRow(row) {
+/**
+ * The built in HTMLTableRowElement object.
+ * @external HTMLTableRowElement
+ * @see {@link https://developer.mozilla.org/en-US/docs/Web/API/HTMLTableRowElement}
+ */
+
+/**
+ * Remove file row from HTML Table
+ * @param {HTMLTableRowElement} row Table row element to remove
+ */
+function removeRow(row: HTMLTableRowElement) {
   const rowIndex = Array.from(table.rows).indexOf(row);
   table.deleteRow(rowIndex);
 }
 
-// to be called on disconnect - remove any stale references of older connections if any
+/**
+ * Clean devices variables on chip disconnect. Remove stale references if any.
+ */
 function cleanUp() {
   device = null;
   transport = null;
@@ -228,7 +250,11 @@ consoleStopButton.onclick = async () => {
   programDiv.style.display = "initial";
 };
 
-function validate_program_inputs() {
+/**
+ * Validate the provided files images and offset to see if they're valid.
+ * @returns {string} Program input validation result
+ */
+function validateProgramInputs() {
   const offsetArr = [];
   const rowCount = table.rows.length;
   let row;
@@ -258,7 +284,7 @@ function validate_program_inputs() {
 
 programButton.onclick = async () => {
   const alertMsg = document.getElementById("alertmsg");
-  const err = validate_program_inputs();
+  const err = validateProgramInputs();
 
   if (err != "success") {
     alertMsg.innerHTML = "<strong>" + err + "</strong>";
@@ -301,7 +327,7 @@ programButton.onclick = async () => {
       },
       calculateMD5Hash: (image) => CryptoJS.MD5(CryptoJS.enc.Latin1.parse(image)),
     } as FlashOptions;
-    await esploader.write_flash(flashOptions);
+    await esploader.writeFlash(flashOptions);
   } catch (e) {
     console.error(e);
     term.writeln(`Error: ${e.message}`);

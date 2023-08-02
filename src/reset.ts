@@ -2,7 +2,11 @@ import { Transport } from "./webserial";
 
 const DEFAULT_RESET_DELAY = 50;
 
-/** Sleep function helper */
+/**
+ * Sleep for ms milliseconds
+ * @param {number} ms Milliseconds to wait
+ * @returns {Promise<void>}
+ */
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
@@ -110,8 +114,7 @@ type CmdsArgsTypes = {
  * R: setRTS - 1=True / 0=False
  *
  * W: Wait (time delay) - positive integer number (miliseconds)
- *
- * @param seqStr Sequence string to validate
+ * @param {string} seqStr Sequence string to validate
  * @returns {boolean} Is the sequence string valid ?
  */
 export function validateCustomResetStringSequence(seqStr: string): boolean {
@@ -157,7 +160,6 @@ export function validateCustomResetStringSequence(seqStr: string): boolean {
  * W: Wait (time delay) - positive integer number (miliseconds)
  *
  * "D0|R1|W100|D1|R0|W50|D0" represents the classic reset strategy
- *
  * @param {Transport} transport Transport class to perform serial communication.
  * @param {string} sequenceString Custom string sequence for reset strategy
  */
