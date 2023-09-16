@@ -74,7 +74,7 @@ connectButton.onclick = async () => {
     const flashOptions = {
       transport,
       baudrate: parseInt(baudrates.value),
-      terminal: espLoaderTerminal
+      terminal: espLoaderTerminal,
     } as LoaderOptions;
     esploader = new ESPLoader(flashOptions);
 
