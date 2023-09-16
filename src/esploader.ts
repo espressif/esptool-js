@@ -21,6 +21,7 @@ export interface LoaderOptions {
   terminal?: IEspLoaderTerminal;
   romBaudrate: number;
   debugLogging?: boolean;
+  chipEraseTimeout?: number;
 }
 
 async function magic2Chip(magic: number): Promise<ROM | null> {
@@ -123,6 +124,7 @@ export class ESPLoader {
   private terminal?: IEspLoaderTerminal;
   private romBaudrate = 115200;
   private debugLogging = false;
+  private chipEraseTimeout = this.CHIP_ERASE_TIMEOUT;
 
   constructor(options: LoaderOptions) {
     this.IS_STUB = false;
@@ -139,6 +141,9 @@ export class ESPLoader {
     }
     if (options.debugLogging) {
       this.debugLogging = options.debugLogging;
+    }
+    if (options.chipEraseTimeout) {
+      this.chipEraseTimeout = options.chipEraseTimeout;
     }
 
     this.info("esptool.js");
@@ -692,7 +697,7 @@ export class ESPLoader {
       this.ESP_ERASE_FLASH,
       undefined,
       undefined,
-      this.CHIP_ERASE_TIMEOUT,
+      this.chipEraseTimeout,
     );
     d = new Date();
     const t2 = d.getTime();

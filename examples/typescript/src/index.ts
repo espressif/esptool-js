@@ -75,6 +75,7 @@ connectButton.onclick = async () => {
       transport,
       baudrate: parseInt(baudrates.value),
       terminal: espLoaderTerminal,
+      chipEraseTimeout: 12000
     } as LoaderOptions;
     esploader = new ESPLoader(flashOptions);
 
