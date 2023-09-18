@@ -835,7 +835,7 @@ export class ESPLoader {
     await this._sleep(50);
     await this.transport.connect(this.baudrate);
 
-    /* original code seemd absolutely unreliable. use retries and less sleep */
+    /* original code seemed absolutely unreliable. use retries and less sleep */
     try {
       let i = 64;
       while (i--) {
