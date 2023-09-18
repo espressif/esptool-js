@@ -23,6 +23,8 @@ export interface LoaderOptions {
   debugLogging?: boolean;
 }
 
+type FlashReadCallback = ((packet: Uint8Array, progress: number, totalSize: number) => void) | null;
+
 async function magic2Chip(magic: number): Promise<ROM | null> {
   switch (magic) {
     case 0x00f01d83: {
@@ -86,6 +88,7 @@ export class ESPLoader {
   // Only Stub supported commands
   ESP_ERASE_FLASH = 0xd0;
   ESP_ERASE_REGION = 0xd1;
+  ESP_READ_FLASH = 0xd2;
   ESP_RUN_USER_CODE = 0xd3;
 
   ESP_IMAGE_MAGIC = 0xe9;
@@ -98,6 +101,7 @@ export class ESPLoader {
   ERASE_WRITE_TIMEOUT_PER_MB = 40000;
   MD5_TIMEOUT_PER_MB = 8000;
   CHIP_ERASE_TIMEOUT = 120000;
+  FLASH_READ_TIMEOUT = 100000;
   MAX_TIMEOUT = this.CHIP_ERASE_TIMEOUT * 2;
 
   CHIP_DETECT_MAGIC_REG_ADDR = 0x40001000;
@@ -110,6 +114,16 @@ export class ESPLoader {
     0x16: "4MB",
     0x17: "8MB",
     0x18: "16MB",
+  };
+
+  DETECTED_FLASH_SIZES_NUM: { [key: number]: number } = {
+    0x12: 256,
+    0x13: 512,
+    0x14: 1024,
+    0x15: 2048,
+    0x16: 4096,
+    0x17: 8192,
+    0x18: 16384,
   };
 
   USB_JTAG_SERIAL_PID = 0x1001;
@@ -230,6 +244,30 @@ export class ESPLoader {
     }
   }
 
+  async read_packet(
+    op: number | null = null, 
+    timeout = 3000
+  ): Promise<[number, Uint8Array]> {
+    
+    // Check up-to next 100 packets for valid response packet
+    for (let i = 0; i < 100; i++) {
+      const p = await this.transport.read(timeout);
+      const resp = p[0];
+      const op_ret = p[1];
+      const val = this._bytearray_to_int(p[4], p[5], p[6], p[7]);
+      const data = p.slice(8);
+      if (resp == 1) {
+        if (op == null || op_ret == op) {
+          return [val, data];
+        } else if (data[0] != 0 && data[1] == this.ROM_INVALID_RECV_MSG) {
+          await this.flush_input();
+          throw new ESPError("unsupported command error");
+        }
+      }
+    }
+    throw new ESPError("invalid response");
+  }
+
   async command(
     op: number | null = null,
     data: Uint8Array = new Uint8Array(0),
@@ -259,24 +297,9 @@ export class ESPLoader {
       return [0, new Uint8Array(0)];
     }
 
-    // Check up-to next 100 packets for valid response packet
-    for (let i = 0; i < 100; i++) {
-      const p = await this.transport.read(timeout);
-      const resp = p[0];
-      const op_ret = p[1];
-      const val = this._bytearray_to_int(p[4], p[5], p[6], p[7]);
-      const data = p.slice(8);
-      if (resp == 1) {
-        if (op == null || op_ret == op) {
-          return [val, data];
-        } else if (data[0] != 0 && data[1] == this.ROM_INVALID_RECV_MSG) {
-          await this.flush_input();
-          throw new ESPError("unsupported command error");
-        }
-      }
-    }
-    throw new ESPError("invalid response");
+    return this.read_packet(op, timeout);
   }
+
 
   async read_reg(addr: number, timeout = 3000) {
     const pkt = this._int_to_bytearray(addr);
@@ -718,6 +741,40 @@ export class ESPLoader {
     return strmd5;
   }
 
+
+  async read_flash(addr: number, size: number, onPacketReceived: FlashReadCallback = null) {
+    let pkt = this._appendArray(this._int_to_bytearray(addr), this._int_to_bytearray(size));
+    pkt = this._appendArray(pkt, this._int_to_bytearray(0x1000));
+    pkt = this._appendArray(pkt, this._int_to_bytearray(1024));
+
+    let res = await this.check_command("read flash", this.ESP_READ_FLASH, pkt);
+
+    if (res != 0) {
+      throw new ESPError("Failed to read memory: " + res);
+    }
+
+    var resp = new Uint8Array(0);
+    while(resp.length < size) {
+      const packet = await this.transport.read(this.FLASH_READ_TIMEOUT);
+
+      if (packet instanceof Uint8Array) {
+        if(packet.length > 0) {
+          resp = this._appendArray(resp, packet);
+          await this.transport.write(this._int_to_bytearray(resp.length));
+
+          if(onPacketReceived) {
+            onPacketReceived(packet, resp.length, size);
+          }
+        } else {
+        }
+      } else {
+        throw new ESPError("Failed to read memory: " + packet);
+      }
+    }
+
+    return resp;
+  }
+
   async run_stub() {
     this.info("Uploading stub...");
 
@@ -777,8 +834,18 @@ export class ESPLoader {
     await this.transport.disconnect();
     await this._sleep(50);
     await this.transport.connect(this.baudrate);
+
+    /* original code seemd absolutely unreliable. use retries and less sleep */
     try {
-      await this.transport.rawRead(500);
+      let i = 64;
+      while (i--) {
+        try {
+          await this.sync();
+          break;
+        } catch (error) {
+        }
+        await this._sleep(10);
+      }
     } catch (e) {
       this.debug((e as Error).message);
     }
@@ -1024,6 +1091,13 @@ export class ESPLoader {
     const flid_lowbyte = (flashid >> 16) & 0xff;
     this.info("Device: " + ((flashid >> 8) & 0xff).toString(16) + flid_lowbyte.toString(16));
     this.info("Detected flash size: " + this.DETECTED_FLASH_SIZES[flid_lowbyte]);
+  }
+
+  async get_flash_size() {
+    this.debug("flash_id");
+    const flashid = await this.read_flash_id();
+    const flid_lowbyte = (flashid >> 16) & 0xff;
+    return this.DETECTED_FLASH_SIZES_NUM[flid_lowbyte];
   }
 
   async hard_reset() {
