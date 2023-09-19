@@ -17,6 +17,7 @@ export interface FlashOptions {
 
 export interface LoaderOptions {
   transport: Transport;
+  port: SerialPort;
   baudrate: number;
   terminal?: IEspLoaderTerminal;
   romBaudrate: number;
@@ -153,6 +154,9 @@ export class ESPLoader {
     }
     if (options.debugLogging) {
       this.debugLogging = options.debugLogging;
+    }
+    if(options.port) {
+      this.transport  = new Transport(options.port);
     }
 
     this.info("esptool.js");
