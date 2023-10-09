@@ -4,9 +4,10 @@
   "description": "This an example of using esptool-js with parcel and typescript",
   "source": "src/index.html",
   "scripts": {
-    "dev": "parcel src/index.html",
-    "build": "npm run clean && parcel build src/index.html --no-optimize --public-url ./",
-    "clean": "rimraf dist .parcel-cache",
+    "dev": "npm run genDocs && parcel src/index.html",
+    "genDocs": "cd ../.. && npm run build && npm run genDocs",
+    "build": "npm run clean && npm run genDocs && parcel build src/index.html --no-optimize --public-url ./",
+    "clean": "rimraf src/docs dist .parcel-cache",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "author": "",

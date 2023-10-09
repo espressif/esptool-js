@@ -40,7 +40,6 @@ jobs:
           cd examples/typescript
           npm install
           npm run build
-          cp -r ../../docs dist
       - name: Setup Pages
         uses: actions/configure-pages@v2
       - name: Upload artifact

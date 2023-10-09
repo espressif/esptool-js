@@ -11,9 +11,9 @@
   ],
   "scripts": {
     "build": "npm run clean && tsc && rollup --config",
-    "clean": "rimraf docs lib bundle.js",
+    "clean": "rimraf lib bundle.js .parcel-cache",
     "format": "prettier --write \"src/**/*.ts\"",
-    "genDocs": "rimraf docs && typedoc",
+    "genDocs": "rimraf examples/typescript/src/docs && typedoc --out examples/typescript/src/docs",
     "lint": "eslint . --ext .ts",
     "lintAndFix": "eslint . --ext .ts --fix",
     "prepare": "npm run build",
@@ -50,7 +50,7 @@
     "prettier": "^2.7.1",
     "rimraf": "^3.0.2",
     "rollup": "^3.3.0",
-    "typedoc": "^0.24.8",
+    "typedoc": "^0.25.2",
     "typescript": "^4.8.4"
   }
 }
