@@ -752,7 +752,7 @@ export class ESPLoader {
       throw new ESPError("Failed to read memory: " + res);
     }
 
-    const resp = new Uint8Array(0);
+    let resp = new Uint8Array(0);
     while (resp.length < size) {
       const packet = await this.transport.read(this.FLASH_READ_TIMEOUT);
 
