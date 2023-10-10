@@ -155,8 +155,8 @@ export class ESPLoader {
     if (options.debugLogging) {
       this.debugLogging = options.debugLogging;
     }
-    if(options.port) {
-      this.transport  = new Transport(options.port);
+    if (options.port) {
+      this.transport = new Transport(options.port);
     }
 
     this.info("esptool.js");
@@ -248,11 +248,7 @@ export class ESPLoader {
     }
   }
 
-  async read_packet(
-    op: number | null = null, 
-    timeout = 3000
-  ): Promise<[number, Uint8Array]> {
-    
+  async read_packet(op: number | null = null, timeout = 3000): Promise<[number, Uint8Array]> {
     // Check up-to next 100 packets for valid response packet
     for (let i = 0; i < 100; i++) {
       const p = await this.transport.read(timeout);
@@ -303,7 +299,6 @@ export class ESPLoader {
 
     return this.read_packet(op, timeout);
   }
-
 
   async read_reg(addr: number, timeout = 3000) {
     const pkt = this._int_to_bytearray(addr);
@@ -751,22 +746,22 @@ export class ESPLoader {
     pkt = this._appendArray(pkt, this._int_to_bytearray(0x1000));
     pkt = this._appendArray(pkt, this._int_to_bytearray(1024));
 
-    let res = await this.check_command("read flash", this.ESP_READ_FLASH, pkt);
+    const res = await this.check_command("read flash", this.ESP_READ_FLASH, pkt);
 
     if (res != 0) {
       throw new ESPError("Failed to read memory: " + res);
     }
 
-    var resp = new Uint8Array(0);
-    while(resp.length < size) {
+    const resp = new Uint8Array(0);
+    while (resp.length < size) {
       const packet = await this.transport.read(this.FLASH_READ_TIMEOUT);
 
       if (packet instanceof Uint8Array) {
-        if(packet.length > 0) {
+        if (packet.length > 0) {
           resp = this._appendArray(resp, packet);
           await this.transport.write(this._int_to_bytearray(resp.length));
 
-          if(onPacketReceived) {
+          if (onPacketReceived) {
             onPacketReceived(packet, resp.length, size);
           }
         } else {
