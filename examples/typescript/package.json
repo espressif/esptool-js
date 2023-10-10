@@ -4,16 +4,20 @@
   "description": "This an example of using esptool-js with parcel and typescript",
   "source": "src/index.html",
   "scripts": {
+    "genDocs": "cd ../.. && npm run genDocs && mkdir -p examples/typescript/dist && cp -r docs examples/typescript/dist && cd examples/typescript",
     "dev": "npm run genDocs && parcel src/index.html",
-    "genDocs": "cd ../.. && npm run build && npm run genDocs",
     "build": "npm run clean && npm run genDocs && parcel build src/index.html --no-optimize --public-url ./",
-    "clean": "rimraf src/docs dist .parcel-cache",
+    "clean": "rimraf dist .parcel-cache",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
+  "parcelIgnore": [
+    "./docs/.+"
+  ],
   "author": "",
   "license": "ISC",
   "devDependencies": {
     "parcel": "^2.8.3",
+    "parcel-resolver-ignore": "^2.1.5",
     "rimraf": "^4.1.2",
     "typescript": "^4.9.4"
   }

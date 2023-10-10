@@ -13,7 +13,7 @@
     "build": "npm run clean && tsc && rollup --config",
     "clean": "rimraf lib bundle.js .parcel-cache",
     "format": "prettier --write \"src/**/*.ts\"",
-    "genDocs": "rimraf examples/typescript/src/docs && typedoc --out examples/typescript/src/docs",
+    "genDocs": "rimraf docs && typedoc",
     "lint": "eslint . --ext .ts",
     "lintAndFix": "eslint . --ext .ts --fix",
     "prepare": "npm run build",
