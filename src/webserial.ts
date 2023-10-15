@@ -88,10 +88,10 @@ class Transport {
    * Format received or sent data (read/write) in Hexadecimal format for tracing output.
    * @param {Uint8Array} buffer Binary unsigned 8 bit array data to format.
    */
-  trace(message: Uint8Array) {
+  trace(message: string) {
     const delta = Date.now() - this.lastTraceTime;
-    const prefix = `TRACE ${delta.toFixed(2)}`;
-    const traceMessage = `${prefix} ${this.hexConvert(message)}`;
+    const prefix = `TRACE ${delta.toFixed(3)}`;
+    const traceMessage = `${prefix} ${message}`;
     console.log(traceMessage);
     this.traceLog += traceMessage + "\n";
   }
@@ -185,7 +185,7 @@ class Transport {
       const writer = this.device.writable.getWriter();
       if (this.tracing) {
         console.log("Write bytes");
-        this.trace(outData);
+        this.trace(`Write ${outData.length} bytes: ${this.hexConvert(outData)}`);
       }
       await writer.write(outData);
       writer.releaseLock();
@@ -302,14 +302,14 @@ class Transport {
 
     if (this.tracing) {
       console.log("Read bytes");
-      this.trace(packet);
+      this.trace(`Read ${packet.length} bytes: ${this.hexConvert(packet)}`);
     }
 
     if (this.slipReaderEnabled) {
       const slipReaderResult = this.slipReader(packet);
       if (this.tracing) {
         console.log("Slip reader results");
-        this.trace(slipReaderResult);
+        this.trace(`Read ${slipReaderResult.length} bytes: ${this.hexConvert(slipReaderResult)}`);
       }
       return slipReaderResult;
     }
@@ -344,7 +344,7 @@ class Transport {
       }
       if (this.tracing) {
         console.log("Raw Read bytes");
-        this.trace(value);
+        this.trace(`Read ${value.length} bytes: ${this.hexConvert(value)}`);
       }
       return value;
     } finally {
