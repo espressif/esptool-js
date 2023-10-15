@@ -118,7 +118,13 @@ class Transport {
       .join("");
   }
 
-  hexConvert(buffer: Uint8Array) {
+  private hexConvert(uint8Array: Uint8Array) {
+    return Array.from(uint8Array)
+      .map(byte => byte.toString(16).padStart(2, '0'))
+      .join('');
+  }
+
+  oldHexConvert(buffer: Uint8Array) {
     const bufferStr = String.fromCharCode(...[].slice.call(buffer));
     if (bufferStr.length > 16) {
       let result = "";
