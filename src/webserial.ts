@@ -1,3 +1,18 @@
+export interface SerialOptions {
+  /*
+  Note: According to the documentation of the Web Serial API, 'baudRate' is a
+  'required' field as part of serial options. However, we are currently
+  maintaining 'baudRate' as a separate parameter outside the options
+  dictionary, and it is effectively used in the code. For now, we are
+  keeping it optional in the dictionary to avoid conflicts.
+  */
+  baudRate?: number | undefined;
+  dataBits?: number | undefined;
+  stopBits?: number | undefined;
+  parity?: ParityType | undefined;
+  bufferSize?: number | undefined;
+  flowControl?: FlowControlType | undefined;
+}
 class Transport {
   public slip_reader_enabled = false;
   public left_over = new Uint8Array(0);
@@ -199,8 +214,15 @@ class Transport {
     await this.device.setSignals({ dataTerminalReady: state });
   }
 
-  async connect(baud = 115200) {
-    await this.device.open({ baudRate: baud });
+  async connect(baud = 115200, serialOptions: SerialOptions = {}) {
+    await this.device.open({
+      baudRate: baud,
+      dataBits: serialOptions?.dataBits,
+      stopBits: serialOptions?.stopBits,
+      bufferSize: serialOptions?.bufferSize,
+      parity: serialOptions?.parity,
+      flowControl: serialOptions?.flowControl,
+    });
     this.baudrate = baud;
     this.left_over = new Uint8Array(0);
   }
