@@ -1,6 +1,6 @@
 import { ESPError } from "./error";
 import { Data, deflate, Inflate } from "pako";
-import { Transport } from "./webserial";
+import { Transport, SerialOptions } from "./webserial";
 import { ROM } from "./targets/rom";
 import { customReset, usbJTAGSerialReset } from "./reset";
 
@@ -19,6 +19,7 @@ export interface LoaderOptions {
   transport: Transport;
   port?: SerialPort;
   baudrate: number;
+  serialOptions?: SerialOptions;
   terminal?: IEspLoaderTerminal;
   romBaudrate: number;
   debugLogging?: boolean;
@@ -135,6 +136,7 @@ export class ESPLoader {
 
   public transport: Transport;
   private baudrate: number;
+  private serialOptions?: SerialOptions;
   private terminal?: IEspLoaderTerminal;
   private romBaudrate = 115200;
   private debugLogging = false;
@@ -145,6 +147,9 @@ export class ESPLoader {
 
     this.transport = options.transport;
     this.baudrate = options.baudrate;
+    if (options.serialOptions) {
+      this.serialOptions = options.serialOptions;
+    }
     if (options.romBaudrate) {
       this.romBaudrate = options.romBaudrate;
     }
@@ -394,7 +399,7 @@ export class ESPLoader {
     let i;
     let resp;
     this.info("Connecting...", false);
-    await this.transport.connect(this.romBaudrate);
+    await this.transport.connect(this.romBaudrate, this.serialOptions);
     for (i = 0; i < attempts; i++) {
       resp = await this._connect_attempt(mode, false);
       if (resp === "success") {
@@ -830,7 +835,7 @@ export class ESPLoader {
     this.info("Changed");
     await this.transport.disconnect();
     await this._sleep(50);
-    await this.transport.connect(this.baudrate);
+    await this.transport.connect(this.baudrate, this.serialOptions);
 
     /* original code seemed absolutely unreliable. use retries and less sleep */
     try {
