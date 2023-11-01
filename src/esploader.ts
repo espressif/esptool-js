@@ -17,7 +17,7 @@ export interface FlashOptions {
 
 export interface LoaderOptions {
   transport: Transport;
-  port: SerialPort;
+  port?: SerialPort;
   baudrate: number;
   terminal?: IEspLoaderTerminal;
   romBaudrate: number;
