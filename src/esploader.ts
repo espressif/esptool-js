@@ -250,8 +250,8 @@ export class ESPLoader {
    * Create a new ESPLoader to perform serial communication
    * such as read/write flash memory and registers using a LoaderOptions object.
    * @param {LoaderOptions} options - LoaderOptions object argument for ESPLoader.
-   * ```ts
-   * const myLoader = new ESPLoader({transport: Transport, baudrate: number, terminal?: IEspLoaderTerminal });
+   * ```
+   * const myLoader = new ESPLoader({ transport: Transport, baudrate: number, terminal?: IEspLoaderTerminal });
    * ```
    */
   constructor(options: LoaderOptions) {
@@ -435,6 +435,12 @@ export class ESPLoader {
     }
   }
 
+  /**
+   * Use the device serial port read function with given timeout to create a valid packet.
+   * @param op Operation number
+   * @param timeout timeout number in milliseconds
+   * @returns {[number, Uint8Array]} valid response packet.
+   */
   async readPacket(op: number | null = null, timeout = 3000): Promise<[number, Uint8Array]> {
     // Check up-to next 100 packets for valid response packet
     for (let i = 0; i < 100; i++) {

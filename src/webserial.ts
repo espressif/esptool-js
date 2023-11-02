@@ -1,18 +1,50 @@
 /* global SerialPort */
 
+/**
+ * Options for device serialPort.
+ * @interface SerialOptions
+ * 
+ * Note: According to the documentation of the Web Serial API, 'baudRate' is a
+ * 'required' field as part of serial options. However, we are currently
+ * maintaining 'baudRate' as a separate parameter outside the options
+ * dictionary, and it is effectively used in the code. For now, we are
+ * keeping it optional in the dictionary to avoid conflicts.
+ */
 export interface SerialOptions {
-  /*
-  Note: According to the documentation of the Web Serial API, 'baudRate' is a
-  'required' field as part of serial options. However, we are currently
-  maintaining 'baudRate' as a separate parameter outside the options
-  dictionary, and it is effectively used in the code. For now, we are
-  keeping it optional in the dictionary to avoid conflicts.
-  */
+  /**
+   * A positive, non-zero value indicating the baud rate at which serial communication should be established.
+   * @type {number | undefined}
+   */
   baudRate?: number | undefined;
+
+  /**
+   * The number of data bits per frame. Either 7 or 8.
+   * @type {number | undefined}
+   */
   dataBits?: number | undefined;
+
+  /**
+   * The number of stop bits at the end of a frame. Either 1 or 2.
+   * @type {number | undefined}
+   */
   stopBits?: number | undefined;
+
+  /**
+   * The parity mode: none, even or odd
+   * @type {ParityType | undefined}
+   */
   parity?: ParityType | undefined;
+
+  /**
+   * A positive, non-zero value indicating the size of the read and write buffers that should be created.
+   * @type {number | undefined}
+   */
   bufferSize?: number | undefined;
+
+  /**
+   * The flow control mode: none or hardware.
+   * @type {FlowControlType | undefined}
+   */
   flowControl?: FlowControlType | undefined;
 }
 
@@ -20,7 +52,9 @@ export interface SerialOptions {
  * Wrapper class around Webserial API to communicate with the serial device.
  * @param {typeof import("w3c-web-serial").SerialPort} device - Requested device prompted by the browser.
  *
+ * ```
  * const port = await navigator.serial.requestPort();
+ * ```
  */
 class Transport {
   public slipReaderEnabled = false;
