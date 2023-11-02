@@ -91,7 +91,7 @@ connectButton.onclick = async () => {
     chip = await esploader.main();
 
     // Temporarily broken
-    // await esploader.flash_id();
+    // await esploader.flashId();
   } catch (e) {
     console.error(e);
     term.writeln(`Error: ${e.message}`);

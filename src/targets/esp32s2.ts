@@ -37,19 +37,19 @@ export class ESP32S2ROM extends ROM {
   public ROM_TEXT = ESP32S2_STUB.text;
 
   public async getPkgVersion(loader: ESPLoader): Promise<number> {
-    const num_word = 3;
-    const block1_addr = this.EFUSE_BASE + 0x044;
-    const addr = block1_addr + 4 * num_word;
+    const numWord = 3;
+    const block1Addr = this.EFUSE_BASE + 0x044;
+    const addr = block1Addr + 4 * numWord;
     const word3 = await loader.readReg(addr);
-    const pkg_version = (word3 >> 21) & 0x0f;
-    return pkg_version;
+    const pkgVersion = (word3 >> 21) & 0x0f;
+    return pkgVersion;
   }
 
   public async getChipDescription(loader: ESPLoader) {
-    const chip_desc = ["ESP32-S2", "ESP32-S2FH16", "ESP32-S2FH32"];
-    const pkg_ver = await this.getPkgVersion(loader);
-    if (pkg_ver >= 0 && pkg_ver <= 2) {
-      return chip_desc[pkg_ver];
+    const chipDesc = ["ESP32-S2", "ESP32-S2FH16", "ESP32-S2FH32"];
+    const pkgVer = await this.getPkgVersion(loader);
+    if (pkgVer >= 0 && pkgVer <= 2) {
+      return chipDesc[pkgVer];
     } else {
       return "unknown ESP32-S2";
     }
@@ -57,19 +57,19 @@ export class ESP32S2ROM extends ROM {
 
   public async getChipFeatures(loader: ESPLoader) {
     const features = ["Wi-Fi"];
-    const pkg_ver = await this.getPkgVersion(loader);
-    if (pkg_ver == 1) {
+    const pkgVer = await this.getPkgVersion(loader);
+    if (pkgVer == 1) {
       features.push("Embedded 2MB Flash");
-    } else if (pkg_ver == 2) {
+    } else if (pkgVer == 2) {
       features.push("Embedded 4MB Flash");
     }
-    const num_word = 4;
-    const block2_addr = this.EFUSE_BASE + 0x05c;
-    const addr = block2_addr + 4 * num_word;
+    const numWord = 4;
+    const block2Addr = this.EFUSE_BASE + 0x05c;
+    const addr = block2Addr + 4 * numWord;
     const word4 = await loader.readReg(addr);
-    const block2_ver = (word4 >> 4) & 0x07;
+    const block2Ver = (word4 >> 4) & 0x07;
 
-    if (block2_ver == 1) {
+    if (block2Ver == 1) {
       features.push("ADC and temperature sensor calibration in BLK2 of efuse");
     }
     return features;

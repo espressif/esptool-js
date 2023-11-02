@@ -59,9 +59,9 @@ export class ESP32H2ROM extends ROM {
   }
 
   public async postConnect(loader: ESPLoader) {
-    const buf_no = (await loader.readReg(this.UARTDEV_BUF_NO)) & 0xff;
-    loader.debug("In _post_connect " + buf_no);
-    if (buf_no == this.UARTDEV_BUF_NO_USB) {
+    const bufNo = (await loader.readReg(this.UARTDEV_BUF_NO)) & 0xff;
+    loader.debug("In _post_connect " + bufNo);
+    if (bufNo == this.UARTDEV_BUF_NO_USB) {
       loader.ESP_RAM_BLOCK = this.USB_RAM_BLOCK;
     }
   }

@@ -37,27 +37,27 @@ export class ESP32C3ROM extends ROM {
   public ROM_TEXT = ESP32C3_STUB.text;
 
   public async getPkgVersion(loader: ESPLoader): Promise<number> {
-    const num_word = 3;
-    const block1_addr = this.EFUSE_BASE + 0x044;
-    const addr = block1_addr + 4 * num_word;
+    const numWord = 3;
+    const block1Addr = this.EFUSE_BASE + 0x044;
+    const addr = block1Addr + 4 * numWord;
     const word3 = await loader.readReg(addr);
-    const pkg_version = (word3 >> 21) & 0x07;
-    return pkg_version;
+    const pkgVersion = (word3 >> 21) & 0x07;
+    return pkgVersion;
   }
 
   public async getChipRevision(loader: ESPLoader): Promise<number> {
-    const block1_addr = this.EFUSE_BASE + 0x044;
-    const num_word = 3;
+    const block1Addr = this.EFUSE_BASE + 0x044;
+    const numWord = 3;
     const pos = 18;
-    const addr = block1_addr + 4 * num_word;
+    const addr = block1Addr + 4 * numWord;
     const ret = ((await loader.readReg(addr)) & (0x7 << pos)) >> pos;
     return ret;
   }
 
   public async getChipDescription(loader: ESPLoader) {
     let desc: string;
-    const pkg_ver = await this.getPkgVersion(loader);
-    if (pkg_ver === 0) {
+    const pkgVer = await this.getPkgVersion(loader);
+    if (pkgVer === 0) {
       desc = "ESP32-C3";
     } else {
       desc = "unknown ESP32-C3";

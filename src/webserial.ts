@@ -23,8 +23,8 @@ export interface SerialOptions {
  * const port = await navigator.serial.requestPort();
  */
 class Transport {
-  public slip_reader_enabled = false;
-  public left_over = new Uint8Array(0);
+  public slipReaderEnabled = false;
+  public leftOver = new Uint8Array(0);
   public baudrate = 0;
 
   constructor(public device: SerialPort) {}
@@ -54,34 +54,34 @@ class Transport {
    * @returns {Uint8Array} Formatted unsigned 8 bit data array.
    */
   slipWriter(data: Uint8Array) {
-    let count_esc = 0;
+    let countEsc = 0;
     let i = 0,
       j = 0;
 
     for (i = 0; i < data.length; i++) {
       if (data[i] === 0xc0 || data[i] === 0xdb) {
-        count_esc++;
+        countEsc++;
       }
     }
-    const out_data = new Uint8Array(2 + count_esc + data.length);
-    out_data[0] = 0xc0;
+    const outData = new Uint8Array(2 + countEsc + data.length);
+    outData[0] = 0xc0;
     j = 1;
     for (i = 0; i < data.length; i++, j++) {
       if (data[i] === 0xc0) {
-        out_data[j++] = 0xdb;
-        out_data[j] = 0xdc;
+        outData[j++] = 0xdb;
+        outData[j] = 0xdc;
         continue;
       }
       if (data[i] === 0xdb) {
-        out_data[j++] = 0xdb;
-        out_data[j] = 0xdd;
+        outData[j++] = 0xdb;
+        outData[j] = 0xdd;
         continue;
       }
 
-      out_data[j] = data[i];
+      outData[j] = data[i];
     }
-    out_data[j] = 0xc0;
-    return out_data;
+    outData[j] = 0xc0;
+    return outData;
   }
 
   /**
@@ -89,11 +89,11 @@ class Transport {
    * @param {Uint8Array} data 8 bit unsigned data array to write to device.
    */
   async write(data: Uint8Array) {
-    const out_data = this.slipWriter(data);
+    const outData = this.slipWriter(data);
 
     if (this.device.writable) {
       const writer = this.device.writable.getWriter();
-      await writer.write(out_data);
+      await writer.write(outData);
       writer.releaseLock();
     }
   }
@@ -119,45 +119,45 @@ class Transport {
    */
   slipReader(data: Uint8Array) {
     let i = 0;
-    let data_start = 0,
-      data_end = 0;
+    let dataStart = 0,
+      dataEnd = 0;
     let state = "init";
     while (i < data.length) {
       if (state === "init" && data[i] == 0xc0) {
-        data_start = i + 1;
+        dataStart = i + 1;
         state = "valid_data";
         i++;
         continue;
       }
       if (state === "valid_data" && data[i] == 0xc0) {
-        data_end = i - 1;
+        dataEnd = i - 1;
         state = "packet_complete";
         break;
       }
       i++;
     }
     if (state !== "packet_complete") {
-      this.left_over = data;
+      this.leftOver = data;
       return new Uint8Array(0);
     }
 
-    this.left_over = data.slice(data_end + 2);
-    const temp_pkt = new Uint8Array(data_end - data_start + 1);
+    this.leftOver = data.slice(dataEnd + 2);
+    const tempPkt = new Uint8Array(dataEnd - dataStart + 1);
     let j = 0;
-    for (i = data_start; i <= data_end; i++, j++) {
+    for (i = dataStart; i <= dataEnd; i++, j++) {
       if (data[i] === 0xdb && data[i + 1] === 0xdc) {
-        temp_pkt[j] = 0xc0;
+        tempPkt[j] = 0xc0;
         i++;
         continue;
       }
       if (data[i] === 0xdb && data[i + 1] === 0xdd) {
-        temp_pkt[j] = 0xdb;
+        tempPkt[j] = 0xdb;
         i++;
         continue;
       }
-      temp_pkt[j] = data[i];
+      tempPkt[j] = data[i];
     }
-    const packet = temp_pkt.slice(0, j); /* Remove unused bytes due to escape seq */
+    const packet = tempPkt.slice(0, j); /* Remove unused bytes due to escape seq */
     return packet;
   }
 
@@ -169,18 +169,18 @@ class Transport {
    */
   async read(timeout = 0, minData = 12) {
     let t;
-    let packet = this.left_over;
-    this.left_over = new Uint8Array(0);
-    if (this.slip_reader_enabled) {
-      const val_final = this.slipReader(packet);
-      if (val_final.length > 0) {
-        return val_final;
+    let packet = this.leftOver;
+    this.leftOver = new Uint8Array(0);
+    if (this.slipReaderEnabled) {
+      const valFinal = this.slipReader(packet);
+      if (valFinal.length > 0) {
+        return valFinal;
       }
-      packet = this.left_over;
-      this.left_over = new Uint8Array(0);
+      packet = this.leftOver;
+      this.leftOver = new Uint8Array(0);
     }
     if (this.device.readable == null) {
-      return this.left_over;
+      return this.leftOver;
     }
 
     const reader = this.device.readable.getReader();
@@ -193,7 +193,7 @@ class Transport {
       do {
         const { value, done } = await reader.read();
         if (done) {
-          this.left_over = packet;
+          this.leftOver = packet;
           throw new Error("Timeout");
         }
         const p = new Uint8Array(this._appendBuffer(packet.buffer, value.buffer));
@@ -205,7 +205,7 @@ class Transport {
       }
       reader.releaseLock();
     }
-    if (this.slip_reader_enabled) {
+    if (this.slipReaderEnabled) {
       return this.slipReader(packet);
     }
     return packet;
@@ -217,13 +217,13 @@ class Transport {
    * @returns {Uint8Array} 8 bit unsigned data array read from device.
    */
   async rawRead(timeout = 0) {
-    if (this.left_over.length != 0) {
-      const p = this.left_over;
-      this.left_over = new Uint8Array(0);
+    if (this.leftOver.length != 0) {
+      const p = this.leftOver;
+      this.leftOver = new Uint8Array(0);
       return p;
     }
     if (!this.device.readable) {
-      return this.left_over;
+      return this.leftOver;
     }
     const reader = this.device.readable.getReader();
     let t;
@@ -274,6 +274,7 @@ class Transport {
   /**
    * Connect to serial device using the Webserial open method.
    * @param {number} baud Number baud rate for serial connection.
+   * @param {typeof import("w3c-web-serial").SerialOptions} serialOptions Serial Options for WebUSB SerialPort class.
    */
   async connect(baud = 115200, serialOptions: SerialOptions = {}) {
     await this.device.open({
@@ -285,7 +286,7 @@ class Transport {
       flowControl: serialOptions?.flowControl,
     });
     this.baudrate = baud;
-    this.left_over = new Uint8Array(0);
+    this.leftOver = new Uint8Array(0);
   }
 
   async sleep(ms: number) {

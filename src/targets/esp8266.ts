@@ -52,8 +52,8 @@ export class ESP8266ROM extends ROM {
     const efuse3 = await this.readEfuse(loader, 2);
     const efuse0 = await this.readEfuse(loader, 0);
 
-    const is_8285 = ((efuse0 & (1 << 4)) | (efuse3 & (1 << 16))) != 0; // One or the other efuse bit is set for ESP8285
-    return is_8285 ? "ESP8285" : "ESP8266EX";
+    const is8285 = ((efuse0 & (1 << 4)) | (efuse3 & (1 << 16))) != 0; // One or the other efuse bit is set for ESP8285
+    return is8285 ? "ESP8285" : "ESP8266EX";
   }
 
   public getChipFeatures = async (loader: ESPLoader) => {
@@ -63,24 +63,24 @@ export class ESP8266ROM extends ROM {
   };
 
   public async getCrystalFreq(loader: ESPLoader) {
-    const uart_div = (await loader.readReg(this.UART_CLKDIV_REG)) & this.UART_CLKDIV_MASK;
-    const ets_xtal = (loader.transport.baudrate * uart_div) / 1000000 / this.XTAL_CLK_DIVIDER;
-    let norm_xtal;
-    if (ets_xtal > 33) {
-      norm_xtal = 40;
+    const uartDiv = (await loader.readReg(this.UART_CLKDIV_REG)) & this.UART_CLKDIV_MASK;
+    const etsXtal = (loader.transport.baudrate * uartDiv) / 1000000 / this.XTAL_CLK_DIVIDER;
+    let normXtal;
+    if (etsXtal > 33) {
+      normXtal = 40;
     } else {
-      norm_xtal = 26;
+      normXtal = 26;
     }
-    if (Math.abs(norm_xtal - ets_xtal) > 1) {
+    if (Math.abs(normXtal - etsXtal) > 1) {
       loader.info(
         "WARNING: Detected crystal freq " +
-          ets_xtal +
+          etsXtal +
           "MHz is quite different to normalized freq " +
-          norm_xtal +
+          normXtal +
           "MHz. Unsupported crystal in use?",
       );
     }
-    return norm_xtal;
+    return normXtal;
   }
 
   public _d2h(d: number) {
