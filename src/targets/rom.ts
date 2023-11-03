@@ -1,25 +1,77 @@
 import { ESPLoader } from "../esploader";
 
+/**
+ * Represents a chip ROM with basic registers field and abstract functions.
+ */
 export abstract class ROM {
-  // abstract read_efuse(loader: ESPLoader, offset: number): Promise<number>; //esp32
+  /**
+   * Read ESP32 eFuse.
+   * @param {ESPLoader} loader - Loader class to communicate with chip.
+   * @param {number} offset - Offset to start erase.
+   * @returns {number} The eFuse number.
+   */
+  protected readEfuse?(loader: ESPLoader, offset: number): Promise<number>;
 
-  // abstract get_pkg_version(loader: ESPLoader): Promise<number>; // not in esp32s3
+  /**
+   * Get the package version number.
+   * @param {ESPLoader} loader - Loader class to communicate with chip.
+   * @returns {number} The package version number.
+   */
+  protected getPkgVersion?(loader: ESPLoader): Promise<number>;
 
-  // abstract get_chip_revision(loader: ESPLoader): Promise<number>; esp32
+  /**
+   * Get the chip revision number.
+   * @param {ESPLoader} loader - Loader class to communicate with chip.
+   * @returns {number} The chip revision number.
+   */
+  protected getChipRevision?(loader: ESPLoader): Promise<number>;
 
-  abstract get_chip_description(loader: ESPLoader): Promise<string>;
+  /**
+   * Get the chip description.
+   * @param {ESPLoader} loader - Loader class to communicate with chip.
+   * @returns {string} The chip description as string.
+   */
+  abstract getChipDescription(loader: ESPLoader): Promise<string>;
+  /**
+   * Get the chip features.
+   * @param {ESPLoader} loader - Loader class to communicate with chip.
+   * @returns {string} The chip features as string.
+   */
+  abstract getChipFeatures(loader: ESPLoader): Promise<string[]>;
+  /**
+   * Get the crystal frequency for the chip.
+   * @param {ESPLoader} loader - Loader class to communicate with chip.
+   * @returns {string} The crystal frequency as number.
+   */
+  abstract getCrystalFreq(loader: ESPLoader): Promise<number>;
 
-  abstract get_chip_features(loader: ESPLoader): Promise<string[]>;
-
-  abstract get_crystal_freq(loader: ESPLoader): Promise<number>;
-
+  /**
+   * Convert a number to hex string.
+   * @param {number} d - Number to convert to hex string.
+   * @returns {string} The hex string.
+   */
   abstract _d2h(d: number): string;
 
-  abstract read_mac(loader: ESPLoader): Promise<string>;
+  /**
+   * Get the chip mac address.
+   * @param {ESPLoader} loader - Loader class to communicate with chip.
+   * @returns {string} The mac address string.
+   */
+  abstract readMac(loader: ESPLoader): Promise<string>;
 
-  _post_connect?(loader: ESPLoader): Promise<void>;
+  /**
+   * Function to be executed after chip connection
+   * @param {ESPLoader} loader - Loader class to communicate with chip.
+   */
+  postConnect?(loader: ESPLoader): Promise<void>;
 
-  get_erase_size(offset: number, size: number) {
+  /**
+   * Get the chip erase size.
+   * @param {number} offset - Offset to start erase.
+   * @param {number} size - Size to erase.
+   * @returns {number} The erase size of the chip as number.
+   */
+  getEraseSize(offset: number, size: number): number {
     return size;
   }
 

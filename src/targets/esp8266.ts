@@ -42,45 +42,45 @@ export class ESP8266ROM extends ROM {
   public ROM_DATA = ESP8266_STUB.data;
   public ROM_TEXT = ESP8266_STUB.text;
 
-  public async read_efuse(loader: ESPLoader, offset: number) {
+  public async readEfuse(loader: ESPLoader, offset: number): Promise<number> {
     const addr = this.EFUSE_RD_REG_BASE + 4 * offset;
     loader.debug("Read efuse " + addr);
-    return await loader.read_reg(addr);
+    return await loader.readReg(addr);
   }
 
-  public async get_chip_description(loader: ESPLoader) {
-    const efuse3 = await this.read_efuse(loader, 2);
-    const efuse0 = await this.read_efuse(loader, 0);
+  public async getChipDescription(loader: ESPLoader) {
+    const efuse3 = await this.readEfuse(loader, 2);
+    const efuse0 = await this.readEfuse(loader, 0);
 
-    const is_8285 = ((efuse0 & (1 << 4)) | (efuse3 & (1 << 16))) != 0; // One or the other efuse bit is set for ESP8285
-    return is_8285 ? "ESP8285" : "ESP8266EX";
+    const is8285 = ((efuse0 & (1 << 4)) | (efuse3 & (1 << 16))) != 0; // One or the other efuse bit is set for ESP8285
+    return is8285 ? "ESP8285" : "ESP8266EX";
   }
 
-  public get_chip_features = async (loader: ESPLoader) => {
+  public getChipFeatures = async (loader: ESPLoader) => {
     const features = ["WiFi"];
-    if ((await this.get_chip_description(loader)) == "ESP8285") features.push("Embedded Flash");
+    if ((await this.getChipDescription(loader)) == "ESP8285") features.push("Embedded Flash");
     return features;
   };
 
-  public async get_crystal_freq(loader: ESPLoader) {
-    const uart_div = (await loader.read_reg(this.UART_CLKDIV_REG)) & this.UART_CLKDIV_MASK;
-    const ets_xtal = (loader.transport.baudrate * uart_div) / 1000000 / this.XTAL_CLK_DIVIDER;
-    let norm_xtal;
-    if (ets_xtal > 33) {
-      norm_xtal = 40;
+  public async getCrystalFreq(loader: ESPLoader) {
+    const uartDiv = (await loader.readReg(this.UART_CLKDIV_REG)) & this.UART_CLKDIV_MASK;
+    const etsXtal = (loader.transport.baudrate * uartDiv) / 1000000 / this.XTAL_CLK_DIVIDER;
+    let normXtal;
+    if (etsXtal > 33) {
+      normXtal = 40;
     } else {
-      norm_xtal = 26;
+      normXtal = 26;
     }
-    if (Math.abs(norm_xtal - ets_xtal) > 1) {
+    if (Math.abs(normXtal - etsXtal) > 1) {
       loader.info(
         "WARNING: Detected crystal freq " +
-          ets_xtal +
+          etsXtal +
           "MHz is quite different to normalized freq " +
-          norm_xtal +
+          normXtal +
           "MHz. Unsupported crystal in use?",
       );
     }
-    return norm_xtal;
+    return normXtal;
   }
 
   public _d2h(d: number) {
@@ -88,12 +88,12 @@ export class ESP8266ROM extends ROM {
     return h.length === 1 ? "0" + h : h;
   }
 
-  public async read_mac(loader: ESPLoader) {
-    let mac0 = await this.read_efuse(loader, 0);
+  public async readMac(loader: ESPLoader) {
+    let mac0 = await this.readEfuse(loader, 0);
     mac0 = mac0 >>> 0;
-    let mac1 = await this.read_efuse(loader, 1);
+    let mac1 = await this.readEfuse(loader, 1);
     mac1 = mac1 >>> 0;
-    let mac3 = await this.read_efuse(loader, 3);
+    let mac3 = await this.readEfuse(loader, 3);
     mac3 = mac3 >>> 0;
     const mac = new Uint8Array(6);
 
@@ -132,7 +132,7 @@ export class ESP8266ROM extends ROM {
     );
   }
 
-  public get_erase_size(offset: number, size: number) {
+  public getEraseSize(offset: number, size: number) {
     return size;
   }
 }

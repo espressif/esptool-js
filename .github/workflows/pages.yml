@@ -33,9 +33,10 @@ jobs:
       - name: Install Node modules
         run: |
           npm install
-      - name: Build project
+      - name: Build example project and copy docs
         run: |
           npm run build
+          npm run genDocs
           cd examples/typescript
           npm install
           npm run build

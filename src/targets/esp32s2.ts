@@ -36,56 +36,56 @@ export class ESP32S2ROM extends ROM {
   public ROM_DATA = ESP32S2_STUB.data;
   public ROM_TEXT = ESP32S2_STUB.text;
 
-  public async get_pkg_version(loader: ESPLoader) {
-    const num_word = 3;
-    const block1_addr = this.EFUSE_BASE + 0x044;
-    const addr = block1_addr + 4 * num_word;
-    const word3 = await loader.read_reg(addr);
-    const pkg_version = (word3 >> 21) & 0x0f;
-    return pkg_version;
+  public async getPkgVersion(loader: ESPLoader): Promise<number> {
+    const numWord = 3;
+    const block1Addr = this.EFUSE_BASE + 0x044;
+    const addr = block1Addr + 4 * numWord;
+    const word3 = await loader.readReg(addr);
+    const pkgVersion = (word3 >> 21) & 0x0f;
+    return pkgVersion;
   }
 
-  public async get_chip_description(loader: ESPLoader) {
-    const chip_desc = ["ESP32-S2", "ESP32-S2FH16", "ESP32-S2FH32"];
-    const pkg_ver = await this.get_pkg_version(loader);
-    if (pkg_ver >= 0 && pkg_ver <= 2) {
-      return chip_desc[pkg_ver];
+  public async getChipDescription(loader: ESPLoader) {
+    const chipDesc = ["ESP32-S2", "ESP32-S2FH16", "ESP32-S2FH32"];
+    const pkgVer = await this.getPkgVersion(loader);
+    if (pkgVer >= 0 && pkgVer <= 2) {
+      return chipDesc[pkgVer];
     } else {
       return "unknown ESP32-S2";
     }
   }
 
-  public async get_chip_features(loader: ESPLoader) {
+  public async getChipFeatures(loader: ESPLoader) {
     const features = ["Wi-Fi"];
-    const pkg_ver = await this.get_pkg_version(loader);
-    if (pkg_ver == 1) {
+    const pkgVer = await this.getPkgVersion(loader);
+    if (pkgVer == 1) {
       features.push("Embedded 2MB Flash");
-    } else if (pkg_ver == 2) {
+    } else if (pkgVer == 2) {
       features.push("Embedded 4MB Flash");
     }
-    const num_word = 4;
-    const block2_addr = this.EFUSE_BASE + 0x05c;
-    const addr = block2_addr + 4 * num_word;
-    const word4 = await loader.read_reg(addr);
-    const block2_ver = (word4 >> 4) & 0x07;
+    const numWord = 4;
+    const block2Addr = this.EFUSE_BASE + 0x05c;
+    const addr = block2Addr + 4 * numWord;
+    const word4 = await loader.readReg(addr);
+    const block2Ver = (word4 >> 4) & 0x07;
 
-    if (block2_ver == 1) {
+    if (block2Ver == 1) {
       features.push("ADC and temperature sensor calibration in BLK2 of efuse");
     }
     return features;
   }
 
-  public async get_crystal_freq(loader: ESPLoader) {
+  public async getCrystalFreq(loader: ESPLoader) {
     return 40;
   }
   public _d2h(d: number) {
     const h = (+d).toString(16);
     return h.length === 1 ? "0" + h : h;
   }
-  public async read_mac(loader: ESPLoader) {
-    let mac0 = await loader.read_reg(this.MAC_EFUSE_REG);
+  public async readMac(loader: ESPLoader) {
+    let mac0 = await loader.readReg(this.MAC_EFUSE_REG);
     mac0 = mac0 >>> 0;
-    let mac1 = await loader.read_reg(this.MAC_EFUSE_REG + 4);
+    let mac1 = await loader.readReg(this.MAC_EFUSE_REG + 4);
     mac1 = (mac1 >>> 0) & 0x0000ffff;
     const mac = new Uint8Array(6);
     mac[0] = (mac1 >> 8) & 0xff;
@@ -110,7 +110,7 @@ export class ESP32S2ROM extends ROM {
     );
   }
 
-  public get_erase_size(offset: number, size: number) {
+  public getEraseSize(offset: number, size: number) {
     return size;
   }
 }
