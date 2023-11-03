@@ -1,9 +1,9 @@
-/* global SerialPort */
+/* global SerialPort, ParityType, FlowControlType */
 
 /**
  * Options for device serialPort.
  * @interface SerialOptions
- * 
+ *
  * Note: According to the documentation of the Web Serial API, 'baudRate' is a
  * 'required' field as part of serial options. However, we are currently
  * maintaining 'baudRate' as a separate parameter outside the options

@@ -437,8 +437,8 @@ export class ESPLoader {
 
   /**
    * Use the device serial port read function with given timeout to create a valid packet.
-   * @param op Operation number
-   * @param timeout timeout number in milliseconds
+   * @param {number} op Operation number
+   * @param {number} timeout timeout number in milliseconds
    * @returns {[number, Uint8Array]} valid response packet.
    */
   async readPacket(op: number | null = null, timeout = 3000): Promise<[number, Uint8Array]> {
