@@ -674,7 +674,7 @@ export class ESPLoader {
    * @param {number} op Command operation number
    * @param {Uint8Array} data Command value
    * @param {number} chk Checksum to use
-   * @param {number} timeout TImeout number in milliseconds (ms)
+   * @param {number} timeout Timeout number in milliseconds (ms)
    * @returns {number} Command result
    */
   async checkCommand(
