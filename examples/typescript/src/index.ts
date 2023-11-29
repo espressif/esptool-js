@@ -216,6 +216,7 @@ disconnectButton.onclick = async () => {
   baudrates.style.display = "initial";
   connectButton.style.display = "initial";
   disconnectButton.style.display = "none";
+  traceButton.style.display = "none";
   eraseButton.style.display = "none";
   lblConnTo.style.display = "none";
   filesDiv.style.display = "none";

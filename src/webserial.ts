@@ -105,42 +105,30 @@ class Transport {
     }
   }
 
-  private hexify(s: string, uppercase = true): string {
-    const format_str = uppercase ? "%02X" : "%02x";
-    return s
-      .split("")
-      .map((c) => {
-        const charCode = c.charCodeAt(0);
-        return format_str.replace(/%02([xX])/g, (_, caseFormat) =>
-          caseFormat === "X" ? charCode.toString(16).toUpperCase() : charCode.toString(16),
-        );
-      })
+  hexify(s: Uint8Array) {
+    return Array.from(s)
+      .map((byte) => byte.toString(16).padStart(2, "0"))
       .join("");
   }
 
-  private hexConvert(uint8Array: Uint8Array) {
-    return Array.from(uint8Array)
-      .map(byte => byte.toString(16).padStart(2, '0'))
-      .join('');
-  }
-
-  oldHexConvert(buffer: Uint8Array) {
-    const bufferStr = String.fromCharCode(...[].slice.call(buffer));
-    if (bufferStr.length > 16) {
+  hexConvert(uint8Array: Uint8Array, autoSplit = true) {
+    if (autoSplit && uint8Array.length > 16) {
       let result = "";
-      let s = bufferStr;
+      let s = uint8Array;
+
       while (s.length > 0) {
-        const line = s.slice(0, 16);
-        const ascii_line = line
+        let line = s.slice(0, 16);
+        let asciiLine = String.fromCharCode(...line)
           .split("")
           .map((c) => (c === " " || (c >= " " && c <= "~" && c !== "  ") ? c : "."))
           .join("");
         s = s.slice(16);
-        result += `\n    ${this.hexify(line.slice(0, 8))} ${this.hexify(line.slice(8))} | ${ascii_line}`;
+        result += `\n    ${this.hexify(line.slice(0, 8))} ${this.hexify(line.slice(8))} | ${asciiLine}`;
       }
+
       return result;
     } else {
-      return this.hexify(bufferStr);
+      return this.hexify(uint8Array);
     }
   }
 
