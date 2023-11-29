@@ -85,8 +85,8 @@ class Transport {
   }
 
   /**
-   * Format received or sent data (read/write) in Hexadecimal format for tracing output.
-   * @param {Uint8Array} buffer Binary unsigned 8 bit array data to format.
+   * Format received or sent data for tracing output.
+   * @param {string} message Message to format as trace line.
    */
   trace(message: string) {
     const delta = Date.now() - this.lastTraceTime;
@@ -117,8 +117,8 @@ class Transport {
       let s = uint8Array;
 
       while (s.length > 0) {
-        let line = s.slice(0, 16);
-        let asciiLine = String.fromCharCode(...line)
+        const line = s.slice(0, 16);
+        const asciiLine = String.fromCharCode(...line)
           .split("")
           .map((c) => (c === " " || (c >= " " && c <= "~" && c !== "  ") ? c : "."))
           .join("");

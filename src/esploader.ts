@@ -485,9 +485,9 @@ export class ESPLoader {
     if (op != null) {
       if (this.transport.tracing) {
         this.transport.trace(
-          `command op:0x${op.toString(16).padStart(2, "0")} data len=${data.length} wait_response=${waitResponse ? 1 : 0} timeout=${(
-            timeout / 1000
-          ).toFixed(3)} data=${this.transport.hexConvert(data)}`,
+          `command op:0x${op.toString(16).padStart(2, "0")} data len=${data.length} wait_response=${
+            waitResponse ? 1 : 0
+          } timeout=${(timeout / 1000).toFixed(3)} data=${this.transport.hexConvert(data)}`,
         );
       }
 
