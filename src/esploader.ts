@@ -1120,13 +1120,13 @@ export class ESPLoader {
   async runStub() {
     this.info("Uploading stub...");
 
-    let decoded = Buffer.from(this.chip.ROM_TEXT).toString("base64");
+    let decoded = Buffer.from(this.chip.ROM_TEXT, "base64").toString("binary");
     let chardata = decoded.split("").map(function (x) {
       return x.charCodeAt(0);
     });
     const text = new Uint8Array(chardata);
 
-    decoded = Buffer.from(this.chip.ROM_DATA).toString("base64");
+    decoded = Buffer.from(this.chip.ROM_DATA, "base64").toString("binary");
     chardata = decoded.split("").map(function (x) {
       return x.charCodeAt(0);
     });
