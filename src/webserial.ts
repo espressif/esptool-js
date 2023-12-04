@@ -63,7 +63,9 @@ class Transport {
   private traceLog = "";
   private lastTraceTime = Date.now();
 
-  constructor(public device: SerialPort, public tracing = false) {}
+  constructor(public device: SerialPort, public tracing = false, enableSlipReader = true) {
+    this.slipReaderEnabled = enableSlipReader;
+  }
 
   /**
    * Request the serial device vendor ID and Product ID as string.
@@ -108,7 +110,8 @@ class Transport {
   hexify(s: Uint8Array) {
     return Array.from(s)
       .map((byte) => byte.toString(16).padStart(2, "0"))
-      .join("");
+      .join("")
+      .padEnd(16, " ");
   }
 
   hexConvert(uint8Array: Uint8Array, autoSplit = true) {
@@ -138,34 +141,19 @@ class Transport {
    * @returns {Uint8Array} Formatted unsigned 8 bit data array.
    */
   slipWriter(data: Uint8Array) {
-    let countEsc = 0;
-    let i = 0,
-      j = 0;
-
-    for (i = 0; i < data.length; i++) {
-      if (data[i] === 0xc0 || data[i] === 0xdb) {
-        countEsc++;
-      }
-    }
-    const outData = new Uint8Array(2 + countEsc + data.length);
-    outData[0] = 0xc0;
-    j = 1;
-    for (i = 0; i < data.length; i++, j++) {
-      if (data[i] === 0xc0) {
-        outData[j++] = 0xdb;
-        outData[j] = 0xdc;
-        continue;
-      }
+    const outData = [];
+    outData.push(0xc0);
+    for (let i = 0; i < data.length; i++) {
       if (data[i] === 0xdb) {
-        outData[j++] = 0xdb;
-        outData[j] = 0xdd;
-        continue;
+        outData.push(0xdb, 0xdd);
+      } else if (data[i] === 0xc0) {
+        outData.push(0xdb, 0xdc);
+      } else {
+        outData.push(data[i]);
       }
-
-      outData[j] = data[i];
     }
-    outData[j] = 0xc0;
-    return outData;
+    outData.push(0xc0);
+    return new Uint8Array(outData);
   }
 
   /**
