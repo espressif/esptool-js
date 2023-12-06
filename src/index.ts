@@ -7,4 +7,5 @@ export {
   validateCustomResetStringSequence,
 } from "./reset.js";
 export { ROM } from "./targets/rom.js";
-export { Transport, SerialOptions } from "./webserial.js";
+export { AbstractTransport, ISerialOptions } from "./transport/ITransport.js";
+export { SerialOptions, WebSerialTransport } from "./transport/WebSerialTransport.js";

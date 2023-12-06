@@ -1,22 +1,12 @@
 /* global SerialPort, ParityType, FlowControlType */
 
+import { AbstractTransport, ISerialOptions } from "./ITransport";
+
 /**
  * Options for device serialPort.
  * @interface SerialOptions
- *
- * Note: According to the documentation of the Web Serial API, 'baudRate' is a
- * 'required' field as part of serial options. However, we are currently
- * maintaining 'baudRate' as a separate parameter outside the options
- * dictionary, and it is effectively used in the code. For now, we are
- * keeping it optional in the dictionary to avoid conflicts.
  */
-export interface SerialOptions {
-  /**
-   * A positive, non-zero value indicating the baud rate at which serial communication should be established.
-   * @type {number | undefined}
-   */
-  baudRate?: number | undefined;
-
+export interface SerialOptions extends ISerialOptions {
   /**
    * The number of data bits per frame. Either 7 or 8.
    * @type {number | undefined}
@@ -51,22 +41,20 @@ export interface SerialOptions {
 /**
  * Wrapper class around Webserial API to communicate with the serial device.
  * @param {typeof import("w3c-web-serial").SerialPort} device - Requested device prompted by the browser.
+ * @param {boolean} tracing - Enable communication tracing
+ * @param {boolean} slipReaderEnabled Enable SLIP formatting
  *
  * ```
  * const port = await navigator.serial.requestPort();
  * ```
  */
-class Transport {
-  public slipReaderEnabled = false;
+export class WebSerialTransport implements AbstractTransport {
   public leftOver = new Uint8Array(0);
-  public baudrate = 0;
   private traceLog = "";
   private lastTraceTime = Date.now();
   private reader: ReadableStreamDefaultReader<Uint8Array> | undefined;
 
-  constructor(public device: SerialPort, public tracing = false, enableSlipReader = true) {
-    this.slipReaderEnabled = enableSlipReader;
-  }
+  constructor(public device: SerialPort, public tracing = false, public slipReaderEnabled = true) {}
 
   /**
    * Request the serial device vendor ID and Product ID as string.
@@ -83,7 +71,7 @@ class Transport {
    * Request the serial device product id from SerialPortInfo.
    * @returns {number | undefined} Return the product ID.
    */
-  getPid(): number | undefined {
+  getPID(): number | undefined {
     return this.device.getInfo().usbProductId;
   }
 
@@ -194,7 +182,7 @@ class Transport {
    * @param {Uint8Array} data Unsigned 8 bit array from the device read stream.
    * @returns {Uint8Array} Formatted packet using SLIP escape sequences.
    */
-  slipReader(data: Uint8Array) {
+  slipReader(data: Uint8Array): Uint8Array {
     let i = 0;
     let dataStart = 0,
       dataEnd = 0;
@@ -242,9 +230,9 @@ class Transport {
    * Read from serial device using the device ReadableStream.
    * @param {number} timeout Read timeout number
    * @param {number} minData Minimum packet array length
-   * @returns {Uint8Array} 8 bit unsigned data array read from device.
+   * @returns {Promise<Uint8Array>} 8 bit unsigned data array read from device.
    */
-  async read(timeout = 0, minData = 12) {
+  async read(timeout: number = 0, minData: number = 12): Promise<Uint8Array> {
     let t;
     let packet = this.leftOver;
     this.leftOver = new Uint8Array(0);
@@ -304,9 +292,9 @@ class Transport {
   /**
    * Read from serial device without slip formatting.
    * @param {number} timeout Read timeout in milliseconds (ms)
-   * @returns {Uint8Array} 8 bit unsigned data array read from device.
+   * @returns {Promise<Uint8Array>} 8 bit unsigned data array read from device.
    */
-  async rawRead(timeout = 0) {
+  async rawRead(timeout: number = 0): Promise<Uint8Array> {
     if (this.leftOver.length != 0) {
       const p = this.leftOver;
       this.leftOver = new Uint8Array(0);
@@ -369,19 +357,17 @@ class Transport {
 
   /**
    * Connect to serial device using the Webserial open method.
-   * @param {number} baud Number baud rate for serial connection.
-   * @param {typeof import("w3c-web-serial").SerialOptions} serialOptions Serial Options for WebUSB SerialPort class.
+   * @param {SerialOptions} serialOptions Serial Options for WebUSB SerialPort class.
    */
-  async connect(baud = 115200, serialOptions: SerialOptions = {}) {
+  async connect(serialOptions: SerialOptions) {
     await this.device.open({
-      baudRate: baud,
+      baudRate: serialOptions.baudRate || 115200,
       dataBits: serialOptions?.dataBits,
       stopBits: serialOptions?.stopBits,
       bufferSize: serialOptions?.bufferSize,
       parity: serialOptions?.parity,
       flowControl: serialOptions?.flowControl,
     });
-    this.baudrate = baud;
     this.leftOver = new Uint8Array(0);
   }
 
@@ -414,5 +400,3 @@ class Transport {
     await this.device.close();
   }
 }
-
-export { Transport };
