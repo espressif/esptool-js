@@ -1,4 +1,4 @@
-import { AbstractTransport } from "./transport/ITransport.js";
+import { AbstractTransport } from "./transport/AbstractTransport";
 
 const DEFAULT_RESET_DELAY = 50;
 

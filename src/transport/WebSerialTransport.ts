@@ -1,6 +1,9 @@
 /* global SerialPort, ParityType, FlowControlType */
 
-import { AbstractTransport, ISerialOptions } from "./ITransport";
+import { AbstractTransport, ISerialOptions } from "./AbstractTransport";
+import { hexConvert } from "../utils/hex";
+import { appendArray } from "../utils/convert";
+import { slipWriter } from "../utils/slip";
 
 /**
  * Options for device serialPort.
@@ -87,6 +90,9 @@ export class WebSerialTransport implements AbstractTransport {
     this.traceLog += traceMessage + "\n";
   }
 
+  /**
+   * Return the whole trace output to the user clipboard.
+   */
   async returnTrace() {
     try {
       await navigator.clipboard.writeText(this.traceLog);
@@ -96,84 +102,22 @@ export class WebSerialTransport implements AbstractTransport {
     }
   }
 
-  hexify(s: Uint8Array) {
-    return Array.from(s)
-      .map((byte) => byte.toString(16).padStart(2, "0"))
-      .join("")
-      .padEnd(16, " ");
-  }
-
-  hexConvert(uint8Array: Uint8Array, autoSplit = true) {
-    if (autoSplit && uint8Array.length > 16) {
-      let result = "";
-      let s = uint8Array;
-
-      while (s.length > 0) {
-        const line = s.slice(0, 16);
-        const asciiLine = String.fromCharCode(...line)
-          .split("")
-          .map((c) => (c === " " || (c >= " " && c <= "~" && c !== "  ") ? c : "."))
-          .join("");
-        s = s.slice(16);
-        result += `\n    ${this.hexify(line.slice(0, 8))} ${this.hexify(line.slice(8))} | ${asciiLine}`;
-      }
-
-      return result;
-    } else {
-      return this.hexify(uint8Array);
-    }
-  }
-
-  /**
-   * Format data packet using the Serial Line Internet Protocol (SLIP).
-   * @param {Uint8Array} data Binary unsigned 8 bit array data to format.
-   * @returns {Uint8Array} Formatted unsigned 8 bit data array.
-   */
-  slipWriter(data: Uint8Array) {
-    const outData = [];
-    outData.push(0xc0);
-    for (let i = 0; i < data.length; i++) {
-      if (data[i] === 0xdb) {
-        outData.push(0xdb, 0xdd);
-      } else if (data[i] === 0xc0) {
-        outData.push(0xdb, 0xdc);
-      } else {
-        outData.push(data[i]);
-      }
-    }
-    outData.push(0xc0);
-    return new Uint8Array(outData);
-  }
-
   /**
    * Write binary data to device using the WebSerial device writable stream.
    * @param {Uint8Array} data 8 bit unsigned data array to write to device.
    */
   async write(data: Uint8Array) {
-    const outData = this.slipWriter(data);
+    const outData = slipWriter(data);
 
     if (this.device.writable) {
       const writer = this.device.writable.getWriter();
       if (this.tracing) {
         console.log("Write bytes");
-        this.trace(`Write ${outData.length} bytes: ${this.hexConvert(outData)}`);
+        this.trace(`Write ${outData.length} bytes: ${hexConvert(outData)}`);
       }
       await writer.write(outData);
       writer.releaseLock();
     }
-  }
-
-  /**
-   * Concatenate buffer2 to buffer1 and return the resulting ArrayBuffer.
-   * @param {ArrayBuffer} buffer1 First buffer to concatenate.
-   * @param {ArrayBuffer} buffer2 Second buffer to concatenate.
-   * @returns {ArrayBuffer} Result Array buffer.
-   */
-  _appendBuffer(buffer1: ArrayBuffer, buffer2: ArrayBuffer) {
-    const tmp = new Uint8Array(buffer1.byteLength + buffer2.byteLength);
-    tmp.set(new Uint8Array(buffer1), 0);
-    tmp.set(new Uint8Array(buffer2), buffer1.byteLength);
-    return tmp.buffer;
   }
 
   /**
@@ -263,7 +207,7 @@ export class WebSerialTransport implements AbstractTransport {
           this.leftOver = packet;
           throw new Error("Timeout");
         }
-        const p = new Uint8Array(this._appendBuffer(packet.buffer, value.buffer));
+        const p = appendArray(packet, value);
         packet = p;
       } while (packet.length < minData);
     } finally {
@@ -275,14 +219,14 @@ export class WebSerialTransport implements AbstractTransport {
 
     if (this.tracing) {
       console.log("Read bytes");
-      this.trace(`Read ${packet.length} bytes: ${this.hexConvert(packet)}`);
+      this.trace(`Read ${packet.length} bytes: ${hexConvert(packet)}`);
     }
 
     if (this.slipReaderEnabled) {
       const slipReaderResult = this.slipReader(packet);
       if (this.tracing) {
         console.log("Slip reader results");
-        this.trace(`Read ${slipReaderResult.length} bytes: ${this.hexConvert(slipReaderResult)}`);
+        this.trace(`Read ${slipReaderResult.length} bytes: ${hexConvert(slipReaderResult)}`);
       }
       return slipReaderResult;
     }
@@ -319,7 +263,7 @@ export class WebSerialTransport implements AbstractTransport {
       }
       if (this.tracing) {
         console.log("Raw Read bytes");
-        this.trace(`Read ${value.length} bytes: ${this.hexConvert(value)}`);
+        this.trace(`Read ${value.length} bytes: ${hexConvert(value)}`);
       }
       return value;
     } finally {
@@ -357,7 +301,7 @@ export class WebSerialTransport implements AbstractTransport {
 
   /**
    * Connect to serial device using the Webserial open method.
-   * @param {SerialOptions} serialOptions Serial Options for WebUSB SerialPort class.
+   * @param {SerialOptions} serialOptions Serial Options for ESP Loader class.
    */
   async connect(serialOptions: SerialOptions) {
     await this.device.open({
