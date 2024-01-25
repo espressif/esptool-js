@@ -84,11 +84,11 @@ export class ESP32C2ROM extends ESP32C3ROM {
     if (Math.abs(normXtal - etsXtal) > 1) {
       loader.info("WARNING: Unsupported crystal in use");
     }
-    return normXtal; 
+    return normXtal;
   }
 
   public async changeBaudRate(loader: ESPLoader) {
-    let rom_with_26M_XTAL = await this.getCrystalFreq(loader);
+    const rom_with_26M_XTAL = await this.getCrystalFreq(loader);
     if (rom_with_26M_XTAL === 26) {
       loader.changeBaud();
     }
