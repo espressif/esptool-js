@@ -3,6 +3,7 @@ import { Data, deflate, Inflate } from "pako";
 import { Transport, SerialOptions } from "./webserial";
 import { ROM } from "./targets/rom";
 import { customReset, usbJTAGSerialReset } from "./reset";
+import { Buffer } from "buffer/index";
 
 /* global SerialPort */
 
@@ -1140,7 +1141,6 @@ export class ESPLoader {
    */
   async runStub() {
     this.info("Uploading stub...");
-
     let decoded = Buffer.from(this.chip.ROM_TEXT, "base64").toString("binary");
     let chardata = decoded.split("").map(function (x) {
       return x.charCodeAt(0);
