@@ -20,6 +20,8 @@ This repository contains a Javascript implementation of [esptool](https://github
 
 Check an example project [here](./examples/typescript).
 
+**Nightly builds** for <a href="https://nightly.link/espressif/esptool-js/workflows/ci/main">ESPTOOL-JS</a>
+
 ## Define port filters for device using WebSerial
 
 ```js
