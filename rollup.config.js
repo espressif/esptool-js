@@ -1,8 +1,8 @@
-const resolve = require('@rollup/plugin-node-resolve');
-const babel =  require("@rollup/plugin-babel");
-const commonjs = require('@rollup/plugin-commonjs');
-const terser = require('@rollup/plugin-terser');
-const json = require('@rollup/plugin-json');
+import resolve from '@rollup/plugin-node-resolve';
+import babel from "@rollup/plugin-babel";
+import commonjs from '@rollup/plugin-commonjs';
+import terser from '@rollup/plugin-terser';
+import json from '@rollup/plugin-json';
 
 // rollup.config.js
 /**
@@ -17,7 +17,7 @@ const config = {
     inlineDynamicImports: true
   },
   plugins: [
-    resolve(),
+    resolve({ preferBuiltins: false}),
     commonjs(),
     babel({ exclude: 'node_modules/**', babelHelpers: "runtime", skipPreflightCheck: true }),
     json({ namedExports: false, preferConst: true }),
@@ -25,4 +25,5 @@ const config = {
   ],
 };
 
-module.exports.default = config;
+const _default = config;
+export { _default as default };

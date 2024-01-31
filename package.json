@@ -1,6 +1,7 @@
 {
   "name": "esptool-js",
   "version": "0.4.0",
+  "type": "module",
   "module": "lib/index.js",
   "main": "lib/index.js",
   "types": "lib/index.d.ts",
@@ -28,6 +29,7 @@
     "url": "https://github.com/espressif/esptool-js/issues"
   },
   "dependencies": {
+    "buffer": "^6.0.3",
     "pako": "^2.1.0",
     "tslib": "^2.4.1"
   },
@@ -42,7 +44,6 @@
     "@typescript-eslint/eslint-plugin": "^5.43.0",
     "@typescript-eslint/parser": "^5.43.0",
     "babel-loader": "^9.1.0",
-    "buffer": "^5.7.1",
     "eslint": "^8.28.0",
     "eslint-config-prettier": "^8.5.0",
     "eslint-plugin-jsdoc": "^46.4.5",
