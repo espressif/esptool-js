@@ -3,7 +3,7 @@
 import { AbstractTransport, ISerialOptions } from "./AbstractTransport";
 import { hexConvert } from "../utils/hex";
 import { appendArray } from "../utils/convert";
-import { slipWriter } from "../utils/slip";
+import { slipReader, slipWriter } from "../utils/slip";
 
 /**
  * Options for device serialPort.
@@ -121,56 +121,6 @@ export class WebSerialTransport implements AbstractTransport {
   }
 
   /**
-   * Take a data array and return the first well formed packet after
-   * replacing the escape sequence. Reads at least 8 bytes.
-   * @param {Uint8Array} data Unsigned 8 bit array from the device read stream.
-   * @returns {Uint8Array} Formatted packet using SLIP escape sequences.
-   */
-  slipReader(data: Uint8Array): Uint8Array {
-    let i = 0;
-    let dataStart = 0,
-      dataEnd = 0;
-    let state = "init";
-    while (i < data.length) {
-      if (state === "init" && data[i] == 0xc0) {
-        dataStart = i + 1;
-        state = "valid_data";
-        i++;
-        continue;
-      }
-      if (state === "valid_data" && data[i] == 0xc0) {
-        dataEnd = i - 1;
-        state = "packet_complete";
-        break;
-      }
-      i++;
-    }
-    if (state !== "packet_complete") {
-      this.leftOver = data;
-      return new Uint8Array(0);
-    }
-
-    this.leftOver = data.slice(dataEnd + 2);
-    const tempPkt = new Uint8Array(dataEnd - dataStart + 1);
-    let j = 0;
-    for (i = dataStart; i <= dataEnd; i++, j++) {
-      if (data[i] === 0xdb && data[i + 1] === 0xdc) {
-        tempPkt[j] = 0xc0;
-        i++;
-        continue;
-      }
-      if (data[i] === 0xdb && data[i + 1] === 0xdd) {
-        tempPkt[j] = 0xdb;
-        i++;
-        continue;
-      }
-      tempPkt[j] = data[i];
-    }
-    const packet = tempPkt.slice(0, j); /* Remove unused bytes due to escape seq */
-    return packet;
-  }
-
-  /**
    * Read from serial device using the device ReadableStream.
    * @param {number} timeout Read timeout number
    * @param {number} minData Minimum packet array length
@@ -181,7 +131,9 @@ export class WebSerialTransport implements AbstractTransport {
     let packet = this.leftOver;
     this.leftOver = new Uint8Array(0);
     if (this.slipReaderEnabled) {
-      const valFinal = this.slipReader(packet);
+      const slipResult = slipReader(packet);
+      const valFinal = slipResult.packet;
+      this.leftOver = slipResult.newLeftOver;
       if (valFinal.length > 0) {
         return valFinal;
       }
@@ -223,12 +175,13 @@ export class WebSerialTransport implements AbstractTransport {
     }
 
     if (this.slipReaderEnabled) {
-      const slipReaderResult = this.slipReader(packet);
+      const slipReaderResult = slipReader(packet);
+      this.leftOver = slipReaderResult.newLeftOver;
       if (this.tracing) {
         console.log("Slip reader results");
-        this.trace(`Read ${slipReaderResult.length} bytes: ${hexConvert(slipReaderResult)}`);
+        this.trace(`Read ${slipReaderResult.packet.length} bytes: ${hexConvert(slipReaderResult.packet)}`);
       }
-      return slipReaderResult;
+      return slipReaderResult.packet;
     }
     return packet;
   }
