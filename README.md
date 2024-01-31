@@ -8,7 +8,7 @@ This repository contains a Javascript implementation of [esptool](https://github
 
 **CDN**
 
-`https://unpkg.com/esptool-js/lib/index.js?module`
+`https://unpkg.com/esptool-js/lib/index.js` or `https://unpkg.com/esptool-js/bundle.js` to use the single bundle JavaScript file.
 
 **NPM**
 
@@ -61,6 +61,20 @@ npm run dev # Run local sever with example code
 ```
 
 Then open `http://localhost:1234` in a Chrome browser. The `npm run build` step builds the `lib` used in the example `examples/typescript/index.html`. Update this reference as described in [Usage](#usage) section.
+
+## Test from Pull Request artifact
+
+If you are testing the main branch or any Pull Request (PR) artifact you can follow these steps:
+
+1. Get the `esptool-js-<version>.tgz` where `<version>` is the current version and download it.
+2. Add the following line to your project's package.json dependencies
+
+```json
+"dependencies": {
+  "esptool-js": "file:../path/to/esptool-js-<version>.tgz"
+}
+```
+3. Use the package like `import "esptool-js/lib/index.js"` when added in package.json as shown before.
 
 ## License
 
