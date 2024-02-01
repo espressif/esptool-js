@@ -23,12 +23,30 @@ export function slipWriter(data: Uint8Array): Uint8Array {
 }
 
 /**
+ * Slip reader output packet and left over as Uint8Array.
+ * @interface SlipReaderOutput
+ */
+export interface SlipReaderOutput {
+  /**
+   * Formatted packet using SLIP escape sequences.
+   * @type {Uint8Array}
+   */
+  packet: Uint8Array;
+
+  /**
+   * Updated left over bytes from read operation
+   * @type {Uint8Array}
+   */
+  newLeftOver: Uint8Array;
+}
+
+/**
  * Take a data array and return the first well formed packet after
  * replacing the escape sequence. Reads at least 8 bytes.
  * @param {Uint8Array} data Unsigned 8 bit array from the device read stream.
- * @returns Formatted packet using SLIP escape sequences.
+ * @returns {SlipReaderOutput} packet Formatted packet using SLIP escape sequences.
  */
-export function slipReaderFormat(data: Uint8Array): { packet: Uint8Array; newLeftOver: Uint8Array } {
+export function slipReaderFormat(data: Uint8Array): SlipReaderOutput {
   let i = 0;
   let dataStart = 0,
     dataEnd = 0;
@@ -74,6 +92,7 @@ export function slipReaderFormat(data: Uint8Array): { packet: Uint8Array; newLef
 
 /**
  * Read from serial device using the device ReadableStream.
+ * @param {AbstractTransport} transport Implementation of serial transport class to perform serial read
  * @param {number} timeout Read timeout number
  * @param {number} minData Minimum packet array length
  * @returns {Promise<Uint8Array>} 8 bit unsigned data array read from device.
@@ -95,11 +114,10 @@ export async function slipRead(
     packet = transport.leftOver;
     transport.leftOver = new Uint8Array(0);
   }
-  
   packet = await transport.rawRead(timeout, minData, packet);
 
   if (transport.tracing) {
-    console.log("Read bytes");
+    transport.trace("Read SLIP bytes");
     transport.trace(`Read ${packet.length} bytes: ${hexConvert(packet)}`);
   }
 
@@ -107,7 +125,7 @@ export async function slipRead(
     const slipReaderResult = slipReaderFormat(packet);
     transport.leftOver = slipReaderResult.newLeftOver;
     if (transport.tracing) {
-      console.log("Slip reader results");
+      transport.trace("Slip reader results");
       transport.trace(`Read ${slipReaderResult.packet.length} bytes: ${hexConvert(slipReaderResult.packet)}`);
     }
     return slipReaderResult.packet;

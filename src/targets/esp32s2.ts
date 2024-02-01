@@ -75,7 +75,7 @@ export class ESP32S2ROM extends ROM {
     return features;
   }
 
-  public async getCrystalFreq(loader: ESPLoader) {
+  public async getCrystalFreq() {
     return 40;
   }
   public _d2h(d: number) {

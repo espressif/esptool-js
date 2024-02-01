@@ -130,6 +130,7 @@ export interface LoaderOptions {
 
   /**
    * Reset functions for connection. If undefined will use default ones.
+   * @type {ResetFunctions}
    */
   resetFunctions?: ResetFunctions;
 }
@@ -140,7 +141,7 @@ export interface LoaderOptions {
  * @param { number } progress Progress status number
  * @param {number } totalSize total size of packet.
  */
-type FlashReadCallback = ((packet: Uint8Array, progress: number, totalSize: number) => void) | null;
+export type FlashReadCallback = ((packet: Uint8Array, progress: number, totalSize: number) => void) | null;
 
 /**
  * Return the chip ROM based on the given magic number

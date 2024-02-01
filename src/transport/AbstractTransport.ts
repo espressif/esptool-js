@@ -68,7 +68,7 @@ export abstract class AbstractTransport {
 
   /**
    * Connect to serial device using the Webserial open method.
-   * @param {SerialOptions} serialOptions Serial Options for WebUSB SerialPort class.
+   * @param {ISerialOptions} serialOptions Serial Options for WebUSB SerialPort class.
    */
   public abstract connect(serialOptions: ISerialOptions): Promise<void>;
 
