@@ -17,6 +17,7 @@ export interface ISerialOptions {
 export abstract class AbstractTransport {
   public abstract tracing: boolean;
   public abstract slipReaderEnabled: boolean;
+  public abstract leftOver: Uint8Array;
 
   /**
    * Request the serial device information as string.
@@ -43,19 +44,13 @@ export abstract class AbstractTransport {
   public abstract write(data: Uint8Array): Promise<void>;
 
   /**
-   * Read from serial device.
-   * @param {number} timeout Read timeout number
-   * @param {number} minData Minimum packet array length
-   * @returns {Promise<Uint8Array>} 8 bit unsigned data array read from device.
-   */
-  public abstract read(timeout?: number, minData?: number): Promise<Uint8Array>;
-
-  /**
    * Read from serial device without formatting.
    * @param {number} timeout Read timeout in milliseconds (ms)
+   * @param {number} minData Minimum packet array length
+   * @param {Uint8Array} packet Unsigned 8 bit array from the device read stream.
    * @returns {Promise<Uint8Array>} 8 bit unsigned data array read from device.
    */
-  public abstract rawRead(timeout?: number): Promise<Uint8Array>;
+  public abstract rawRead(timeout?: number, minData?: number, packet?: Uint8Array): Promise<Uint8Array>;
 
   /**
    * Send the RequestToSend (RTS) signal to given state

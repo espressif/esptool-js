@@ -3,7 +3,7 @@
 import { AbstractTransport, ISerialOptions } from "./AbstractTransport";
 import { hexConvert } from "../utils/hex";
 import { appendArray } from "../utils/convert";
-import { slipReader, slipWriter } from "../utils/slip";
+import { slipWriter } from "../utils/slip";
 
 /**
  * Options for device serialPort.
@@ -121,77 +121,13 @@ export class WebSerialTransport implements AbstractTransport {
   }
 
   /**
-   * Read from serial device using the device ReadableStream.
-   * @param {number} timeout Read timeout number
-   * @param {number} minData Minimum packet array length
-   * @returns {Promise<Uint8Array>} 8 bit unsigned data array read from device.
-   */
-  async read(timeout: number = 0, minData: number = 12): Promise<Uint8Array> {
-    let t;
-    let packet = this.leftOver;
-    this.leftOver = new Uint8Array(0);
-    if (this.slipReaderEnabled) {
-      const slipResult = slipReader(packet);
-      const valFinal = slipResult.packet;
-      this.leftOver = slipResult.newLeftOver;
-      if (valFinal.length > 0) {
-        return valFinal;
-      }
-      packet = this.leftOver;
-      this.leftOver = new Uint8Array(0);
-    }
-    if (this.device.readable == null) {
-      return this.leftOver;
-    }
-
-    this.reader = this.device.readable.getReader();
-    try {
-      if (timeout > 0) {
-        t = setTimeout(() => {
-          if (this.reader) {
-            this.reader.cancel();
-          }
-        }, timeout);
-      }
-      do {
-        const { value, done } = await this.reader.read();
-        if (done) {
-          this.leftOver = packet;
-          throw new Error("Timeout");
-        }
-        const p = appendArray(packet, value);
-        packet = p;
-      } while (packet.length < minData);
-    } finally {
-      if (timeout > 0) {
-        clearTimeout(t);
-      }
-      this.reader.releaseLock();
-    }
-
-    if (this.tracing) {
-      console.log("Read bytes");
-      this.trace(`Read ${packet.length} bytes: ${hexConvert(packet)}`);
-    }
-
-    if (this.slipReaderEnabled) {
-      const slipReaderResult = slipReader(packet);
-      this.leftOver = slipReaderResult.newLeftOver;
-      if (this.tracing) {
-        console.log("Slip reader results");
-        this.trace(`Read ${slipReaderResult.packet.length} bytes: ${hexConvert(slipReaderResult.packet)}`);
-      }
-      return slipReaderResult.packet;
-    }
-    return packet;
-  }
-
-  /**
    * Read from serial device without slip formatting.
    * @param {number} timeout Read timeout in milliseconds (ms)
+   * @param {number} minData Minimum packet array length
+   * @param {Uint8Array} packet Unsigned 8 bit array from the device read stream.
    * @returns {Promise<Uint8Array>} 8 bit unsigned data array read from device.
    */
-  async rawRead(timeout: number = 0): Promise<Uint8Array> {
+  async rawRead(timeout: number = 0, minData: number = 0, packet?: Uint8Array): Promise<Uint8Array> {
     if (this.leftOver.length != 0) {
       const p = this.leftOver;
       this.leftOver = new Uint8Array(0);
@@ -202,6 +138,9 @@ export class WebSerialTransport implements AbstractTransport {
     }
     this.reader = this.device.readable.getReader();
     let t;
+    if (!packet) {
+      packet = this.leftOver;
+    }
     try {
       if (timeout > 0) {
         t = setTimeout(() => {
@@ -210,15 +149,21 @@ export class WebSerialTransport implements AbstractTransport {
           }
         }, timeout);
       }
-      const { value, done } = await this.reader.read();
-      if (done) {
-        return value;
-      }
-      if (this.tracing) {
-        console.log("Raw Read bytes");
-        this.trace(`Read ${value.length} bytes: ${hexConvert(value)}`);
-      }
-      return value;
+
+      do {
+        const { value, done } = await this.reader.read();
+        if (done) {
+          this.leftOver = packet;
+          throw new Error("Timeout");
+        }
+        if (this.tracing) {
+          console.log("Raw Read bytes");
+          this.trace(`Read ${value.length} bytes: ${hexConvert(value)}`);
+        }
+        const p = appendArray(packet, value);
+        packet = p;
+      } while (packet.length < minData);
+      return packet;
     } finally {
       if (timeout > 0) {
         clearTimeout(t);
