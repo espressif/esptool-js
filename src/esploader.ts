@@ -107,7 +107,7 @@ export interface LoaderOptions {
    * @type {boolean}
    */
   debugLogging?: boolean;
-  enableTracing: boolean;
+  enableTracing?: boolean;
 }
 
 type FlashReadCallback = ((packet: Uint8Array, progress: number, totalSize: number) => void) | null;
