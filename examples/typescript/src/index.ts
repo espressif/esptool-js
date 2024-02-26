@@ -40,6 +40,7 @@ disconnectButton.style.display = "none";
 traceButton.style.display = "none";
 eraseButton.style.display = "none";
 consoleStopButton.style.display = "none";
+resetButton.style.display = "none";
 filesDiv.style.display = "none";
 
 /**
@@ -240,6 +241,7 @@ consoleStartButton.onclick = async () => {
   consoleBaudrates.style.display = "none";
   consoleStartButton.style.display = "none";
   consoleStopButton.style.display = "initial";
+  resetButton.style.display = "initial";
   programDiv.style.display = "none";
 
   await transport.connect(parseInt(consoleBaudrates.value));
@@ -265,6 +267,7 @@ consoleStopButton.onclick = async () => {
   consoleBaudrates.style.display = "initial";
   consoleStartButton.style.display = "initial";
   consoleStopButton.style.display = "none";
+  resetButton.style.display = "none";
   lblConsoleFor.style.display = "none";
   programDiv.style.display = "initial";
 };
