@@ -236,7 +236,7 @@ consoleStartButton.onclick = async () => {
   consoleStopButton.style.display = "initial";
   programDiv.style.display = "none";
 
-  await transport.connect();
+  await transport.connect(parseInt(baudrates.value));
   isConsoleClosed = false;
 
   while (true && !isConsoleClosed) {
