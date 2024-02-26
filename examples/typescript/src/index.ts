@@ -1,4 +1,5 @@
 const baudrates = document.getElementById("baudrates") as HTMLSelectElement;
+const consoleBaudrates = document.getElementById("consoleBaudrates") as HTMLSelectElement;
 const connectButton = document.getElementById("connectButton") as HTMLButtonElement;
 const traceButton = document.getElementById("copyTraceButton") as HTMLButtonElement;
 const disconnectButton = document.getElementById("disconnectButton") as HTMLButtonElement;
@@ -13,6 +14,7 @@ const terminal = document.getElementById("terminal");
 const programDiv = document.getElementById("program");
 const consoleDiv = document.getElementById("console");
 const lblBaudrate = document.getElementById("lblBaudrate");
+const lblConsoleBaudrate = document.getElementById("lblConsoleBaudrate");
 const lblConsoleFor = document.getElementById("lblConsoleFor");
 const lblConnTo = document.getElementById("lblConnTo");
 const table = document.getElementById("fileTable") as HTMLTableElement;
@@ -213,7 +215,9 @@ disconnectButton.onclick = async () => {
   if (transport) await transport.disconnect();
 
   term.clear();
+  lblBaudrate.style.display = "initial";
   baudrates.style.display = "initial";
+  consoleBaudrates.style.display = "initial";
   connectButton.style.display = "initial";
   disconnectButton.style.display = "none";
   traceButton.style.display = "none";
@@ -232,11 +236,13 @@ consoleStartButton.onclick = async () => {
     transport = new Transport(device, true);
   }
   lblConsoleFor.style.display = "block";
+  lblConsoleBaudrate.style.display = "none";
+  consoleBaudrates.style.display = "none";
   consoleStartButton.style.display = "none";
   consoleStopButton.style.display = "initial";
   programDiv.style.display = "none";
 
-  await transport.connect(parseInt(baudrates.value));
+  await transport.connect(parseInt(consoleBaudrates.value));
   isConsoleClosed = false;
 
   while (true && !isConsoleClosed) {
@@ -255,8 +261,11 @@ consoleStopButton.onclick = async () => {
   await transport.disconnect();
   await transport.waitForUnlock(1500);
   term.clear();
+  lblConsoleBaudrate.style.display = "initial";
+  consoleBaudrates.style.display = "initial";
   consoleStartButton.style.display = "initial";
   consoleStopButton.style.display = "none";
+  lblConsoleFor.style.display = "none";
   programDiv.style.display = "initial";
 };
 
