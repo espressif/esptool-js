@@ -62,6 +62,7 @@ class Transport {
   public baudrate = 0;
   private traceLog = "";
   private lastTraceTime = Date.now();
+  private reader: ReadableStreamDefaultReader<Uint8Array> | undefined;
 
   constructor(public device: SerialPort, public tracing = false, enableSlipReader = true) {
     this.slipReaderEnabled = enableSlipReader;
@@ -259,15 +260,17 @@ class Transport {
       return this.leftOver;
     }
 
-    const reader = this.device.readable.getReader();
+    this.reader = this.device.readable.getReader();
     try {
       if (timeout > 0) {
-        t = setTimeout(function () {
-          reader.cancel();
+        t = setTimeout(() => {
+          if (this.reader) {
+            this.reader.cancel();
+          }
         }, timeout);
       }
       do {
-        const { value, done } = await reader.read();
+        const { value, done } = await this.reader.read();
         if (done) {
           this.leftOver = packet;
           throw new Error("Timeout");
@@ -279,7 +282,7 @@ class Transport {
       if (timeout > 0) {
         clearTimeout(t);
       }
-      reader.releaseLock();
+      this.reader.releaseLock();
     }
 
     if (this.tracing) {
@@ -312,17 +315,19 @@ class Transport {
     if (!this.device.readable) {
       return this.leftOver;
     }
-    const reader = this.device.readable.getReader();
+    this.reader = this.device.readable.getReader();
     let t;
     try {
       if (timeout > 0) {
-        t = setTimeout(function () {
-          reader.cancel();
+        t = setTimeout(() => {
+          if (this.reader) {
+            this.reader.cancel();
+          }
         }, timeout);
       }
-      const { value, done } = await reader.read();
+      const { value, done } = await this.reader.read();
       if (done) {
-        throw new Error("Timeout");
+        return value;
       }
       if (this.tracing) {
         console.log("Raw Read bytes");
@@ -333,7 +338,7 @@ class Transport {
       if (timeout > 0) {
         clearTimeout(t);
       }
-      reader.releaseLock();
+      this.reader.releaseLock();
     }
   }
 
@@ -401,7 +406,11 @@ class Transport {
    * Disconnect from serial device by running SerialPort.close() after streams unlock.
    */
   async disconnect() {
+    if (this.reader) {
+      await this.reader.cancel();
+    }
     await this.waitForUnlock(400);
+    this.reader = undefined;
     await this.device.close();
   }
 }
