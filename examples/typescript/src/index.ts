@@ -122,14 +122,11 @@ traceButton.onclick = async () => {
 };
 
 resetButton.onclick = async () => {
-  if (device === null) {
-    device = await navigator.serial.requestPort({});
-    transport = new Transport(device, true);
+  if (transport) {
+    await transport.setDTR(false);
+    await new Promise((resolve) => setTimeout(resolve, 100));
+    await transport.setDTR(true);
   }
-
-  await transport.setDTR(false);
-  await new Promise((resolve) => setTimeout(resolve, 100));
-  await transport.setDTR(true);
 };
 
 eraseButton.onclick = async () => {
@@ -215,7 +212,7 @@ function cleanUp() {
 disconnectButton.onclick = async () => {
   if (transport) await transport.disconnect();
 
-  term.clear();
+  term.reset();
   lblBaudrate.style.display = "initial";
   baudrates.style.display = "initial";
   consoleBaudrates.style.display = "initial";
@@ -264,7 +261,7 @@ consoleStopButton.onclick = async () => {
     await transport.disconnect();
     await transport.waitForUnlock(1500);
   }
-  term.clear();
+  term.reset();
   lblConsoleBaudrate.style.display = "initial";
   consoleBaudrates.style.display = "initial";
   consoleStartButton.style.display = "initial";
