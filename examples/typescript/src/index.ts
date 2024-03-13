@@ -260,8 +260,10 @@ consoleStartButton.onclick = async () => {
 
 consoleStopButton.onclick = async () => {
   isConsoleClosed = true;
-  await transport.disconnect();
-  await transport.waitForUnlock(1500);
+  if (transport) {
+    await transport.disconnect();
+    await transport.waitForUnlock(1500);
+  }
   term.clear();
   lblConsoleBaudrate.style.display = "initial";
   consoleBaudrates.style.display = "initial";
@@ -270,6 +272,7 @@ consoleStopButton.onclick = async () => {
   resetButton.style.display = "none";
   lblConsoleFor.style.display = "none";
   programDiv.style.display = "initial";
+  cleanUp();
 };
 
 /**
