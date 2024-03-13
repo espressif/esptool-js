@@ -406,8 +406,8 @@ class Transport {
    * Disconnect from serial device by running SerialPort.close() after streams unlock.
    */
   async disconnect() {
-    if (this.reader) {
-      await this.reader.cancel();
+    if (this.device.readable?.locked) {
+      await this.reader?.cancel();
     }
     await this.waitForUnlock(400);
     this.reader = undefined;
