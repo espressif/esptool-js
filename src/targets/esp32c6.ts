@@ -1,5 +1,5 @@
-import { ESPLoader } from "../esploader";
-import { ROM } from "./rom";
+import { ESPLoader } from "../esploader.js";
+import { ROM } from "./rom.js";
 import ESP32C6_STUB from "./stub_flasher/stub_flasher_32c6.json";
 
 export class ESP32C6ROM extends ROM {
