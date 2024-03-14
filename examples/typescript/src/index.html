@@ -36,6 +36,8 @@
                     <option value="115200">115200</option>
                 </select>
 
+                <br><br>
+
                 <input class="btn btn-info btn-sm" type="button" id="connectButton" value="Connect" />
                 <input class="btn btn-info btn-sm" type="button" id="copyTraceButton" value="Copy Trace" />
                 <input class="btn btn-warning btn-sm" type="button" id="disconnectButton" value="Disconnect" />
@@ -68,6 +70,13 @@
             <div id="console">
                 <h3>Console </h3>
                 <label style="display:none" id="lblConsoleFor">Connected to device: </label>
+                <label for="consoleBaudrates" id="lblConsoleBaudrate">Baudrate:</label>
+                <select name="consoleBaudrates" id="consoleBaudrates">
+                    <option value="115200">115200</option>
+                    <option value="74880">74880</option>
+                </select>
+
+                <br><br>
 
                 <input class="btn btn-info" type="button" id="consoleStartButton" value="Start" />
                 <input class="btn btn-info" type="button" id="consoleStopButton" value="Stop" />

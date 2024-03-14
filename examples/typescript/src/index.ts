@@ -1,4 +1,5 @@
 const baudrates = document.getElementById("baudrates") as HTMLSelectElement;
+const consoleBaudrates = document.getElementById("consoleBaudrates") as HTMLSelectElement;
 const connectButton = document.getElementById("connectButton") as HTMLButtonElement;
 const traceButton = document.getElementById("copyTraceButton") as HTMLButtonElement;
 const disconnectButton = document.getElementById("disconnectButton") as HTMLButtonElement;
@@ -13,6 +14,7 @@ const terminal = document.getElementById("terminal");
 const programDiv = document.getElementById("program");
 const consoleDiv = document.getElementById("console");
 const lblBaudrate = document.getElementById("lblBaudrate");
+const lblConsoleBaudrate = document.getElementById("lblConsoleBaudrate");
 const lblConsoleFor = document.getElementById("lblConsoleFor");
 const lblConnTo = document.getElementById("lblConnTo");
 const table = document.getElementById("fileTable") as HTMLTableElement;
@@ -38,6 +40,7 @@ disconnectButton.style.display = "none";
 traceButton.style.display = "none";
 eraseButton.style.display = "none";
 consoleStopButton.style.display = "none";
+resetButton.style.display = "none";
 filesDiv.style.display = "none";
 
 /**
@@ -119,14 +122,11 @@ traceButton.onclick = async () => {
 };
 
 resetButton.onclick = async () => {
-  if (device === null) {
-    device = await navigator.serial.requestPort({});
-    transport = new Transport(device, true);
+  if (transport) {
+    await transport.setDTR(false);
+    await new Promise((resolve) => setTimeout(resolve, 100));
+    await transport.setDTR(true);
   }
-
-  await transport.setDTR(false);
-  await new Promise((resolve) => setTimeout(resolve, 100));
-  await transport.setDTR(true);
 };
 
 eraseButton.onclick = async () => {
@@ -212,8 +212,10 @@ function cleanUp() {
 disconnectButton.onclick = async () => {
   if (transport) await transport.disconnect();
 
-  term.clear();
+  term.reset();
+  lblBaudrate.style.display = "initial";
   baudrates.style.display = "initial";
+  consoleBaudrates.style.display = "initial";
   connectButton.style.display = "initial";
   disconnectButton.style.display = "none";
   traceButton.style.display = "none";
@@ -232,11 +234,14 @@ consoleStartButton.onclick = async () => {
     transport = new Transport(device, true);
   }
   lblConsoleFor.style.display = "block";
+  lblConsoleBaudrate.style.display = "none";
+  consoleBaudrates.style.display = "none";
   consoleStartButton.style.display = "none";
   consoleStopButton.style.display = "initial";
+  resetButton.style.display = "initial";
   programDiv.style.display = "none";
 
-  await transport.connect();
+  await transport.connect(parseInt(consoleBaudrates.value));
   isConsoleClosed = false;
 
   while (true && !isConsoleClosed) {
@@ -252,12 +257,19 @@ consoleStartButton.onclick = async () => {
 
 consoleStopButton.onclick = async () => {
   isConsoleClosed = true;
-  await transport.disconnect();
-  await transport.waitForUnlock(1500);
-  term.clear();
+  if (transport) {
+    await transport.disconnect();
+    await transport.waitForUnlock(1500);
+  }
+  term.reset();
+  lblConsoleBaudrate.style.display = "initial";
+  consoleBaudrates.style.display = "initial";
   consoleStartButton.style.display = "initial";
   consoleStopButton.style.display = "none";
+  resetButton.style.display = "none";
+  lblConsoleFor.style.display = "none";
   programDiv.style.display = "initial";
+  cleanUp();
 };
 
 /**
