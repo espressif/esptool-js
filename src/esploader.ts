@@ -7,6 +7,7 @@ import { ISerialTransport, ISerialOptions } from "./transport/ISerialTransport.j
 import { hexConvert } from "./utils/hex";
 import { appendArray, bstrToUi8, byteArrayToInt, intToByteArray, shortToBytearray, ui8ToBstr } from "./utils/convert";
 import { Slip } from "./utils/slip";
+import { ITrace } from "./utils/ITrace";
 
 /**
  * Options for flashing a device with firmware.
@@ -134,6 +135,12 @@ export interface LoaderOptions {
    * @type {ResetFunctions}
    */
   resetFunctions?: ResetFunctions;
+
+  /**
+   * The Trace object to log all communication output.
+   * @type {ITrace}
+   */
+  tracer?: ITrace;
 }
 
 /**
@@ -287,6 +294,7 @@ export class ESPLoader {
   private debugLogging = false;
   private resetFunctions: ResetFunctions;
   private slip: Slip;
+  private tracer?: ITrace;
 
   /**
    * Create a new ESPLoader to perform serial communication
@@ -328,6 +336,9 @@ export class ESPLoader {
     }
     if (typeof options.debugLogging !== "undefined") {
       this.debugLogging = options.debugLogging;
+    }
+    if (options.tracer) {
+      this.tracer = options.tracer;
     }
     this.slip = new Slip(this.transport);
 
@@ -440,8 +451,8 @@ export class ESPLoader {
     timeout: number = 3000,
   ): Promise<[number, Uint8Array]> {
     if (op != null) {
-      if (this.transport.tracing) {
-        this.transport.trace(
+      if (this.tracer) {
+        this.tracer.trace(
           `command op:0x${op.toString(16).padStart(2, "0")} data len=${data.length} wait_response=${
             waitResponse ? 1 : 0
           } timeout=${(timeout / 1000).toFixed(3)} data=${hexConvert(data)}`,

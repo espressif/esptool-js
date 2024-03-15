@@ -3,6 +3,7 @@
 import { ISerialTransport, ISerialOptions } from "./ISerialTransport";
 import { hexConvert } from "../utils/hex";
 import { appendArray } from "../utils/convert";
+import { ITrace } from "../utils/ITrace";
 
 /**
  * Options for device serialPort.
@@ -51,11 +52,9 @@ export interface SerialOptions extends ISerialOptions {
  */
 export class WebSerialTransport implements ISerialTransport {
   public leftOver = new Uint8Array(0);
-  private traceLog = "";
-  private lastTraceTime = Date.now();
   private reader: ReadableStreamDefaultReader<Uint8Array> | undefined;
 
-  constructor(public device: SerialPort, public tracing = false) {}
+  constructor(public device: SerialPort, private tracer?: ITrace) {}
 
   /**
    * Request the serial device vendor ID and Product ID as string.
@@ -77,39 +76,15 @@ export class WebSerialTransport implements ISerialTransport {
   }
 
   /**
-   * Format received or sent data for tracing output.
-   * @param {string} message Message to format as trace line.
-   */
-  trace(message: string) {
-    const delta = Date.now() - this.lastTraceTime;
-    const prefix = `TRACE ${delta.toFixed(3)}`;
-    const traceMessage = `${prefix} ${message}`;
-    console.log(traceMessage);
-    this.traceLog += traceMessage + "\n";
-  }
-
-  /**
-   * Return the whole trace output to the user clipboard.
-   */
-  async returnTrace() {
-    try {
-      await navigator.clipboard.writeText(this.traceLog);
-      console.log("Text copied to clipboard!");
-    } catch (err) {
-      console.error("Failed to copy text:", err);
-    }
-  }
-
-  /**
    * Write binary data to device using the WebSerial device writable stream.
    * @param {Uint8Array} outData 8 bit unsigned data array to write to device.
    */
   async write(outData: Uint8Array) {
     if (this.device.writable) {
       const writer = this.device.writable.getWriter();
-      if (this.tracing) {
-        console.log("Write bytes");
-        this.trace(`Write ${outData.length} bytes: ${hexConvert(outData)}`);
+      if (this.tracer) {
+        this.tracer.trace("Write bytes");
+        this.tracer.trace(`Write ${outData.length} bytes: ${hexConvert(outData)}`);
       }
       await writer.write(outData);
       writer.releaseLock();
@@ -152,9 +127,9 @@ export class WebSerialTransport implements ISerialTransport {
           this.leftOver = packet;
           throw new Error("Timeout");
         }
-        if (this.tracing) {
-          console.log("Raw Read bytes");
-          this.trace(`Read ${value.length} bytes: ${hexConvert(value)}`);
+        if (this.tracer) {
+          this.tracer.trace("Raw Read bytes");
+          this.tracer.trace(`Read ${value.length} bytes: ${hexConvert(value)}`);
         }
         const p = appendArray(packet, value);
         packet = p;

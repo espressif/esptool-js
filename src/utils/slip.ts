@@ -1,4 +1,5 @@
 import { ISerialTransport } from "../transport/ISerialTransport";
+import { ITrace } from "./ITrace";
 import { hexConvert } from "./hex";
 
 /**
@@ -22,10 +23,11 @@ export interface SlipReaderOutput {
 /**
  * Class to handle SLIP read and write serial methods.
  * @param {ISerialTransport} transport Transport object with raw read and write serial methods
- *  @param {boolean} enableSlipRead Enable or disable read SLIP data formatting.
+ * @param {boolean} enableSlipRead Enable or disable read SLIP data formatting.
+ * @param {ITrace} trace Object that log or trace all serial messages.
  */
 export class Slip {
-  constructor(private transport: ISerialTransport, public enableSlipRead: boolean = false) {}
+  constructor(private transport: ISerialTransport, public enableSlipRead: boolean = false, private tracer?: ITrace) {}
 
   /**
    * Format data packet using the Serial Line Internet Protocol (SLIP).
@@ -119,17 +121,17 @@ export class Slip {
     }
     packet = await this.transport.read(timeout, minData, packet);
 
-    if (this.transport.tracing) {
-      this.transport.trace("Read SLIP bytes");
-      this.transport.trace(`Read ${packet.length} bytes: ${hexConvert(packet)}`);
+    if (this.tracer) {
+      this.tracer.trace("Read SLIP bytes");
+      this.tracer.trace(`Read ${packet.length} bytes: ${hexConvert(packet)}`);
     }
 
     if (this.enableSlipRead) {
       const slipReaderResult = this.decode(packet);
       this.transport.leftOver = slipReaderResult.newLeftOver;
-      if (this.transport.tracing) {
-        this.transport.trace("Slip reader results");
-        this.transport.trace(`Read ${slipReaderResult.packet.length} bytes: ${hexConvert(slipReaderResult.packet)}`);
+      if (this.tracer) {
+        this.tracer.trace("Slip reader results");
+        this.tracer.trace(`Read ${slipReaderResult.packet.length} bytes: ${hexConvert(slipReaderResult.packet)}`);
       }
       return slipReaderResult.packet;
     }

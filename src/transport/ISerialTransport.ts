@@ -16,7 +16,6 @@ export interface ISerialOptions {
  * @interface ISerialTransport
  */
 export interface ISerialTransport {
-  tracing: boolean;
   leftOver: Uint8Array;
 
   /**
@@ -30,12 +29,6 @@ export interface ISerialTransport {
    * @returns {number | undefined} Return the product ID.
    */
   getPID(): number | undefined;
-
-  /**
-   * Format received or sent data for tracing output.
-   * @param {string} message Message to format as trace line.
-   */
-  trace(message: string): void;
 
   /**
    * Write binary data to device.

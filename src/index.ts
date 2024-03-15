@@ -17,3 +17,4 @@ export {
   ResetFunctions,
 } from "./esploader.js";
 export { Slip, SlipReaderOutput } from "./utils/slip.js";
+export { ITrace } from "./utils/ITrace.js";

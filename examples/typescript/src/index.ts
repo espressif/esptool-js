@@ -23,7 +23,7 @@ const alertDiv = document.getElementById("alertDiv");
 // This is a frontend example of Esptool-JS using local bundle file
 // To optimize use a CDN hosted version like
 // https://unpkg.com/esptool-js/bundle.js
-import { ESPLoader, FlashOptions, LoaderOptions, WebSerialTransport, SerialOptions } from "../../../lib";
+import { ESPLoader, FlashOptions, LoaderOptions, WebSerialTransport, SerialOptions, ITrace } from "../../../lib";
 
 declare let Terminal; // Terminal is imported in HTML script
 declare let CryptoJS; // CryptoJS is imported in HTML script
@@ -79,10 +79,35 @@ const espLoaderTerminal = {
   },
 };
 
+class TraceObject implements ITrace {
+  traceBuffer: string;
+  private lastTraceTime = Date.now();
+
+  trace(message: string) {
+    const delta = Date.now() - this.lastTraceTime;
+    const prefix = `TRACE ${delta.toFixed(3)}`;
+    const traceMessage = `${prefix} ${message}`;
+    console.log(traceMessage);
+    this.traceBuffer += traceMessage + "\n";
+  }
+
+  async returnTrace() {
+    try {
+      await navigator.clipboard.writeText(this.traceBuffer);
+      console.log("Text copied to clipboard!");
+    } catch (err) {
+      console.error("Failed to copy text:", err);
+    }
+    return this.traceBuffer;
+  }
+}
+
+const traceObj = new TraceObject();
+
 connectButton.onclick = async () => {
   if (device === null) {
     device = await navigator.serial.requestPort({});
-    transport = new WebSerialTransport(device, true);
+    transport = new WebSerialTransport(device, traceObj);
   }
 
   const serialOptions = { baudRate: parseInt(baudrates.value) } as SerialOptions;
@@ -118,8 +143,8 @@ connectButton.onclick = async () => {
 };
 
 traceButton.onclick = async () => {
-  if (transport) {
-    transport.returnTrace();
+  if (traceObj) {
+    traceObj.returnTrace();
   }
 };
 
@@ -233,7 +258,7 @@ let isConsoleClosed = false;
 consoleStartButton.onclick = async () => {
   if (device === null) {
     device = await navigator.serial.requestPort({});
-    transport = new WebSerialTransport(device, true);
+    transport = new WebSerialTransport(device, traceObj);
   }
   lblConsoleFor.style.display = "block";
   lblConsoleBaudrate.style.display = "none";
@@ -248,7 +273,7 @@ consoleStartButton.onclick = async () => {
   isConsoleClosed = false;
 
   while (true && !isConsoleClosed) {
-    const val = await transport.rawRead();
+    const val = await transport.read();
     if (typeof val !== "undefined") {
       term.write(val);
     } else {
