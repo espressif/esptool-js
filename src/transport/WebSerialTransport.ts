@@ -1,6 +1,6 @@
 /* global SerialPort, ParityType, FlowControlType */
 
-import { AbstractTransport, ISerialOptions } from "./AbstractTransport";
+import { ISerialTransport, ISerialOptions } from "./ISerialTransport";
 import { hexConvert } from "../utils/hex";
 import { appendArray } from "../utils/convert";
 
@@ -49,7 +49,7 @@ export interface SerialOptions extends ISerialOptions {
  * const port = await navigator.serial.requestPort();
  * ```
  */
-export class WebSerialTransport implements AbstractTransport {
+export class WebSerialTransport implements ISerialTransport {
   public leftOver = new Uint8Array(0);
   private traceLog = "";
   private lastTraceTime = Date.now();
@@ -102,7 +102,7 @@ export class WebSerialTransport implements AbstractTransport {
 
   /**
    * Write binary data to device using the WebSerial device writable stream.
-   * @param {Uint8Array} data 8 bit unsigned data array to write to device.
+   * @param {Uint8Array} outData 8 bit unsigned data array to write to device.
    */
   async write(outData: Uint8Array) {
     if (this.device.writable) {
@@ -123,7 +123,7 @@ export class WebSerialTransport implements AbstractTransport {
    * @param {Uint8Array} packet Unsigned 8 bit array from the device read stream.
    * @returns {Promise<Uint8Array>} 8 bit unsigned data array read from device.
    */
-  async rawRead(timeout: number = 0, minData: number = 0, packet?: Uint8Array): Promise<Uint8Array> {
+  async read(timeout: number = 0, minData: number = 0, packet?: Uint8Array): Promise<Uint8Array> {
     if (this.leftOver.length != 0) {
       const p = this.leftOver;
       this.leftOver = new Uint8Array(0);

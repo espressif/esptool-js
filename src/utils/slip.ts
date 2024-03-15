@@ -1,4 +1,4 @@
-import { AbstractTransport } from "../transport/AbstractTransport";
+import { ISerialTransport } from "../transport/ISerialTransport";
 import { hexConvert } from "./hex";
 
 /**
@@ -21,11 +21,11 @@ export interface SlipReaderOutput {
 
 /**
  * Class to handle SLIP read and write serial methods.
- * @param {AbstractTransport} transport Transport object with raw read and write serial methods
+ * @param {ISerialTransport} transport Transport object with raw read and write serial methods
  *  @param {boolean} enableSlipRead Enable or disable read SLIP data formatting.
  */
 export class Slip {
-  constructor(private transport: AbstractTransport, public enableSlipRead: boolean = false) {}
+  constructor(private transport: ISerialTransport, public enableSlipRead: boolean = false) {}
 
   /**
    * Format data packet using the Serial Line Internet Protocol (SLIP).
@@ -117,7 +117,7 @@ export class Slip {
       packet = this.transport.leftOver;
       this.transport.leftOver = new Uint8Array(0);
     }
-    packet = await this.transport.rawRead(timeout, minData, packet);
+    packet = await this.transport.read(timeout, minData, packet);
 
     if (this.transport.tracing) {
       this.transport.trace("Read SLIP bytes");

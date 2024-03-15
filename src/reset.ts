@@ -1,4 +1,4 @@
-import { AbstractTransport } from "./transport/AbstractTransport";
+import { ISerialTransport } from "./transport/ISerialTransport";
 
 const DEFAULT_RESET_DELAY = 50;
 
@@ -25,17 +25,11 @@ function sleep(ms: number): Promise<void> {
  * W: Wait (time delay) - positive integer number (miliseconds)
  *
  * "D0|R1|W100|D1|R0|W50|D0" represents the classic reset strategy
- * @param {AbstractTransport} transport Transport class to perform serial communication.
+ * @param {ISerialTransport} transport Transport class to perform serial communication.
  * @param {number} resetDelay Delay in milliseconds for reset.
  */
-export async function classicReset(transport: AbstractTransport, resetDelay = DEFAULT_RESET_DELAY) {
-  await transport.setDTR(false);
-  await transport.setRTS(true);
-  await sleep(100);
-  await transport.setDTR(true);
-  await transport.setRTS(false);
-  await sleep(resetDelay);
-  await transport.setDTR(false);
+export async function classicReset(transport: ISerialTransport, resetDelay = DEFAULT_RESET_DELAY) {
+  await customReset(transport, `D0|R1|W100|D1|R0|W${resetDelay}|D0`);
 }
 
 /**
@@ -50,24 +44,10 @@ export async function classicReset(transport: AbstractTransport, resetDelay = DE
  * R: setRTS - 1=True / 0=False
  *
  * W: Wait (time delay) - positive integer number (miliseconds)
- * @param {AbstractTransport} transport Transport class to perform serial communication.
+ * @param {ISerialTransport} transport Transport class to perform serial communication.
  */
-export async function usbJTAGSerialReset(transport: AbstractTransport) {
-  await transport.setRTS(false);
-  await transport.setDTR(false);
-  await sleep(100);
-
-  await transport.setDTR(true);
-  await transport.setRTS(false);
-  await sleep(100);
-
-  await transport.setRTS(true);
-  await transport.setDTR(false);
-  await transport.setRTS(true);
-
-  await sleep(100);
-  await transport.setRTS(false);
-  await transport.setDTR(false);
+export async function usbJTAGSerialReset(transport: ISerialTransport) {
+  await customReset(transport, `R0|D0|W100|D1|R0|W100|R1|D0|R1|W100|R0|D0`);
 }
 
 /**
@@ -82,19 +62,12 @@ export async function usbJTAGSerialReset(transport: AbstractTransport) {
  * R: setRTS - 1=True / 0=False
  *
  * W: Wait (time delay) - positive integer number (miliseconds)
- * @param {AbstractTransport} transport Transport class to perform serial communication.
+ * @param {ISerialTransport} transport Transport class to perform serial communication.
  * @param {boolean} usingUsbOtg is it using USB-OTG ?
  */
-export async function hardReset(transport: AbstractTransport, usingUsbOtg = false) {
-  await transport.setRTS(true);
-  if (usingUsbOtg) {
-    await sleep(200);
-    await transport.setRTS(false);
-    await sleep(200);
-  } else {
-    await sleep(100);
-    await transport.setRTS(false);
-  }
+export async function hardReset(transport: ISerialTransport, usingUsbOtg = false) {
+  const resetSequence = usingUsbOtg ? `R1|W200|R0|W200` : `R1|W100|R0`;
+  await customReset(transport, resetSequence);
 }
 
 type CmdsArgsTypes = {
@@ -161,10 +134,10 @@ export function validateCustomResetStringSequence(seqStr: string): boolean {
  * W: Wait (time delay) - positive integer number (miliseconds)
  *
  * "D0|R1|W100|D1|R0|W50|D0" represents the classic reset strategy
- * @param {AbstractTransport} transport Transport class to perform serial communication.
+ * @param {ISerialTransport} transport Transport class to perform serial communication.
  * @param {string} sequenceString Custom string sequence for reset strategy
  */
-export async function customReset(transport: AbstractTransport, sequenceString: string) {
+export async function customReset(transport: ISerialTransport, sequenceString: string) {
   const resetDictionary: { [K in keyof CmdsArgsTypes]: (arg: CmdsArgsTypes[K]) => Promise<void> } = {
     D: async (arg: boolean) => await transport.setDTR(arg),
     R: async (arg: boolean) => await transport.setRTS(arg),

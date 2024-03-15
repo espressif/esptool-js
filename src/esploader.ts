@@ -2,8 +2,8 @@ import atob from "atob-lite";
 import { Data, deflate, Inflate } from "pako";
 import { ESPError } from "./error.js";
 import { ROM } from "./targets/rom.js";
-import { AbstractTransport, ISerialOptions } from "./transport/AbstractTransport";
 import { classicReset, customReset, hardReset, usbJTAGSerialReset } from "./reset.js";
+import { ISerialTransport, ISerialOptions } from "./transport/ISerialTransport.js";
 import { hexConvert } from "./utils/hex";
 import { appendArray, bstrToUi8, byteArrayToInt, intToByteArray, shortToBytearray, ui8ToBstr } from "./utils/convert";
 import { Slip } from "./utils/slip";
@@ -70,22 +70,22 @@ export interface ResetFunctions {
   /**
    * Execute a classic set of commands that will reset the chip.
    */
-  classicReset: (transport: AbstractTransport, resetDelay?: number) => Promise<void>;
+  classicReset: (transport: ISerialTransport, resetDelay?: number) => Promise<void>;
 
   /**
    * Execute a set of commands for USB JTAG serial reset.
    */
-  usbJTAGSerialReset: (transport: AbstractTransport) => Promise<void>;
+  usbJTAGSerialReset: (transport: ISerialTransport) => Promise<void>;
 
   /**
    * Execute a set of commands that will hard reset the chip.
    */
-  hardReset: (transport: AbstractTransport, usingUsbOtg?: boolean) => Promise<void>;
+  hardReset: (transport: ISerialTransport, usingUsbOtg?: boolean) => Promise<void>;
 
   /**
    * Custom reset strategy defined with a string.
    */
-  customReset: (transport: AbstractTransport, sequenceString: string) => Promise<void>;
+  customReset: (transport: ISerialTransport, sequenceString: string) => Promise<void>;
 }
 
 /**
@@ -95,9 +95,9 @@ export interface ResetFunctions {
 export interface LoaderOptions {
   /**
    * The transport mechanism to communicate with the device.
-   * @type {AbstractTransport}
+   * @type {ISerialTransport}
    */
-  transport: AbstractTransport;
+  transport: ISerialTransport;
 
   /**
    * An optional terminal interface to interact with the loader during the process.
@@ -112,7 +112,7 @@ export interface LoaderOptions {
   romBaudrate?: number;
 
   /**
-   * Set of options for AbstractTransport class implementation. Required field is baudRate: number.
+   * Set of options for ISerialTransport class implementation. Required field is baudRate: number.
    * @type {ISerialOptions}
    */
   serialOptions: ISerialOptions;
@@ -123,7 +123,8 @@ export interface LoaderOptions {
    */
   debugLogging?: boolean;
 
-  /** Flag indicating whether to enable tracing for the loader (optional).
+  /**
+   * Flag indicating whether to enable tracing for the loader (optional).
    * @type {boolean}
    */
   enableTracing?: boolean;
@@ -279,7 +280,7 @@ export class ESPLoader {
   IS_STUB: boolean;
   FLASH_WRITE_SIZE: number;
 
-  public transport: AbstractTransport;
+  public transport: ISerialTransport;
   private terminal?: IEspLoaderTerminal;
   private romBaudrate = 115200;
   public serialOptions: SerialOptions;
@@ -390,7 +391,7 @@ export class ESPLoader {
    */
   async flushInput() {
     try {
-      await this.transport.rawRead(200);
+      await this.transport.read(200);
     } catch (e) {
       this.error((e as Error).message);
     }
