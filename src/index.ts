@@ -16,4 +16,4 @@ export {
   LoaderOptions,
   ResetFunctions,
 } from "./esploader.js";
-export { slipRead, slipReaderFormat, SlipReaderOutput, slipWriter } from "./utils/slip";
+export { Slip, SlipReaderOutput } from "./utils/slip.js";

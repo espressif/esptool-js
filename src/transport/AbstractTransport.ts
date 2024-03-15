@@ -16,7 +16,6 @@ export interface ISerialOptions {
  */
 export abstract class AbstractTransport {
   public abstract tracing: boolean;
-  public abstract slipReaderEnabled: boolean;
   public abstract leftOver: Uint8Array;
 
   /**

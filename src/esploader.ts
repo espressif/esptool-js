@@ -6,7 +6,7 @@ import { AbstractTransport, ISerialOptions } from "./transport/AbstractTransport
 import { classicReset, customReset, hardReset, usbJTAGSerialReset } from "./reset.js";
 import { hexConvert } from "./utils/hex";
 import { appendArray, bstrToUi8, byteArrayToInt, intToByteArray, shortToBytearray, ui8ToBstr } from "./utils/convert";
-import { slipRead } from "./utils/slip";
+import { Slip } from "./utils/slip";
 
 /**
  * Options for flashing a device with firmware.
@@ -285,6 +285,7 @@ export class ESPLoader {
   public serialOptions: SerialOptions;
   private debugLogging = false;
   private resetFunctions: ResetFunctions;
+  private slip: Slip;
 
   /**
    * Create a new ESPLoader to perform serial communication
@@ -327,6 +328,7 @@ export class ESPLoader {
     if (typeof options.debugLogging !== "undefined") {
       this.debugLogging = options.debugLogging;
     }
+    this.slip = new Slip(this.transport);
 
     this.info("esptool.js");
     this.info("Serial port " + this.transport.getInfo());
@@ -403,7 +405,7 @@ export class ESPLoader {
   async readPacket(op: number | null = null, timeout: number = 3000): Promise<[number, Uint8Array]> {
     // Check up-to next 100 packets for valid response packet
     for (let i = 0; i < 100; i++) {
-      const p = await slipRead(this.transport, timeout);
+      const p = await this.slip.read(timeout);
       const resp = p[0];
       const opRet = p[1];
       const val = byteArrayToInt(p[4], p[5], p[6], p[7]);
@@ -459,7 +461,8 @@ export class ESPLoader {
       for (i = 0; i < data.length; i++) {
         pkt[8 + i] = data[i];
       }
-      await this.transport.write(pkt);
+      const pktData = this.slip.encode(pkt);
+      await this.transport.write(pktData);
     }
 
     if (!waitResponse) {
@@ -557,7 +560,7 @@ export class ESPLoader {
     let keepReading = true;
     while (keepReading) {
       try {
-        const res = await slipRead(this.transport, 1000);
+        const res = await this.slip.read(1000);
         i += res.length;
       } catch (e) {
         this.debug((e as Error).message);
@@ -568,7 +571,7 @@ export class ESPLoader {
       }
       await this._sleep(50);
     }
-    this.transport.slipReaderEnabled = true;
+    this.slip.enableSlipRead = true;
     i = 7;
     while (i--) {
       try {
@@ -1068,7 +1071,7 @@ export class ESPLoader {
 
     let resp = new Uint8Array(0);
     while (resp.length < size) {
-      const packet = await slipRead(this.transport, this.FLASH_READ_TIMEOUT);
+      const packet = await this.slip.read(this.FLASH_READ_TIMEOUT);
 
       if (packet instanceof Uint8Array) {
         if (packet.length > 0) {
@@ -1128,7 +1131,7 @@ export class ESPLoader {
 
     // Check up-to next 100 packets to see if stub is running
     for (let i = 0; i < 100; i++) {
-      const res = await slipRead(this.transport, 1000, 6);
+      const res = await this.slip.read(1000, 6);
       if (res[0] === 79 && res[1] === 72 && res[2] === 65 && res[3] === 73) {
         this.info("Stub running...");
         this.IS_STUB = true;

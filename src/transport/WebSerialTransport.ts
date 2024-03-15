@@ -3,7 +3,6 @@
 import { AbstractTransport, ISerialOptions } from "./AbstractTransport";
 import { hexConvert } from "../utils/hex";
 import { appendArray } from "../utils/convert";
-import { slipWriter } from "../utils/slip";
 
 /**
  * Options for device serialPort.
@@ -45,7 +44,6 @@ export interface SerialOptions extends ISerialOptions {
  * Wrapper class around Webserial API to communicate with the serial device.
  * @param {typeof import("w3c-web-serial").SerialPort} device - Requested device prompted by the browser.
  * @param {boolean} tracing - Enable communication tracing
- * @param {boolean} slipReaderEnabled Enable SLIP formatting
  *
  * ```
  * const port = await navigator.serial.requestPort();
@@ -57,7 +55,7 @@ export class WebSerialTransport implements AbstractTransport {
   private lastTraceTime = Date.now();
   private reader: ReadableStreamDefaultReader<Uint8Array> | undefined;
 
-  constructor(public device: SerialPort, public tracing = false, public slipReaderEnabled = true) {}
+  constructor(public device: SerialPort, public tracing = false) {}
 
   /**
    * Request the serial device vendor ID and Product ID as string.
@@ -106,9 +104,7 @@ export class WebSerialTransport implements AbstractTransport {
    * Write binary data to device using the WebSerial device writable stream.
    * @param {Uint8Array} data 8 bit unsigned data array to write to device.
    */
-  async write(data: Uint8Array) {
-    const outData = slipWriter(data);
-
+  async write(outData: Uint8Array) {
     if (this.device.writable) {
       const writer = this.device.writable.getWriter();
       if (this.tracing) {
