@@ -43,7 +43,7 @@ export interface ISerialTransport {
    * @param {Uint8Array} packet Unsigned 8 bit array from the device read stream.
    * @returns {Promise<Uint8Array>} 8 bit unsigned data array read from device.
    */
-  read(timeout?: number, minData?: number, packet?: Uint8Array): Promise<Uint8Array>;
+  read(timeout?: number, minData?: number): Promise<Uint8Array>;
 
   /**
    * Send the RequestToSend (RTS) signal to given state

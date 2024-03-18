@@ -98,7 +98,7 @@ export class WebSerialTransport implements ISerialTransport {
    * @param {Uint8Array} packet Unsigned 8 bit array from the device read stream.
    * @returns {Promise<Uint8Array>} 8 bit unsigned data array read from device.
    */
-  async read(timeout: number = 0, minData: number = 0, packet?: Uint8Array): Promise<Uint8Array> {
+  async read(timeout: number = 0, minData: number = 0): Promise<Uint8Array> {
     if (this.leftOver.length != 0) {
       const p = this.leftOver;
       this.leftOver = new Uint8Array(0);
@@ -109,9 +109,7 @@ export class WebSerialTransport implements ISerialTransport {
     }
     this.reader = this.device.readable.getReader();
     let t;
-    if (!packet) {
-      packet = this.leftOver;
-    }
+    let packet = this.leftOver;
     try {
       if (timeout > 0) {
         t = setTimeout(() => {

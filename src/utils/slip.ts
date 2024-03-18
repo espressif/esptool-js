@@ -119,7 +119,7 @@ export class Slip {
       packet = this.transport.leftOver;
       this.transport.leftOver = new Uint8Array(0);
     }
-    packet = await this.transport.read(timeout, minData, packet);
+    packet = await this.transport.read(timeout, minData);
 
     if (this.tracer) {
       this.tracer.trace("Read SLIP bytes");
