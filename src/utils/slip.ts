@@ -1,6 +1,6 @@
-import { ISerialTransport } from "../transport/ISerialTransport";
-import { ITrace } from "./ITrace";
-import { hexConvert } from "./hex";
+import { ISerialTransport } from "../transport/ISerialTransport.js";
+import { ITrace } from "./ITrace.js";
+import { hexConvert } from "./hex.js";
 
 /**
  * Slip reader output packet and left over as Uint8Array.

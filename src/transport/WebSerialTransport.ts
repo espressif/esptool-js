@@ -1,9 +1,9 @@
 /* global SerialPort, ParityType, FlowControlType */
 
-import { ISerialTransport, ISerialOptions } from "./ISerialTransport";
-import { hexConvert } from "../utils/hex";
-import { appendArray } from "../utils/convert";
-import { ITrace } from "../utils/ITrace";
+import { ISerialTransport, ISerialOptions } from "./ISerialTransport.js";
+import { hexConvert } from "../utils/hex.js";
+import { appendArray } from "../utils/convert.js";
+import { ITrace } from "../utils/ITrace.js";
 
 /**
  * Options for device serialPort.
@@ -95,7 +95,6 @@ export class WebSerialTransport implements ISerialTransport {
    * Read from serial device without slip formatting.
    * @param {number} timeout Read timeout in milliseconds (ms)
    * @param {number} minData Minimum packet array length
-   * @param {Uint8Array} packet Unsigned 8 bit array from the device read stream.
    * @returns {Promise<Uint8Array>} 8 bit unsigned data array read from device.
    */
   async read(timeout: number = 0, minData: number = 0): Promise<Uint8Array> {

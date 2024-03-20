@@ -4,10 +4,17 @@ import { ESPError } from "./error.js";
 import { ROM } from "./targets/rom.js";
 import { classicReset, customReset, hardReset, usbJTAGSerialReset } from "./reset.js";
 import { ISerialTransport, ISerialOptions } from "./transport/ISerialTransport.js";
-import { hexConvert } from "./utils/hex";
-import { appendArray, bstrToUi8, byteArrayToInt, intToByteArray, shortToBytearray, ui8ToBstr } from "./utils/convert";
-import { Slip } from "./utils/slip";
-import { ITrace } from "./utils/ITrace";
+import { hexConvert } from "./utils/hex.js";
+import {
+  appendArray,
+  bstrToUi8,
+  byteArrayToInt,
+  intToByteArray,
+  shortToBytearray,
+  ui8ToBstr,
+} from "./utils/convert.js";
+import { Slip } from "./utils/slip.js";
+import { ITrace } from "./utils/ITrace.js";
 
 /**
  * Options for flashing a device with firmware.

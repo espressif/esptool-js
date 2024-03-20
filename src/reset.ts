@@ -1,4 +1,4 @@
-import { ISerialTransport } from "./transport/ISerialTransport";
+import { ISerialTransport } from "./transport/ISerialTransport.js";
 
 const DEFAULT_RESET_DELAY = 50;
 
