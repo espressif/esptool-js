@@ -1134,10 +1134,11 @@ export class ESPLoader {
     return resp;
   }
 
-  decodeBase64(romText: string) {
+  async decodeBase64(romText: string) {
     if (typeof window !== "undefined" && typeof window.atob === "function") {
       return window.atob(romText);
     } else {
+      const { Buffer } = await import("buffer");
       return Buffer.from(romText, "base64").toString("binary");
     }
   }
@@ -1148,13 +1149,13 @@ export class ESPLoader {
    */
   async runStub(): Promise<ROM> {
     this.info("Uploading stub...");
-    let decoded = this.decodeBase64(this.chip.ROM_TEXT);
+    let decoded = await this.decodeBase64(this.chip.ROM_TEXT);
     let chardata = decoded.split("").map(function (x) {
       return x.charCodeAt(0);
     });
     const text = new Uint8Array(chardata);
 
-    decoded = this.decodeBase64(this.chip.ROM_DATA);
+    decoded = await this.decodeBase64(this.chip.ROM_DATA);
     chardata = decoded.split("").map(function (x) {
       return x.charCodeAt(0);
     });
