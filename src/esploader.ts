@@ -3,6 +3,7 @@ import { Data, deflate, Inflate } from "pako";
 import { Transport, SerialOptions } from "./webserial.js";
 import { ROM } from "./targets/rom.js";
 import { customReset, usbJTAGSerialReset } from "./reset.js";
+import atob from "atob-lite";
 
 /* global SerialPort */
 
@@ -1134,28 +1135,19 @@ export class ESPLoader {
     return resp;
   }
 
-  async decodeBase64(romText: string) {
-    if (typeof window !== "undefined" && typeof window.atob === "function") {
-      return window.atob(romText);
-    } else {
-      const { Buffer } = await import("buffer");
-      return Buffer.from(romText, "base64").toString("binary");
-    }
-  }
-
   /**
    * Upload the flasher ROM bootloader (flasher stub) to the chip.
    * @returns {ROM} The Chip ROM
    */
   async runStub(): Promise<ROM> {
     this.info("Uploading stub...");
-    let decoded = await this.decodeBase64(this.chip.ROM_TEXT);
+    let decoded = atob(this.chip.ROM_TEXT);
     let chardata = decoded.split("").map(function (x) {
       return x.charCodeAt(0);
     });
     const text = new Uint8Array(chardata);
 
-    decoded = await this.decodeBase64(this.chip.ROM_DATA);
+    decoded = atob(this.chip.ROM_DATA);
     chardata = decoded.split("").map(function (x) {
       return x.charCodeAt(0);
     });
