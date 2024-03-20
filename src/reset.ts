@@ -1,4 +1,4 @@
-import { Transport } from "./webserial";
+import { Transport } from "./webserial.js";
 
 const DEFAULT_RESET_DELAY = 50;
 

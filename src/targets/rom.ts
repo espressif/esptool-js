@@ -1,4 +1,4 @@
-import { ESPLoader } from "../esploader";
+import { ESPLoader } from "../esploader.js";
 
 /**
  * Represents a chip ROM with basic registers field and abstract functions.

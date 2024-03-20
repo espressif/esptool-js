@@ -1,5 +1,5 @@
-import { ESPLoader } from "../esploader";
-import { ESP32C3ROM } from "./esp32c3";
+import { ESPLoader } from "../esploader.js";
+import { ESP32C3ROM } from "./esp32c3.js";
 import ESP32C2_STUB from "./stub_flasher/stub_flasher_32c2.json";
 
 export class ESP32C2ROM extends ESP32C3ROM {

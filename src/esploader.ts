@@ -1,9 +1,8 @@
-import { ESPError } from "./error";
+import { ESPError } from "./error.js";
 import { Data, deflate, Inflate } from "pako";
-import { Transport, SerialOptions } from "./webserial";
-import { ROM } from "./targets/rom";
-import { customReset, usbJTAGSerialReset } from "./reset";
-import { Buffer } from "buffer/index";
+import { Transport, SerialOptions } from "./webserial.js";
+import { ROM } from "./targets/rom.js";
+import { customReset, usbJTAGSerialReset } from "./reset.js";
 
 /* global SerialPort */
 
@@ -120,39 +119,39 @@ type FlashReadCallback = ((packet: Uint8Array, progress: number, totalSize: numb
 async function magic2Chip(magic: number): Promise<ROM | null> {
   switch (magic) {
     case 0x00f01d83: {
-      const { ESP32ROM } = await import("./targets/esp32");
+      const { ESP32ROM } = await import("./targets/esp32.js");
       return new ESP32ROM();
     }
     case 0x6f51306f:
     case 0x7c41a06f: {
-      const { ESP32C2ROM } = await import("./targets/esp32c2");
+      const { ESP32C2ROM } = await import("./targets/esp32c2.js");
       return new ESP32C2ROM();
     }
     case 0x6921506f:
     case 0x1b31506f:
     case 0x4881606f:
     case 0x4361606f: {
-      const { ESP32C3ROM } = await import("./targets/esp32c3");
+      const { ESP32C3ROM } = await import("./targets/esp32c3.js");
       return new ESP32C3ROM();
     }
     case 0x2ce0806f: {
-      const { ESP32C6ROM } = await import("./targets/esp32c6");
+      const { ESP32C6ROM } = await import("./targets/esp32c6.js");
       return new ESP32C6ROM();
     }
     case 0xd7b73e80: {
-      const { ESP32H2ROM } = await import("./targets/esp32h2");
+      const { ESP32H2ROM } = await import("./targets/esp32h2.js");
       return new ESP32H2ROM();
     }
     case 0x09: {
-      const { ESP32S3ROM } = await import("./targets/esp32s3");
+      const { ESP32S3ROM } = await import("./targets/esp32s3.js");
       return new ESP32S3ROM();
     }
     case 0x000007c6: {
-      const { ESP32S2ROM } = await import("./targets/esp32s2");
+      const { ESP32S2ROM } = await import("./targets/esp32s2.js");
       return new ESP32S2ROM();
     }
     case 0xfff0c101: {
-      const { ESP8266ROM } = await import("./targets/esp8266");
+      const { ESP8266ROM } = await import("./targets/esp8266.js");
       return new ESP8266ROM();
     }
     default:
@@ -1135,19 +1134,27 @@ export class ESPLoader {
     return resp;
   }
 
+  decodeBase64(romText: string) {
+    if (typeof window !== "undefined" && typeof window.atob === "function") {
+      return window.atob(romText);
+    } else {
+      return Buffer.from(romText, "base64").toString("binary");
+    }
+  }
+
   /**
    * Upload the flasher ROM bootloader (flasher stub) to the chip.
    * @returns {ROM} The Chip ROM
    */
-  async runStub() {
+  async runStub(): Promise<ROM> {
     this.info("Uploading stub...");
-    let decoded = Buffer.from(this.chip.ROM_TEXT, "base64").toString("binary");
+    let decoded = this.decodeBase64(this.chip.ROM_TEXT);
     let chardata = decoded.split("").map(function (x) {
       return x.charCodeAt(0);
     });
     const text = new Uint8Array(chardata);
 
-    decoded = Buffer.from(this.chip.ROM_DATA, "base64").toString("binary");
+    decoded = this.decodeBase64(this.chip.ROM_DATA);
     chardata = decoded.split("").map(function (x) {
       return x.charCodeAt(0);
     });
@@ -1221,7 +1228,7 @@ export class ESPLoader {
   /**
    * Execute the main function of ESPLoader.
    * @param {string} mode Reset mode to use
-   * @returns {ROM} chip ROM
+   * @returns {string} chip ROM
    */
   async main(mode = "default_reset") {
     await this.detectChip(mode);

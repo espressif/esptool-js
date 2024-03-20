@@ -1,5 +1,5 @@
-import { ESPLoader } from "../esploader";
-import { ROM } from "./rom";
+import { ESPLoader } from "../esploader.js";
+import { ROM } from "./rom.js";
 import ESP32S3_STUB from "./stub_flasher/stub_flasher_32s3.json";
 
 export class ESP32S3ROM extends ROM {
