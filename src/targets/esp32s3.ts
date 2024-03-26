@@ -40,13 +40,13 @@ export class ESP32S3ROM extends ROM {
   public ROM_DATA = ESP32S3_STUB.data;
   public ROM_TEXT = ESP32S3_STUB.text;
 
-  public async getChipDescription(loader: ESPLoader) {
+  public async getChipDescription() {
     return "ESP32-S3";
   }
-  public async getChipFeatures(loader: ESPLoader) {
+  public async getChipFeatures() {
     return ["Wi-Fi", "BLE"];
   }
-  public async getCrystalFreq(loader: ESPLoader) {
+  public async getCrystalFreq() {
     return 40;
   }
   public _d2h(d: number) {

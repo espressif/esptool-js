@@ -64,7 +64,7 @@ export class ESP8266ROM extends ROM {
 
   public async getCrystalFreq(loader: ESPLoader) {
     const uartDiv = (await loader.readReg(this.UART_CLKDIV_REG)) & this.UART_CLKDIV_MASK;
-    const etsXtal = (loader.transport.baudrate * uartDiv) / 1000000 / this.XTAL_CLK_DIVIDER;
+    const etsXtal = (loader.romBaudrate * uartDiv) / 1000000 / this.XTAL_CLK_DIVIDER;
     let normXtal;
     if (etsXtal > 33) {
       normXtal = 40;

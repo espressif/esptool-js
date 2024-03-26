@@ -1,8 +1,8 @@
 import { ESPLoader } from "../esploader.js";
-import { ESP32C3ROM } from "./esp32c3.js";
+import { ROM } from "./rom.js";
 import ESP32C2_STUB from "./stub_flasher/stub_flasher_32c2.json";
 
-export class ESP32C2ROM extends ESP32C3ROM {
+export class ESP32C2ROM extends ROM {
   public CHIP_NAME = "ESP32-C2";
   public IMAGE_CHIP_ID = 12;
   public EFUSE_BASE = 0x60008800;
@@ -68,13 +68,13 @@ export class ESP32C2ROM extends ESP32C3ROM {
     return desc;
   }
 
-  public async getChipFeatures(loader: ESPLoader) {
+  public async getChipFeatures() {
     return ["Wi-Fi", "BLE"];
   }
 
   public async getCrystalFreq(loader: ESPLoader) {
     const uartDiv = (await loader.readReg(this.UART_CLKDIV_REG)) & this.UART_CLKDIV_MASK;
-    const etsXtal = (loader.transport.baudrate * uartDiv) / 1000000 / this.XTAL_CLK_DIVIDER;
+    const etsXtal = (loader.romBaudrate * uartDiv) / 1000000 / this.XTAL_CLK_DIVIDER;
     let normXtal;
     if (etsXtal > 33) {
       normXtal = 40;
