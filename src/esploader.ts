@@ -132,12 +132,6 @@ export interface LoaderOptions {
   debugLogging?: boolean;
 
   /**
-   * Flag indicating whether to enable tracing for the loader (optional).
-   * @type {boolean}
-   */
-  enableTracing?: boolean;
-
-  /**
    * Reset functions for connection. If undefined will use default ones.
    * @type {ResetFunctions}
    */
@@ -296,7 +290,7 @@ export class ESPLoader {
 
   public transport: ISerialTransport;
   private terminal?: IEspLoaderTerminal;
-  private romBaudrate = 115200;
+  public romBaudrate = 115200;
   public serialOptions: SerialOptions;
   private debugLogging = false;
   private resetFunctions: ResetFunctions;
@@ -347,7 +341,7 @@ export class ESPLoader {
     if (options.tracer) {
       this.tracer = options.tracer;
     }
-    this.slip = new Slip(this.transport);
+    this.slip = new Slip(this.transport, false, options.tracer);
 
     this.info("esptool.js");
     this.info("Serial port " + this.transport.getInfo());

@@ -128,8 +128,7 @@ export class WebSerialTransport implements ISerialTransport {
           this.tracer.trace("Raw Read bytes");
           this.tracer.trace(`Read ${value.length} bytes: ${hexConvert(value)}`);
         }
-        const p = appendArray(packet, value);
-        packet = p;
+        packet = appendArray(packet, value);
       } while (packet.length < minData);
       return packet;
     } finally {

@@ -117,6 +117,7 @@ connectButton.onclick = async () => {
       transport,
       serialOptions,
       terminal: espLoaderTerminal,
+      tracer: traceObj,
     } as LoaderOptions;
     esploader = new ESPLoader(loaderOptions);
 
