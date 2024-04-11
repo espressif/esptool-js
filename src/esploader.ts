@@ -1422,7 +1422,7 @@ export class ESPLoader {
             Math.floor((100 * (seq + 1)) / blocks) +
             "%)",
         );
-        const block = this.bstrToUi8(image.slice(0, this.FLASH_WRITE_SIZE));
+        let block = this.bstrToUi8(image.slice(0, this.FLASH_WRITE_SIZE));
 
         if (options.compress) {
           const lenUncompressedPrevious = totalLenUncompressed;
@@ -1442,7 +1442,10 @@ export class ESPLoader {
             timeout = blockTimeout;
           }
         } else {
-          throw new ESPError("Yet to handle Non Compressed writes");
+          const padding = new Uint8Array(this.FLASH_WRITE_SIZE - block.length).fill(0xff);
+          block = this._appendArray(block, padding);
+
+          await this.flashBlock(block, seq, timeout);
         }
         bytesSent += block.length;
         image = image.slice(this.FLASH_WRITE_SIZE, image.length);
