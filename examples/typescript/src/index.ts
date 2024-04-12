@@ -344,7 +344,7 @@ programButton.onclick = async () => {
       flashSize: "keep",
       eraseAll: false,
       compress: true,
-      encrpyt: false,
+      encrypt: false,
       reportProgress: (fileIndex, written, total) => {
         progressBars[fileIndex].value = (written / total) * 100;
       },
