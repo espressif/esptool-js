@@ -306,9 +306,29 @@ function validateProgramInputs() {
   return "success";
 }
 
+document.addEventListener('DOMContentLoaded', (event) => {
+  const compressCheckbox = document.getElementById('compressCheckbox') as HTMLInputElement;
+  const encryptCheckbox = document.getElementById('encryptCheckbox') as HTMLInputElement;
+
+  encryptCheckbox.addEventListener('change', () => {
+    if (encryptCheckbox.checked) {
+      compressCheckbox.checked = false;
+      compressCheckbox.disabled = true;
+    } else {
+      compressCheckbox.checked = true;
+      compressCheckbox.disabled = false;
+    }
+  });
+});
+
 programButton.onclick = async () => {
   const alertMsg = document.getElementById("alertmsg");
   const err = validateProgramInputs();
+  const compressCheckbox = document.getElementById('compressCheckbox') as HTMLInputElement;
+  const encryptCheckbox = document.getElementById('encryptCheckbox') as HTMLInputElement;
+
+  console.log("compressCheckbox", compressCheckbox.checked);
+  console.log("encryptCheckbox", encryptCheckbox.checked);
 
   if (err != "success") {
     alertMsg.innerHTML = "<strong>" + err + "</strong>";
@@ -345,8 +365,8 @@ programButton.onclick = async () => {
       fileArray: fileArray,
       flashSize: "keep",
       eraseAll: false,
-      compress: true,
-      encrypt: false,
+      compress: compressCheckbox.checked,
+      encrypt: encryptCheckbox.checked,
       reportProgress: (fileIndex, written, total) => {
         progressBars[fileIndex].value = (written / total) * 100;
       },
