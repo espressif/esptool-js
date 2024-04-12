@@ -15,6 +15,7 @@ export class ESP8266ROM extends ROM {
   // NOT IMPLEMENTED, SETTING EMPTY VALUE
   public BOOTLOADER_FLASH_OFFSET = 0;
   public UART_DATE_REG_ADDR = 0;
+  public FLASH_ENCRYPTED_WRITE_ALIGN = 0;
 
   public FLASH_SIZES = {
     "512KB": 0x00,

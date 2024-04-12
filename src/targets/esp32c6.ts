@@ -22,6 +22,9 @@ export class ESP32C6ROM extends ROM {
     "16MB": 0x40,
   };
 
+  public SUPPORTS_ENCRYPTED_FLASH = true;
+  public FLASH_ENCRYPTED_WRITE_ALIGN = 16;
+
   public SPI_REG_BASE = 0x60002000;
   public SPI_USR_OFFS = 0x18;
   public SPI_USR1_OFFS = 0x1c;

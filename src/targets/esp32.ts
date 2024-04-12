@@ -23,6 +23,8 @@ export class ESP32ROM extends ROM {
   public FLASH_WRITE_SIZE = 0x400;
   public BOOTLOADER_FLASH_OFFSET = 0x1000;
 
+  public FLASH_ENCRYPTED_WRITE_ALIGN = 32;
+
   public SPI_REG_BASE = 0x3ff42000;
   public SPI_USR_OFFS = 0x1c;
   public SPI_USR1_OFFS = 0x20;
