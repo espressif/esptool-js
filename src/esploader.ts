@@ -465,10 +465,8 @@ export class ESPLoader {
    * @returns {string} Return the padded string.
    */
   padTo(data: string, alignment: number, padCharacter = "\xff"): string {
-    const padLength = (alignment - (data.length % alignment)) % alignment;
-    if (padLength > 0) {
-      data += padCharacter.repeat(padLength);
-    }
+    const pad_mod = data.length % alignment;
+    if (pad_mod !== 0) data += padCharacter.repeat(alignment).substring(alignment - pad_mod);
     return data;
   }
 
