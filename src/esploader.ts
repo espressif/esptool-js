@@ -49,6 +49,12 @@ export interface FlashOptions {
   compress: boolean;
 
   /**
+   * Flag indicating whether to apply flash encryption when writing data.
+   * @type {boolean}
+   */
+  encrpyt: boolean;
+
+  /**
    * A function to report the progress of the flashing operation (optional).
    * @type {(fileIndex: number, written: number, total: number) => void}
    */
@@ -206,6 +212,9 @@ export class ESPLoader {
   ESP_ERASE_REGION = 0xd1;
   ESP_READ_FLASH = 0xd2;
   ESP_RUN_USER_CODE = 0xd3;
+
+  // Flash encryption encrypted data command
+  ESP_FLASH_ENCRYPT_DATA = 0xd4;
 
   ESP_IMAGE_MAGIC = 0xe9;
   ESP_CHECKSUM_MAGIC = 0xef;
@@ -446,6 +455,19 @@ export class ESPLoader {
     } catch (e) {
       this.error((e as Error).message);
     }
+  }
+
+  /**
+   * Pads a given string to a specified alignment by appending a specified character.
+   * @param {string} data - String to be padded.
+   * @param {number} alignment - Alignment boundary.
+   * @param {string} padCharacter - The character to use for padding. Defaults to "\xff" if not specified.
+   * @returns {string} Return the padded string.
+   */
+  padTo(data: string, alignment: number, padCharacter = "\xff"): string {
+    const pad_mod = data.length % alignment;
+    if (pad_mod !== 0) data += padCharacter.repeat(alignment).substring(alignment - pad_mod);
+    return data;
   }
 
   /**
@@ -888,6 +910,29 @@ export class ESPLoader {
     const checksum = this.checksum(data);
 
     await this.checkCommand("write to target Flash after seq " + seq, this.ESP_FLASH_DATA, pkt, checksum, timeout);
+  }
+
+  /**
+   * Write encrypted block to flash, retry if fail
+   * @param {Uint8Array} data Unsigned 8-bit array data.
+   * @param {number} seq Sequence number
+   * @param {number} timeout Timeout in milliseconds (ms)
+   */
+  async flashEncryptBlock(data: Uint8Array, seq: number, timeout: number) {
+    let pkt = this._appendArray(this._intToByteArray(data.length), this._intToByteArray(seq));
+    pkt = this._appendArray(pkt, this._intToByteArray(0));
+    pkt = this._appendArray(pkt, this._intToByteArray(0));
+    pkt = this._appendArray(pkt, data);
+
+    const checksum = this.checksum(data);
+
+    await this.checkCommand(
+      "write encrypted to target Flash after seq " + seq,
+      this.ESP_FLASH_ENCRYPT_DATA,
+      pkt,
+      checksum,
+      timeout,
+    );
   }
 
   /**
@@ -1356,9 +1401,15 @@ export class ESPLoader {
     let image: string, address: number;
     for (let i = 0; i < options.fileArray.length; i++) {
       this.debug("Data Length " + options.fileArray[i].data.length);
+
+      if (options.compress && options.encrpyt) {
+        this.info("WARNING: compress and encrypt options are mutually exclusive");
+        this.info("Will flash uncompressed");
+        options.compress = false;
+      }
+
       image = options.fileArray[i].data;
-      const reminder = options.fileArray[i].data.length % 4;
-      if (reminder > 0) image += "\xff\xff\xff\xff".substring(4 - reminder);
+      image = this.padTo(image, options.encrpyt ? this.chip.FLASH_ENCRYPTED_WRITE_ALIGN : 4);
       address = options.fileArray[i].address;
       this.debug("Image Length " + image.length);
       if (image.length === 0) {
@@ -1427,8 +1478,11 @@ export class ESPLoader {
         } else {
           const padding = new Uint8Array(this.FLASH_WRITE_SIZE - block.length).fill(0xff);
           block = this._appendArray(block, padding);
-
-          await this.flashBlock(block, seq, timeout);
+          if (options.encrpyt) {
+            await this.flashEncryptBlock(block, seq, timeout);
+          } else {
+            await this.flashBlock(block, seq, timeout);
+          }
         }
         bytesSent += block.length;
         image = image.slice(this.FLASH_WRITE_SIZE, image.length);
@@ -1453,7 +1507,7 @@ export class ESPLoader {
             " seconds.",
         );
       }
-      if (calcmd5) {
+      if (calcmd5 && !options.encrpyt) {
         const res = await this.flashMd5sum(address, uncsize);
         if (new String(res).valueOf() != new String(calcmd5).valueOf()) {
           this.info("File  md5: " + calcmd5);

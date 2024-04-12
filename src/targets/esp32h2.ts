@@ -14,6 +14,9 @@ export class ESP32H2ROM extends ROM {
   public FLASH_WRITE_SIZE = 0x400;
   public BOOTLOADER_FLASH_OFFSET = 0x0;
 
+  // NOT IMPLEMENTED, SETTING EMPTY VALUE
+  public FLASH_ENCRYPTED_WRITE_ALIGN = 0;
+
   public FLASH_SIZES = {
     "1MB": 0x00,
     "2MB": 0x10,
