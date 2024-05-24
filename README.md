@@ -1,6 +1,6 @@
 # Javascript implementation of esptool
 
-This repository contains a Javascript implementation of [esptool](https://github.com/espressif/esptool), a serial flasher utility for Espressif chips. `esptool-js` is based on [Web Serial API](https://wicg.github.io/serial/) and works in Google Chrome and Microsoft Edge [version 89 or later](https://developer.mozilla.org/en-US/docs/Web/API/Serial#browser_compatibility) browsers.
+This repository contains a Javascript implementation of [esptool](https://github.com/espressif/esptool), a serial flasher utility for Espressif chips. `esptool-js` is based on [Web Serial API](https://wicg.github.io/serial/) and works in Google Chrome and Microsoft Edge [version 89 or later](https://developer.mozilla.org/en-US/docs/Web/API/Serial#browser_compatibility) browsers and Google Chrome on Android [version 61 or later](https://developer.mozilla.org/en-US/docs/Web/API/USB#browser_compatibility) via the [web-serial-polyfill](https://github.com/google/web-serial-polyfill) compatibility layer.
 
 **NOTE:** Unlike the Python-based esptool, `esptool-js` doesn't implement generation of binary images out of ELF files, and doesn't include companion tools similar to [espefuse.py](https://github.com/espressif/esptool/wiki/espefuse) and [espsecure.py](https://github.com/espressif/esptool/wiki/espsecure).
 
