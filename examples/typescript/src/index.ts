@@ -22,8 +22,8 @@ const alertDiv = document.getElementById("alertDiv");
 
 // This is a frontend example of Esptool-JS using local bundle file
 // To optimize use a CDN hosted version like
-// https://unpkg.com/esptool-js@0.2.0/bundle.js
-import { ESPLoader, FlashOptions, LoaderOptions, Transport } from "../../../lib";
+// https://unpkg.com/esptool-js/bundle.js
+import { ESPLoader, FlashOptions, LoaderOptions, WebSerialTransport, SerialOptions, ITrace } from "../../../lib";
 
 declare let Terminal; // Terminal is imported in HTML script
 declare let CryptoJS; // CryptoJS is imported in HTML script
@@ -32,7 +32,7 @@ const term = new Terminal({ cols: 120, rows: 40 });
 term.open(terminal);
 
 let device = null;
-let transport: Transport;
+let transport: WebSerialTransport;
 let chip: string = null;
 let esploader: ESPLoader;
 
@@ -79,19 +79,47 @@ const espLoaderTerminal = {
   },
 };
 
+class TraceObject implements ITrace {
+  traceBuffer: string;
+  private lastTraceTime = Date.now();
+
+  trace(message: string) {
+    const delta = Date.now() - this.lastTraceTime;
+    const prefix = `TRACE ${delta.toFixed(3)}`;
+    const traceMessage = `${prefix} ${message}`;
+    console.log(traceMessage);
+    this.traceBuffer += traceMessage + "\n";
+  }
+
+  async returnTrace() {
+    try {
+      await navigator.clipboard.writeText(this.traceBuffer);
+      console.log("Text copied to clipboard!");
+    } catch (err) {
+      console.error("Failed to copy text:", err);
+    }
+    return this.traceBuffer;
+  }
+}
+
+const traceObj = new TraceObject();
+
 connectButton.onclick = async () => {
   if (device === null) {
     device = await navigator.serial.requestPort({});
-    transport = new Transport(device, true);
+    transport = new WebSerialTransport(device, traceObj);
   }
 
+  const serialOptions = { baudRate: parseInt(baudrates.value) } as SerialOptions;
+
   try {
-    const flashOptions = {
+    const loaderOptions = {
       transport,
-      baudrate: parseInt(baudrates.value),
+      serialOptions,
       terminal: espLoaderTerminal,
+      tracer: traceObj,
     } as LoaderOptions;
-    esploader = new ESPLoader(flashOptions);
+    esploader = new ESPLoader(loaderOptions);
 
     chip = await esploader.main();
 
@@ -116,8 +144,8 @@ connectButton.onclick = async () => {
 };
 
 traceButton.onclick = async () => {
-  if (transport) {
-    transport.returnTrace();
+  if (traceObj) {
+    traceObj.returnTrace();
   }
 };
 
@@ -231,7 +259,7 @@ let isConsoleClosed = false;
 consoleStartButton.onclick = async () => {
   if (device === null) {
     device = await navigator.serial.requestPort({});
-    transport = new Transport(device, true);
+    transport = new WebSerialTransport(device, traceObj);
   }
   lblConsoleFor.style.display = "block";
   lblConsoleBaudrate.style.display = "none";
@@ -240,12 +268,13 @@ consoleStartButton.onclick = async () => {
   consoleStopButton.style.display = "initial";
   resetButton.style.display = "initial";
   programDiv.style.display = "none";
+  const serialOptions = { baudRate: parseInt(consoleBaudrates.value) } as SerialOptions;
 
-  await transport.connect(parseInt(consoleBaudrates.value));
+  await transport.connect(serialOptions);
   isConsoleClosed = false;
 
   while (true && !isConsoleClosed) {
-    const val = await transport.rawRead();
+    const val = await transport.read();
     if (typeof val !== "undefined") {
       term.write(val);
     } else {

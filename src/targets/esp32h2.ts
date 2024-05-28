@@ -40,15 +40,15 @@ export class ESP32H2ROM extends ROM {
   public ROM_DATA = ESP32H2_STUB.data;
   public ROM_TEXT = ESP32H2_STUB.text;
 
-  public async getChipDescription(loader: ESPLoader) {
+  public async getChipDescription() {
     return this.CHIP_NAME;
   }
 
-  public async getChipFeatures(loader: ESPLoader) {
+  public async getChipFeatures() {
     return ["BLE", "IEEE802.15.4"];
   }
 
-  public async getCrystalFreq(loader: ESPLoader) {
+  public async getCrystalFreq() {
     // ESP32H2 XTAL is fixed to 32MHz
     return 32;
   }

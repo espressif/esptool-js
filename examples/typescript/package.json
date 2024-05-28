@@ -8,7 +8,8 @@
     "dev": "npm run clean && npm run genDocs && parcel src/index.html",
     "build": "npm run clean && npm run genDocs && parcel build src/index.html --no-optimize --public-url ./",
     "clean": "rimraf dist .parcel-cache",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "prepare": "npm run build"
   },
   "parcelIgnore": [
     "./docs/.+"
