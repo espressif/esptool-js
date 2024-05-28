@@ -78,22 +78,22 @@ export interface ResetFunctions {
   /**
    * Execute a classic set of commands that will reset the chip.
    */
-  classicReset: (transport: ISerialTransport, resetDelay?: number) => Promise<void>;
+  classicReset?: (transport: ISerialTransport, resetDelay?: number) => Promise<void>;
 
   /**
    * Execute a set of commands for USB JTAG serial reset.
    */
-  usbJTAGSerialReset: (transport: ISerialTransport) => Promise<void>;
+  usbJTAGSerialReset?: (transport: ISerialTransport) => Promise<void>;
 
   /**
    * Execute a set of commands that will hard reset the chip.
    */
-  hardReset: (transport: ISerialTransport, usingUsbOtg?: boolean) => Promise<void>;
+  hardReset?: (transport: ISerialTransport, usingUsbOtg?: boolean) => Promise<void>;
 
   /**
    * Custom reset strategy defined with a string.
    */
-  customReset: (transport: ISerialTransport, sequenceString: string) => Promise<void>;
+  customReset?: (transport: ISerialTransport, sequenceString: string) => Promise<void>;
 }
 
 /**
@@ -563,10 +563,14 @@ export class ESPLoader {
       if (this.transport.getPID() === this.USB_JTAG_SERIAL_PID) {
         // Custom reset sequence, which is required when the device
         // is connecting via its USB-JTAG-Serial peripheral
-        await this.resetFunctions.usbJTAGSerialReset(this.transport);
+        if (this.resetFunctions.usbJTAGSerialReset) {
+          await this.resetFunctions.usbJTAGSerialReset(this.transport);
+        }
       } else {
         const strSequence = esp32r0Delay ? "D0|R1|W100|W2000|D1|R0|W50|D0" : "D0|R1|W100|D1|R0|W50|D0";
-        await this.resetFunctions.customReset(this.transport, strSequence);
+        if (this.resetFunctions.customReset) {
+          await this.resetFunctions.customReset(this.transport, strSequence);
+        }
       }
     }
     let i = 0;
