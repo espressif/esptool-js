@@ -40,6 +40,8 @@ export class ESP32S3ROM extends ROM {
   public ROM_DATA = ESP32S3_STUB.data;
   public ROM_TEXT = ESP32S3_STUB.text;
 
+  public SUPPORTS_ENCRYPTED_FLASH = true;
+
   public async getChipDescription(loader: ESPLoader) {
     return "ESP32-S3";
   }

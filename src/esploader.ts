@@ -13,10 +13,10 @@ import atob from "atob-lite";
  */
 export interface FlashOptions {
   /**
-   * An array of file objects representing the data to be flashed.
-   * @type {Array<{ data: string; address: number }>}
+   * An array of file objects representing the data to be flashed, address offset and if to be encrypted.
+   * @type {Array<{ data: string; address: number, encrypted: boolean }>}
    */
-  fileArray: { data: string; address: number }[];
+  fileArray: { data: string; address: number; encrypted: boolean }[];
 
   /**
    * The size of the flash memory to be used.
@@ -207,11 +207,16 @@ export class ESPLoader {
   ESP_READ_FLASH = 0xd2;
   ESP_RUN_USER_CODE = 0xd3;
 
+  ESP_FLASH_ENCRYPT_DATA = 0xd4;
+
   ESP_IMAGE_MAGIC = 0xe9;
   ESP_CHECKSUM_MAGIC = 0xef;
 
   // Response code(s) sent by ROM
   ROM_INVALID_RECV_MSG = 0x05; // response if an invalid message is received
+
+  // Commands supported by ESP32-S2 and later chips ROM bootloader only
+  ESP_GET_SECURITY_INFO = 0x14;
 
   ERASE_REGION_TIMEOUT_PER_MB = 30000;
   ERASE_WRITE_TIMEOUT_PER_MB = 40000;
@@ -255,6 +260,7 @@ export class ESPLoader {
   private romBaudrate = 115200;
   private debugLogging = false;
   private syncStubDetected = false;
+  private secureDownloadMode = false;
 
   /**
    * Create a new ESPLoader to perform serial communication
@@ -266,7 +272,7 @@ export class ESPLoader {
    */
   constructor(options: LoaderOptions) {
     this.IS_STUB = false;
-    this.FLASH_WRITE_SIZE = 0x4000;
+    this.FLASH_WRITE_SIZE = 0x400;
 
     this.transport = options.transport;
     this.baudrate = options.baudrate;
@@ -670,13 +676,21 @@ export class ESPLoader {
     this.info("\n\r", false);
 
     if (!detecting) {
-      const chipMagicValue = (await this.readReg(0x40001000)) >>> 0;
-      this.debug("Chip Magic " + chipMagicValue.toString(16));
-      const chip = await magic2Chip(chipMagicValue);
-      if (this.chip === null) {
-        throw new ESPError(`Unexpected CHIP magic value ${chipMagicValue}. Failed to autodetect chip type.`);
-      } else {
-        this.chip = chip as ROM;
+      try {
+        const chipMagicValue = (await this.readReg(0x40001000)) >>> 0;
+        this.debug("Chip Magic " + chipMagicValue.toString(16));
+        const chip = await magic2Chip(chipMagicValue);
+        if (this.chip === null) {
+          throw new ESPError(`Unexpected CHIP magic value ${chipMagicValue}. Failed to autodetect chip type.`);
+        } else {
+          this.chip = chip as ROM;
+        }
+      } catch (error) {
+        if (error instanceof ESPError && error.message && error.message.indexOf("unsupported command error") !== -1) {
+          this.secureDownloadMode = true;
+        } else {
+          throw error;
+        }
       }
     }
   }
@@ -693,6 +707,20 @@ export class ESPLoader {
     } else {
       this.info("unknown!");
     }
+  }
+
+  /**
+   * Get the chip ID using the check command
+   * @returns {number} Chip ID
+   */
+  async getChipId() {
+    const res = (await this.checkCommand(
+      "get security info",
+      this.ESP_GET_SECURITY_INFO,
+      new Uint8Array(0),
+      0,
+    )) as Uint8Array;
+    return res[4 + 9 - 1];
   }
 
   /**
@@ -780,7 +808,10 @@ export class ESPLoader {
    * @param {number} hspiArg -  Argument for SPI attachment
    */
   async flashSpiAttach(hspiArg: number) {
-    const pkt = this._intToByteArray(hspiArg);
+    let pkt = this._intToByteArray(hspiArg);
+    if (!this.IS_STUB) {
+      pkt = this._appendArray(pkt, this._intToByteArray(0));
+    }
     await this.checkCommand("configure SPI flash pins", this.ESP_SPI_ATTACH, pkt);
   }
 
@@ -803,9 +834,10 @@ export class ESPLoader {
    * Start downloading to Flash (performs an erase)
    * @param {number} size Size to erase
    * @param {number} offset Offset to erase
+   * @param {boolean} encrypt Flag if encrypt
    * @returns {number} Number of blocks (of size self.FLASH_WRITE_SIZE) to write.
    */
-  async flashBegin(size: number, offset: number) {
+  async flashBegin(size: number, offset: number, encrypt = false) {
     const numBlocks = Math.floor((size + this.FLASH_WRITE_SIZE - 1) / this.FLASH_WRITE_SIZE);
     const eraseSize = this.chip.getEraseSize(offset, size);
 
@@ -822,7 +854,7 @@ export class ESPLoader {
     pkt = this._appendArray(pkt, this._intToByteArray(this.FLASH_WRITE_SIZE));
     pkt = this._appendArray(pkt, this._intToByteArray(offset));
     if (this.IS_STUB == false) {
-      pkt = this._appendArray(pkt, this._intToByteArray(0)); // XXX: Support encrypted
+      pkt = this._appendArray(pkt, this._intToByteArray(encrypt ? 1 : 0));
     }
 
     await this.checkCommand("enter Flash download mode", this.ESP_FLASH_BEGIN, pkt, undefined, timeout);
@@ -894,6 +926,31 @@ export class ESPLoader {
     const checksum = this.checksum(data);
 
     await this.checkCommand("write to target Flash after seq " + seq, this.ESP_FLASH_DATA, pkt, checksum, timeout);
+  }
+
+  /**
+   * Encrypt, write block to flash, retry if fail
+   * @param {Uint8Array} data Unsigned 8-bit array data.
+   * @param {number} seq Sequence number
+   * @param {number} timeout Timeout in milliseconds (ms)
+   */
+  async flashEncryptBlock(data: Uint8Array, seq: number, timeout: number) {
+    if (this.chip.SUPPORTS_ENCRYPTED_FLASH && !this.IS_STUB) {
+      await this.flashBlock(data, seq, timeout);
+    } else {
+      let pkt = this._appendArray(this._intToByteArray(data.length), this._intToByteArray(seq));
+      pkt = this._appendArray(pkt, this._intToByteArray(0));
+      pkt = this._appendArray(pkt, this._intToByteArray(0));
+      pkt = this._appendArray(pkt, data);
+      const checksum = this.checksum(data);
+      await this.checkCommand(
+        "Write encrypted to target Flash after seq " + seq,
+        this.ESP_FLASH_ENCRYPT_DATA,
+        pkt,
+        checksum,
+        timeout,
+      );
+    }
   }
 
   /**
@@ -1335,13 +1392,13 @@ export class ESPLoader {
       aFlashSize = this.parseFlashSizeArg(flashSize);
     }
 
-    const flashParams = (aFlashMode << 8) | (aFlashFreq + aFlashSize);
+    const flashParams = (aFlashMode << 8) | (aFlashSize + aFlashFreq);
     this.info("Flash params set to " + flashParams.toString(16));
     if (parseInt(image[2]) !== aFlashMode << 8) {
       image = image.substring(0, 2) + (aFlashMode << 8).toString() + image.substring(2 + 1);
     }
-    if (parseInt(image[3]) !== aFlashFreq + aFlashSize) {
-      image = image.substring(0, 3) + (aFlashFreq + aFlashSize).toString() + image.substring(3 + 1);
+    if (parseInt(image[3]) !== aFlashSize + aFlashFreq) {
+      image = image.substring(0, 3) + (aFlashSize + aFlashFreq).toString() + image.substring(3 + 1);
     }
     return image;
   }
@@ -1367,6 +1424,11 @@ export class ESPLoader {
     let image: string, address: number;
     for (let i = 0; i < options.fileArray.length; i++) {
       this.debug("Data Length " + options.fileArray[i].data.length);
+
+      let compress = options.compress;
+      if (compress && options.fileArray[i].encrypted) {
+        compress = false;
+      }
       image = options.fileArray[i].data;
       const reminder = options.fileArray[i].data.length % 4;
       if (reminder > 0) image += "\xff\xff\xff\xff".substring(4 - reminder);
@@ -1384,12 +1446,12 @@ export class ESPLoader {
       }
       const uncsize = image.length;
       let blocks: number;
-      if (options.compress) {
+      if (compress) {
         const uncimage = this.bstrToUi8(image);
         image = this.ui8ToBstr(deflate(uncimage, { level: 9 }));
         blocks = await this.flashDeflBegin(uncsize, image.length, address);
       } else {
-        blocks = await this.flashBegin(uncsize, address);
+        blocks = await this.flashBegin(uncsize, address, options.fileArray[i].encrypted);
       }
       let seq = 0;
       let bytesSent = 0;
@@ -1418,7 +1480,7 @@ export class ESPLoader {
         );
         const block = this.bstrToUi8(image.slice(0, this.FLASH_WRITE_SIZE));
 
-        if (options.compress) {
+        if (compress) {
           const lenUncompressedPrevious = totalLenUncompressed;
           inflate.push(block, false);
           const blockUncompressed = totalLenUncompressed - lenUncompressedPrevious;
@@ -1436,7 +1498,11 @@ export class ESPLoader {
             timeout = blockTimeout;
           }
         } else {
-          throw new ESPError("Yet to handle Non Compressed writes");
+          if (options.fileArray[i].encrypted) {
+            await this.flashEncryptBlock(block, seq, timeout);
+          } else {
+            await this.flashBlock(block, seq, timeout);
+          }
         }
         bytesSent += block.length;
         image = image.slice(this.FLASH_WRITE_SIZE, image.length);
@@ -1448,7 +1514,7 @@ export class ESPLoader {
       }
       d = new Date();
       const t = d.getTime() - t1;
-      if (options.compress) {
+      if (compress) {
         this.info(
           "Wrote " +
             uncsize +
@@ -1461,7 +1527,7 @@ export class ESPLoader {
             " seconds.",
         );
       }
-      if (calcmd5) {
+      if (calcmd5 && !options.fileArray[i].encrypted && !this.secureDownloadMode) {
         const res = await this.flashMd5sum(address, uncsize);
         if (new String(res).valueOf() != new String(calcmd5).valueOf()) {
           this.info("File  md5: " + calcmd5);
@@ -1476,7 +1542,8 @@ export class ESPLoader {
 
     if (this.IS_STUB) {
       await this.flashBegin(0, 0);
-      if (options.compress) {
+      const lastFileIndex = options.fileArray && options.fileArray.length ? options.fileArray.length - 1 : 0;
+      if (options.compress && lastFileIndex && !options.fileArray[lastFileIndex].encrypted) {
         await this.flashDeflFinish();
       } else {
         await this.flashFinish();
@@ -1497,7 +1564,7 @@ export class ESPLoader {
   }
 
   async getFlashSize() {
-    this.debug("flash_id");
+    this.debug("flash_size");
     const flashid = await this.readFlashId();
     const flidLowbyte = (flashid >> 16) & 0xff;
     return this.DETECTED_FLASH_SIZES_NUM[flidLowbyte];

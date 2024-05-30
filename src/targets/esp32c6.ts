@@ -36,6 +36,8 @@ export class ESP32C6ROM extends ROM {
   public ROM_DATA = ESP32C6_STUB.data;
   public ROM_TEXT = ESP32C6_STUB.text;
 
+  public SUPPORTS_ENCRYPTED_FLASH = true;
+
   public async getPkgVersion(loader: ESPLoader) {
     const numWord = 3;
     const block1Addr = this.EFUSE_BASE + 0x044;

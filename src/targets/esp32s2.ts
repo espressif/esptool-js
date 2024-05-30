@@ -36,6 +36,8 @@ export class ESP32S2ROM extends ROM {
   public ROM_DATA = ESP32S2_STUB.data;
   public ROM_TEXT = ESP32S2_STUB.text;
 
+  public SUPPORTS_ENCRYPTED_FLASH = true;
+
   public async getPkgVersion(loader: ESPLoader): Promise<number> {
     const numWord = 3;
     const block1Addr = this.EFUSE_BASE + 0x044;

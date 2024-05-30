@@ -100,4 +100,6 @@ export abstract class ROM {
   abstract UART_DATE_REG_ADDR: number; // not in esp8266
   abstract TEXT_START: number;
   // abstract XTAL_CLK_DIVIDER: number; //esp32
+
+  abstract SUPPORTS_ENCRYPTED_FLASH: boolean;
 }

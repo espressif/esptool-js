@@ -40,6 +40,8 @@ export class ESP32H2ROM extends ROM {
   public ROM_DATA = ESP32H2_STUB.data;
   public ROM_TEXT = ESP32H2_STUB.text;
 
+  public SUPPORTS_ENCRYPTED_FLASH = true;
+
   public async getChipDescription(loader: ESPLoader) {
     return this.CHIP_NAME;
   }

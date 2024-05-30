@@ -37,6 +37,8 @@ export class ESP32ROM extends ROM {
   public ROM_DATA = ESP32_STUB.data;
   public ROM_TEXT = ESP32_STUB.text;
 
+  public SUPPORTS_ENCRYPTED_FLASH = false;
+
   public async readEfuse(loader: ESPLoader, offset: number): Promise<number> {
     const addr = this.EFUSE_RD_REG_BASE + 4 * offset;
     loader.debug("Read efuse " + addr);
