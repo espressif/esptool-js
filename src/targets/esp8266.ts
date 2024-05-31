@@ -43,6 +43,7 @@ export class ESP8266ROM extends ROM {
   public ROM_TEXT = ESP8266_STUB.text;
 
   public SUPPORTS_ENCRYPTED_FLASH = false;
+  public FLASH_ENCRYPTED_WRITE_ALIGN = 16;
 
   public async readEfuse(loader: ESPLoader, offset: number): Promise<number> {
     const addr = this.EFUSE_RD_REG_BASE + 4 * offset;

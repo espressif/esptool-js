@@ -677,7 +677,7 @@ export class ESPLoader {
 
     if (!detecting) {
       try {
-        const chipMagicValue = (await this.readReg(0x40001000)) >>> 0;
+        const chipMagicValue = (await this.readReg(this.CHIP_DETECT_MAGIC_REG_ADDR)) >>> 0;
         this.debug("Chip Magic " + chipMagicValue.toString(16));
         const chip = await magic2Chip(chipMagicValue);
         if (this.chip === null) {
@@ -1418,6 +1418,46 @@ export class ESPLoader {
       }
     }
 
+    const encryptedFiles = options.fileArray.filter((f) => f.encrypted);
+
+    if (encryptedFiles && encryptedFiles.length > 0) {
+      let doWrite = true;
+      for (let f of encryptedFiles) {
+        if (f.encrypted && this.chip.SUPPORTS_ENCRYPTED_FLASH && f.address % this.chip.FLASH_ENCRYPTED_WRITE_ALIGN) {
+          doWrite = false;
+          this.info(`File at address ${f.address} is not %d byte aligned, can't flash encrypted`);
+        }
+      }
+      if (!doWrite) {
+        let errMsg =
+          "Can't perform encrypted flash write,\n" + "consult Flash Encryption documentation for more information";
+        this.debug(errMsg);
+        throw new ESPError(errMsg);
+      }
+    } else {
+      if (this.chip.CHIP_NAME !== "ESP32" && this.secureDownloadMode && this) {
+        throw new ESPError(
+          "WARNING: Detected flash encryption and " +
+            "secure download mode enabled.\n" +
+            "Flashing plaintext binary may brick your device! ",
+        );
+      }
+
+      // TO DO
+      // Add esp.get_security_info 
+      // esp.get_encrypted_download_disabled()
+      // and esp.get_flash_encryption_enabled()
+
+      if (!this.secureDownloadMode) {
+        throw new ESPError(
+          "WARNING: Detected flash encryption enabled and " +
+            "download manual encrypt disabled.\n" +
+            "Flashing plaintext binary may brick your device! " +
+            "Use --force to override the warning.",
+        );
+      }
+    }
+
     if (this.IS_STUB === true && options.eraseAll === true) {
       await this.eraseFlash();
     }
@@ -1563,11 +1603,34 @@ export class ESPLoader {
     this.info("Detected flash size: " + this.DETECTED_FLASH_SIZES[flidLowbyte]);
   }
 
-  async getFlashSize() {
+  async detectFlashSize(options?: FlashOptions) {
     this.debug("flash_size");
+    if (this.secureDownloadMode) {
+      if (options && options.flashSize === "detect") {
+        const errMsg =
+          "Detecting flash size is not supported in secure download mode. Need to manually specify flash size.";
+        this.debug(errMsg);
+        throw new ESPError(errMsg);
+      } else {
+        return;
+      }
+    }
     const flashid = await this.readFlashId();
     const flidLowbyte = (flashid >> 16) & 0xff;
-    return this.DETECTED_FLASH_SIZES_NUM[flidLowbyte];
+    let flashSize = this.DETECTED_FLASH_SIZES[flidLowbyte];
+
+    if (options && options.flashSize === "detect") {
+      if (!flashSize) {
+        this.info(
+          `WARNING: Could not auto-detect Flash size. FlashID: ${flashid}, SizeId: ${flashSize}. Defaulting to 4MB.`,
+        );
+        flashSize = "4MB";
+      } else {
+        this.info(`Auto-detected Flash size: ${flashSize}`);
+      }
+      options.flashSize = flashSize;
+    }
+    return flashSize;
   }
 
   /**

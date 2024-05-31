@@ -37,6 +37,7 @@ export class ESP32C3ROM extends ROM {
   public ROM_TEXT = ESP32C3_STUB.text;
 
   public SUPPORTS_ENCRYPTED_FLASH = true;
+  public FLASH_ENCRYPTED_WRITE_ALIGN = 16;
 
   public async getPkgVersion(loader: ESPLoader): Promise<number> {
     const numWord = 3;

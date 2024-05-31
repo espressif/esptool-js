@@ -102,4 +102,5 @@ export abstract class ROM {
   // abstract XTAL_CLK_DIVIDER: number; //esp32
 
   abstract SUPPORTS_ENCRYPTED_FLASH: boolean;
+  abstract FLASH_ENCRYPTED_WRITE_ALIGN: number;
 }

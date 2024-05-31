@@ -41,6 +41,7 @@ export class ESP32H2ROM extends ROM {
   public ROM_TEXT = ESP32H2_STUB.text;
 
   public SUPPORTS_ENCRYPTED_FLASH = true;
+  public FLASH_ENCRYPTED_WRITE_ALIGN = 16;
 
   public async getChipDescription(loader: ESPLoader) {
     return this.CHIP_NAME;
