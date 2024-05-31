@@ -24,6 +24,8 @@ const alertDiv = document.getElementById("alertDiv");
 // To optimize use a CDN hosted version like
 // https://unpkg.com/esptool-js@0.2.0/bundle.js
 import { ESPLoader, FlashOptions, LoaderOptions, Transport } from "../../../lib";
+import { serial } from "web-serial-polyfill";
+if (!navigator.serial && navigator.usb) navigator.serial = serial;
 
 declare let Terminal; // Terminal is imported in HTML script
 declare let CryptoJS; // CryptoJS is imported in HTML script
