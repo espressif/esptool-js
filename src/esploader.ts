@@ -1422,14 +1422,14 @@ export class ESPLoader {
 
     if (encryptedFiles && encryptedFiles.length > 0) {
       let doWrite = true;
-      for (let f of encryptedFiles) {
+      for (const f of encryptedFiles) {
         if (f.encrypted && this.chip.SUPPORTS_ENCRYPTED_FLASH && f.address % this.chip.FLASH_ENCRYPTED_WRITE_ALIGN) {
           doWrite = false;
           this.info(`File at address ${f.address} is not %d byte aligned, can't flash encrypted`);
         }
       }
       if (!doWrite) {
-        let errMsg =
+        const errMsg =
           "Can't perform encrypted flash write,\n" + "consult Flash Encryption documentation for more information";
         this.debug(errMsg);
         throw new ESPError(errMsg);
@@ -1442,9 +1442,8 @@ export class ESPLoader {
             "Flashing plaintext binary may brick your device! ",
         );
       }
-
       // TO DO
-      // Add esp.get_security_info 
+      // Add esp.get_security_info
       // esp.get_encrypted_download_disabled()
       // and esp.get_flash_encryption_enabled()
 
