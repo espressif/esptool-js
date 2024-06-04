@@ -714,13 +714,29 @@ export class ESPLoader {
    * @returns {number} Chip ID
    */
   async getChipId() {
+    const securityInfo = await this.getSecurityInfo();
+    return securityInfo.chipId;
+  }
+
+  /**
+   * Get the chip security information
+   * @returns {number} Chip Security Information
+   */
+  async getSecurityInfo() {
     const res = (await this.checkCommand(
       "get security info",
       this.ESP_GET_SECURITY_INFO,
       new Uint8Array(0),
       0,
     )) as Uint8Array;
-    return res[4 + 9 - 1];
+    const esp32s2 = res && res.length === 12;
+    return {
+      flags: res[0],
+      flashCryptCnt: res[1],
+      keyPurposes: res.slice(2, 9),
+      chipId: esp32s2 ? undefined : res[9],
+      apiVersion: esp32s2 ? undefined : res[10],
+    };
   }
 
   /**
@@ -1422,6 +1438,16 @@ export class ESPLoader {
 
     if (encryptedFiles && encryptedFiles.length > 0) {
       let doWrite = true;
+      const isEncryptedDownloadDisabled = await this.chip.getEncryptedDownloadDisabled(this);
+      if (!this.secureDownloadMode && isEncryptedDownloadDisabled) {
+        const errMsg =
+          "This chip has encrypt functionality \n" +
+          "in UART download mode disabled. \n" +
+          "This is the Flash Encryption configuration for Production mode \n" +
+          "instead of Development mode.";
+        this.debug(errMsg);
+        throw new ESPError(errMsg);
+      }
       for (const f of encryptedFiles) {
         if (f.encrypted && this.chip.SUPPORTS_ENCRYPTED_FLASH && f.address % this.chip.FLASH_ENCRYPTED_WRITE_ALIGN) {
           doWrite = false;
@@ -1434,20 +1460,22 @@ export class ESPLoader {
         this.debug(errMsg);
         throw new ESPError(errMsg);
       }
-    } else {
-      if (this.chip.CHIP_NAME !== "ESP32" && this.secureDownloadMode && this) {
+    } else if (this.chip.CHIP_NAME !== "ESP8266") {
+      const flashSecurityInfo = await this.getSecurityInfo();
+      const flashCryptCntBinaryString = flashSecurityInfo.flashCryptCnt.toString(2);
+      const onesCount = flashCryptCntBinaryString.split("").filter((char) => char === "1").length & 1;
+
+      if (this.chip.CHIP_NAME !== "ESP32" && this.secureDownloadMode && onesCount !== 0) {
         throw new ESPError(
           "WARNING: Detected flash encryption and " +
             "secure download mode enabled.\n" +
             "Flashing plaintext binary may brick your device! ",
         );
       }
-      // TO DO
-      // Add esp.get_security_info
-      // esp.get_encrypted_download_disabled()
-      // and esp.get_flash_encryption_enabled()
+      const isEncryptedDownloadDisabled = await this.chip.getEncryptedDownloadDisabled(this);
+      const isFlashEncryptionEnabled = await this.chip.getFlashEncryptionEnabled(this);
 
-      if (!this.secureDownloadMode) {
+      if (!this.secureDownloadMode && isEncryptedDownloadDisabled && isFlashEncryptionEnabled) {
         throw new ESPError(
           "WARNING: Detected flash encryption enabled and " +
             "download manual encrypt disabled.\n" +

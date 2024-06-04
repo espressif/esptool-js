@@ -75,6 +75,24 @@ export abstract class ROM {
     return size;
   }
 
+  /**
+   * Check if download has been disabled due to encryption
+   * @returns {boolean} Is encrypted download disabled (EFUSE_RD_DISABLE_DL_ENCRYPT).
+   */
+  abstract getEncryptedDownloadDisabled(loader: ESPLoader): Promise<boolean>;
+
+  /**
+   * Check if flash encryption is enabled
+   * @returns {boolean} Is flash encryption enabled (EFUSE_FLASH_CRYPT_CNT).
+   */
+  abstract getFlashEncryptionEnabled(loader: ESPLoader): Promise<boolean>;
+
+  /**
+   * Check if secure boot is enabled
+   * @returns {number} Is Secure boot enabled (EFUSE_RD_ABS_DONE_REG).
+   */
+  abstract getSecureBootEnabled(loader: ESPLoader): Promise<boolean>;
+
   abstract FLASH_SIZES: { [key: string]: number };
 
   abstract BOOTLOADER_FLASH_OFFSET: number;

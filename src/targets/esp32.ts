@@ -40,6 +40,40 @@ export class ESP32ROM extends ROM {
   public SUPPORTS_ENCRYPTED_FLASH = false;
   public FLASH_ENCRYPTED_WRITE_ALIGN = 32;
 
+  public EFUSE_DIS_DOWNLOAD_MANUAL_ENCRYPT_REG = this.EFUSE_RD_REG_BASE + 0x18;
+  public EFUSE_DIS_DOWNLOAD_MANUAL_ENCRYPT = 1 << 7; // EFUSE_RD_DISABLE_DL_ENCRYPT;
+
+  public EFUSE_SPI_BOOT_CRYPT_CNT_REG = this.EFUSE_RD_REG_BASE; // EFUSE_BLK0_WDATA0_REG
+  public EFUSE_SPI_BOOT_CRYPT_CNT_MASK = 0x7f << 20; // EFUSE_FLASH_CRYPT_CNT
+
+  public EFUSE_RD_ABS_DONE_REG = this.EFUSE_RD_REG_BASE + 0x018;
+  public EFUSE_RD_ABS_DONE_0_MASK = 1 << 4;
+  public EFUSE_RD_ABS_DONE_1_MASK = 1 << 5;
+
+  public async getSecureBootEnabled(loader: ESPLoader): Promise<boolean> {
+    const efuses = await loader.readReg(this.EFUSE_RD_ABS_DONE_REG);
+    const rev = await this.getChipRevision(loader);
+    return (
+      (efuses & this.EFUSE_RD_ABS_DONE_0_MASK) !== 0 || (rev >= 300 && efuses & this.EFUSE_RD_ABS_DONE_1_MASK) !== 0
+    );
+  }
+
+  public async getEncryptedDownloadDisabled(loader: ESPLoader): Promise<boolean> {
+    return (
+      ((await loader.readReg(this.EFUSE_DIS_DOWNLOAD_MANUAL_ENCRYPT_REG)) & this.EFUSE_DIS_DOWNLOAD_MANUAL_ENCRYPT) !==
+      0
+    );
+  }
+
+  public async getFlashEncryptionEnabled(loader: ESPLoader): Promise<boolean> {
+    const flashCryptCounter =
+      (await loader.readReg(this.EFUSE_SPI_BOOT_CRYPT_CNT_REG)) & this.EFUSE_SPI_BOOT_CRYPT_CNT_MASK;
+
+    const binaryString = flashCryptCounter.toString(2);
+    const onesCount = binaryString.split("").filter((char) => char === "1").length & 1;
+    return onesCount !== 0;
+  }
+
   public async readEfuse(loader: ESPLoader, offset: number): Promise<number> {
     const addr = this.EFUSE_RD_REG_BASE + 4 * offset;
     loader.debug("Read efuse " + addr);

@@ -138,4 +138,16 @@ export class ESP8266ROM extends ROM {
   public getEraseSize(offset: number, size: number) {
     return size;
   }
+
+  public async getEncryptedDownloadDisabled(loader: ESPLoader): Promise<boolean> {
+    return false;
+  }
+
+  public async getFlashEncryptionEnabled(loader: ESPLoader): Promise<boolean> {
+    return false;
+  }
+
+  public async getSecureBootEnabled(loader: ESPLoader) {
+    return false;
+  }
 }
