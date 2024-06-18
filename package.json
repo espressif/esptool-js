@@ -1,7 +1,6 @@
 {
   "name": "esptool-js",
   "version": "0.4.2",
-  "type": "module",
   "module": "lib/index.js",
   "main": "lib/index.js",
   "types": "lib/index.d.ts",
@@ -12,7 +11,7 @@
   ],
   "scripts": {
     "build": "npm run clean && tsc && rollup --config",
-    "clean": "rimraf lib bundle.js .parcel-cache",
+    "clean": "rimraf lib bundle.js .parcel-cache esptool-js-*.tgz",
     "format": "prettier --write \"src/**/*.ts\"",
     "genDocs": "rimraf docs && typedoc",
     "lint": "eslint . --ext .ts",
