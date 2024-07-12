@@ -155,6 +155,8 @@ async function magic2Chip(magic: number): Promise<ROM | null> {
       const { ESP8266ROM } = await import("./targets/esp8266.js");
       return new ESP8266ROM();
     }
+    case 0x0:
+    case 0x0addbad0:
     case 0x7039ad9: {
       const { ESP32P4ROM } = await import("./targets/esp32p4.js");
       return new ESP32P4ROM();
