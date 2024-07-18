@@ -155,6 +155,12 @@ async function magic2Chip(magic: number): Promise<ROM | null> {
       const { ESP8266ROM } = await import("./targets/esp8266.js");
       return new ESP8266ROM();
     }
+    case 0x0:
+    case 0x0addbad0:
+    case 0x7039ad9: {
+      const { ESP32P4ROM } = await import("./targets/esp32p4.js");
+      return new ESP32P4ROM();
+    }
     default:
       return null;
   }
@@ -672,6 +678,7 @@ export class ESPLoader {
     if (!detecting) {
       const chipMagicValue = (await this.readReg(0x40001000)) >>> 0;
       this.debug("Chip Magic " + chipMagicValue.toString(16));
+      this.info("Chip Magic " + chipMagicValue.toString(16));
       const chip = await magic2Chip(chipMagicValue);
       if (this.chip === null) {
         throw new ESPError(`Unexpected CHIP magic value ${chipMagicValue}. Failed to autodetect chip type.`);
