@@ -678,7 +678,6 @@ export class ESPLoader {
     if (!detecting) {
       const chipMagicValue = (await this.readReg(0x40001000)) >>> 0;
       this.debug("Chip Magic " + chipMagicValue.toString(16));
-      this.info("Chip Magic " + chipMagicValue.toString(16));
       const chip = await magic2Chip(chipMagicValue);
       if (this.chip === null) {
         throw new ESPError(`Unexpected CHIP magic value ${chipMagicValue}. Failed to autodetect chip type.`);

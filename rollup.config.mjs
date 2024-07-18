@@ -17,7 +17,7 @@ const config = {
     inlineDynamicImports: true
   },
   plugins: [
-    resolve({ preferBuiltins: false}),
+    resolve({ preferBuiltins: false, mainFields: ["browser"]}),
     commonjs(),
     babel({ exclude: 'node_modules/**', babelHelpers: "runtime", skipPreflightCheck: true }),
     json({ namedExports: false, preferConst: true }),
