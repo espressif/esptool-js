@@ -68,7 +68,7 @@ export class ESP32C6ROM extends ROM {
   }
 
   public async getChipFeatures(loader: ESPLoader) {
-    return ["Wi-Fi"];
+    return ["Wi-Fi 6", "BT 5", "IEEE802.15.4"];
   }
 
   public async getCrystalFreq(loader: ESPLoader) {

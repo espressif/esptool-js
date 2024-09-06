@@ -68,7 +68,7 @@ export class ESP32C3ROM extends ROM {
   }
 
   public async getChipFeatures(loader: ESPLoader) {
-    return ["Wi-Fi"];
+    return ["Wi-Fi", "BLE"];
   }
 
   public async getCrystalFreq(loader: ESPLoader) {
