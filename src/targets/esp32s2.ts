@@ -55,23 +55,63 @@ export class ESP32S2ROM extends ROM {
     }
   }
 
-  public async getChipFeatures(loader: ESPLoader) {
-    const features = ["Wi-Fi"];
-    const pkgVer = await this.getPkgVersion(loader);
-    if (pkgVer == 1) {
-      features.push("Embedded 2MB Flash");
-    } else if (pkgVer == 2) {
-      features.push("Embedded 4MB Flash");
-    }
+  public async getFlashCap(loader: ESPLoader): Promise<number> {
+    const numWord = 3;
+    const block1Addr = this.EFUSE_BASE + 0x044;
+    const addr = block1Addr + 4 * numWord;
+    const registerValue = await loader.readReg(addr);
+    const flashCap = (registerValue >> 21) & 0x0f;
+    return flashCap;
+  }
+
+  public async getPsramCap(loader: ESPLoader): Promise<number> {
+    const numWord = 3;
+    const block1Addr = this.EFUSE_BASE + 0x044;
+    const addr = block1Addr + 4 * numWord;
+    const registerValue = await loader.readReg(addr);
+    const psramCap = (registerValue >> 28) & 0x0f;
+    return psramCap;
+  }
+
+  public async getBlock2Version(loader: ESPLoader): Promise<number> {
     const numWord = 4;
     const block2Addr = this.EFUSE_BASE + 0x05c;
     const addr = block2Addr + 4 * numWord;
-    const word4 = await loader.readReg(addr);
-    const block2Ver = (word4 >> 4) & 0x07;
+    const registerValue = await loader.readReg(addr);
+    const block2Ver = (registerValue >> 4) & 0x07;
+    return block2Ver;
+  }
 
-    if (block2Ver == 1) {
-      features.push("ADC and temperature sensor calibration in BLK2 of efuse");
-    }
+  public async getChipFeatures(loader: ESPLoader) {
+    const features: string[] = ["Wi-Fi"];
+
+    const flashMap: { [key: number]: string | null } = {
+      0: "No Embedded Flash",
+      1: "Embedded Flash 2MB",
+      2: "Embedded Flash 4MB",
+    };
+    const flashCap = await this.getFlashCap(loader);
+    const flashDescription = flashMap[flashCap] || "Unknown Embedded Flash";
+    features.push(flashDescription);
+
+    const psramMap: { [key: number]: string | null } = {
+      0: "No Embedded Flash",
+      1: "Embedded PSRAM 2MB",
+      2: "Embedded PSRAM 4MB",
+    };
+    const psramCap = await this.getPsramCap(loader);
+    const psramDescription = psramMap[psramCap] || "Unknown Embedded PSRAM";
+    features.push(psramDescription);
+
+    const block2VersionMap: { [key: number]: string | null } = {
+      0: "No calibration in BLK2 of efuse",
+      1: "ADC and temperature sensor calibration in BLK2 of efuse V1",
+      2: "ADC and temperature sensor calibration in BLK2 of efuse V2",
+    };
+    const block2Ver = await this.getBlock2Version(loader);
+    const block2VersionDescription = block2VersionMap[block2Ver] || "Unknown Calibration in BLK2";
+    features.push(block2VersionDescription);
+
     return features;
   }
 
