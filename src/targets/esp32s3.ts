@@ -43,9 +43,85 @@ export class ESP32S3ROM extends ROM {
   public async getChipDescription(loader: ESPLoader) {
     return "ESP32-S3";
   }
-  public async getChipFeatures(loader: ESPLoader) {
-    return ["Wi-Fi", "BLE"];
+
+  public async getFlashCap(loader: ESPLoader): Promise<number> {
+    const numWord = 3;
+    const block1Addr = this.EFUSE_BASE + 0x044;
+    const addr = block1Addr + 4 * numWord;
+    const registerValue = await loader.readReg(addr);
+    const flashCap = (registerValue >> 27) & 0x07;
+    return flashCap;
   }
+
+  public async getFlashVendor(loader: ESPLoader): Promise<string> {
+    const numWord = 4;
+    const block1Addr = this.EFUSE_BASE + 0x044;
+    const addr = block1Addr + 4 * numWord;
+    const registerValue = await loader.readReg(addr);
+    const vendorId = (registerValue >> 0) & 0x07;
+    const vendorMap: { [key: number]: string } = {
+      1: "XMC",
+      2: "GD",
+      3: "FM",
+      4: "TT",
+      5: "BY",
+    };
+    return vendorMap[vendorId] || "";
+  }
+
+  public async getPsramCap(loader: ESPLoader): Promise<number> {
+    const numWord = 4;
+    const block1Addr = this.EFUSE_BASE + 0x044;
+    const addr = block1Addr + 4 * numWord;
+    const registerValue = await loader.readReg(addr);
+    const psramCap = (registerValue >> 3) & 0x03;
+    return psramCap;
+  }
+
+  public async getPsramVendor(loader: ESPLoader): Promise<string> {
+    const numWord = 4;
+    const block1Addr = this.EFUSE_BASE + 0x044;
+    const addr = block1Addr + 4 * numWord;
+    const registerValue = await loader.readReg(addr);
+    const vendorId = (registerValue >> 7) & 0x03;
+    const vendorMap: { [key: number]: string } = {
+      1: "AP_3v3",
+      2: "AP_1v8",
+    };
+    return vendorMap[vendorId] || "";
+  }
+
+  public async getChipFeatures(loader: ESPLoader): Promise<string[]> {
+    const features: string[] = ["Wi-Fi", "BLE"];
+
+    const flashMap: { [key: number]: string | null } = {
+      0: null,
+      1: "Embedded Flash 8MB",
+      2: "Embedded Flash 4MB",
+    };
+    const flashCap = await this.getFlashCap(loader);
+    const flashVendor = await this.getFlashVendor(loader);
+    const flash = flashMap[flashCap];
+    const flashDescription = flash !== undefined ? flash : "Unknown Embedded Flash";
+    if (flash !== null) {
+      features.push(`${flashDescription} (${flashVendor})`);
+    }
+
+    const psramMap: { [key: number]: string | null } = {
+      0: null,
+      1: "Embedded PSRAM 8MB",
+      2: "Embedded PSRAM 2MB",
+    };
+    const psramCap = await this.getPsramCap(loader);
+    const psramVendor = await this.getPsramVendor(loader);
+    const psram = psramMap[psramCap];
+    const psramDescription = psram !== undefined ? psram : "Unknown Embedded PSRAM";
+    if (psram !== null) {
+      features.push(`${psramDescription} (${psramVendor})`);
+    }
+    return features;
+  }
+
   public async getCrystalFreq(loader: ESPLoader) {
     return 40;
   }

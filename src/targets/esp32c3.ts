@@ -67,8 +67,49 @@ export class ESP32C3ROM extends ROM {
     return desc;
   }
 
-  public async getChipFeatures(loader: ESPLoader) {
-    return ["Wi-Fi"];
+  public async getFlashCap(loader: ESPLoader): Promise<number> {
+    const numWord = 3;
+    const block1Addr = this.EFUSE_BASE + 0x044;
+    const addr = block1Addr + 4 * numWord;
+    const registerValue = await loader.readReg(addr);
+    const flashCap = (registerValue >> 27) & 0x07;
+    return flashCap;
+  }
+
+  public async getFlashVendor(loader: ESPLoader): Promise<string> {
+    const numWord = 4;
+    const block1Addr = this.EFUSE_BASE + 0x044;
+    const addr = block1Addr + 4 * numWord;
+    const registerValue = await loader.readReg(addr);
+    const vendorId = (registerValue >> 0) & 0x07;
+    const vendorMap: { [key: number]: string } = {
+      1: "XMC",
+      2: "GD",
+      3: "FM",
+      4: "TT",
+      5: "ZBIT",
+    };
+    return vendorMap[vendorId] || "";
+  }
+
+  public async getChipFeatures(loader: ESPLoader): Promise<string[]> {
+    const features: string[] = ["Wi-Fi", "BLE"];
+
+    const flashMap: { [key: number]: string | null } = {
+      0: null,
+      1: "Embedded Flash 4MB",
+      2: "Embedded Flash 2MB",
+      3: "Embedded Flash 1MB",
+      4: "Embedded Flash 8MB",
+    };
+    const flashCap = await this.getFlashCap(loader);
+    const flashVendor = await this.getFlashVendor(loader);
+    const flash = flashMap[flashCap];
+    const flashDescription = flash !== undefined ? flash : "Unknown Embedded Flash";
+    if (flash !== null) {
+      features.push(`${flashDescription} (${flashVendor})`);
+    }
+    return features;
   }
 
   public async getCrystalFreq(loader: ESPLoader) {
