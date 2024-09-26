@@ -8,6 +8,7 @@ export class ESP32C5ROM extends ESP32C6ROM {
   public EFUSE_BASE = 0x600b4800;
   public EFUSE_BLOCK1_ADDR = this.EFUSE_BASE + 0x044;
   public MAC_EFUSE_REG = this.EFUSE_BASE + 0x044;
+  public UART_CLKDIV_REG = 0x60000014;
 
   public EFUSE_RD_REG_BASE = this.EFUSE_BASE + 0x030; // BLOCK0 read base address
 
@@ -107,9 +108,9 @@ export class ESP32C5ROM extends ESP32C6ROM {
     const pkgVer = await this.getPkgVersion(loader);
     let desc: string;
     if (pkgVer === 0) {
-      desc = "ESP32-C6";
+      desc = "ESP32-C5";
     } else {
-      desc = "unknown ESP32-C6";
+      desc = "unknown ESP32-C5";
     }
     const majorRev = await this.getMajorChipVersion(loader);
     const minorRev = await this.getMinorChipVersion(loader);
@@ -122,7 +123,9 @@ export class ESP32C5ROM extends ESP32C6ROM {
     const uartDiv = (await loader.readReg(this.UART_CLKDIV_REG)) & this.UART_CLKDIV_MASK;
     const etsXtal = (loader.transport.baudrate * uartDiv) / 1000000 / this.XTAL_CLK_DIVIDER;
     let normXtal;
-    if (etsXtal > 33) {
+    if (etsXtal > 45) {
+      normXtal = 48;
+    } else if (etsXtal > 33) {
       normXtal = 40;
     } else {
       normXtal = 26;
