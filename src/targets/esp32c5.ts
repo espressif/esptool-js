@@ -1,5 +1,6 @@
 import { ESPLoader } from "../esploader";
 import { ESP32C6ROM } from "./esp32c6";
+import ESP32C5_STUB from "./stub_flasher/stub_flasher_32c5.json";
 
 export class ESP32C5ROM extends ESP32C6ROM {
   public CHIP_NAME = "ESP32-C5";
@@ -9,6 +10,12 @@ export class ESP32C5ROM extends ESP32C6ROM {
   public EFUSE_BLOCK1_ADDR = this.EFUSE_BASE + 0x044;
   public MAC_EFUSE_REG = this.EFUSE_BASE + 0x044;
   public UART_CLKDIV_REG = 0x60000014;
+
+  public TEXT_START = ESP32C5_STUB.text_start;
+  public ENTRY = ESP32C5_STUB.entry;
+  public DATA_START = ESP32C5_STUB.data_start;
+  public ROM_DATA = ESP32C5_STUB.data;
+  public ROM_TEXT = ESP32C5_STUB.text;
 
   public EFUSE_RD_REG_BASE = this.EFUSE_BASE + 0x030; // BLOCK0 read base address
 
