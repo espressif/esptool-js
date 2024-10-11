@@ -155,35 +155,43 @@ addFileButton.onclick = () => {
   element1.value = "0x1000";
   cell1.appendChild(element1);
 
-  // Column 2 - File selector
+  // Column 2 - Encrypt file ?
   const cell2 = row.insertCell(1);
   const element2 = document.createElement("input");
-  element2.type = "file";
-  element2.id = "selectFile" + rowCount;
-  element2.name = "selected_File" + rowCount;
-  element2.addEventListener("change", handleFileSelect, false);
+  element2.type = "checkbox";
+  element2.id = "file_encrypted" + rowCount;
+  element2.checked = false;
   cell2.appendChild(element2);
 
-  // Column 3  - Progress
+  // Column 3 - File selector
   const cell3 = row.insertCell(2);
-  cell3.classList.add("progress-cell");
-  cell3.style.display = "none";
-  cell3.innerHTML = `<progress value="0" max="100"></progress>`;
+  const element3 = document.createElement("input");
+  element3.type = "file";
+  element3.id = "selectFile" + rowCount;
+  element3.name = "selected_File" + rowCount;
+  element3.addEventListener("change", handleFileSelect, false);
+  cell3.appendChild(element3);
 
-  // Column 4  - Remove File
+  // Column 4  - Progress
   const cell4 = row.insertCell(3);
-  cell4.classList.add("action-cell");
+  cell4.classList.add("progress-cell");
+  cell4.style.display = "none";
+  cell4.innerHTML = `<progress value="0" max="100"></progress>`;
+
+  // Column 5  - Remove File
+  const cell5 = row.insertCell(4);
+  cell5.classList.add("action-cell");
   if (rowCount > 1) {
-    const element4 = document.createElement("input");
-    element4.type = "button";
+    const element5 = document.createElement("input");
+    element5.type = "button";
     const btnName = "button" + rowCount;
-    element4.name = btnName;
-    element4.setAttribute("class", "btn");
-    element4.setAttribute("value", "Remove"); // or element1.value = "button";
-    element4.onclick = function () {
+    element5.name = btnName;
+    element5.setAttribute("class", "btn");
+    element5.setAttribute("value", "Remove"); // or element1.value = "button";
+    element5.onclick = function () {
       removeRow(row);
     };
-    cell4.appendChild(element4);
+    cell5.appendChild(element5);
   }
 };
 
@@ -299,7 +307,7 @@ function validateProgramInputs() {
     else if (offsetArr.includes(offset)) return "Offset field in row " + index + " is already in use!";
     else offsetArr.push(offset);
 
-    const fileObj = row.cells[1].childNodes[0];
+    const fileObj = row.cells[2].childNodes[0];
     fileData = fileObj.data;
     if (fileData == null) return "No file selected for row " + index + "!";
   }
@@ -319,7 +327,7 @@ programButton.onclick = async () => {
   // Hide error message
   alertDiv.style.display = "none";
 
-  const fileArray = [];
+  const fileArray: { data: string; address: number; encrypted: boolean }[] = [];
   const progressBars = [];
 
   for (let index = 1; index < table.rows.length; index++) {
@@ -328,16 +336,19 @@ programButton.onclick = async () => {
     const offSetObj = row.cells[0].childNodes[0] as HTMLInputElement;
     const offset = parseInt(offSetObj.value);
 
-    const fileObj = row.cells[1].childNodes[0] as ChildNode & { data: string };
-    const progressBar = row.cells[2].childNodes[0];
+    const encryptedObj = row.cells[1].childNodes[0] as HTMLInputElement;
+    const encryptFlag = encryptedObj.checked;
 
+    const fileObj = row.cells[2].childNodes[0] as ChildNode & { data: string };
+
+    const progressBar = row.cells[3].childNodes[0];
     progressBar.textContent = "0";
     progressBars.push(progressBar);
 
-    row.cells[2].style.display = "initial";
-    row.cells[3].style.display = "none";
+    row.cells[3].style.display = "initial";
+    row.cells[4].style.display = "none";
 
-    fileArray.push({ data: fileObj.data, address: offset });
+    fileArray.push({ data: fileObj.data, address: offset, encrypted: encryptFlag });
   }
 
   try {
@@ -358,8 +369,8 @@ programButton.onclick = async () => {
   } finally {
     // Hide progress bars and show erase buttons
     for (let index = 1; index < table.rows.length; index++) {
-      table.rows[index].cells[2].style.display = "none";
-      table.rows[index].cells[3].style.display = "initial";
+      table.rows[index].cells[3].style.display = "none";
+      table.rows[index].cells[4].style.display = "initial";
     }
   }
 };

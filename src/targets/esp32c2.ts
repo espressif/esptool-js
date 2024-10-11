@@ -37,6 +37,36 @@ export class ESP32C2ROM extends ESP32C3ROM {
   public ROM_DATA = ESP32C2_STUB.data;
   public ROM_TEXT = ESP32C2_STUB.text;
 
+  public EFUSE_DIS_DOWNLOAD_MANUAL_ENCRYPT_REG = this.EFUSE_BASE + 0x30;
+  public EFUSE_DIS_DOWNLOAD_MANUAL_ENCRYPT = 1 << 6;
+
+  public EFUSE_SPI_BOOT_CRYPT_CNT_REG = this.EFUSE_BASE + 0x30; // EFUSE_BLK0_WDATA0_REG
+  public EFUSE_SPI_BOOT_CRYPT_CNT_MASK = 0x7 << 18; // EFUSE_FLASH_CRYPT_CNT
+
+  public EFUSE_SECURE_BOOT_EN_REG = this.EFUSE_BASE + 0x038;
+  public EFUSE_SECURE_BOOT_EN_MASK = 1 << 20;
+
+  public async getSecureBootEnabled(loader: ESPLoader): Promise<boolean> {
+    const secureBootEnableReg = await loader.readReg(this.EFUSE_SECURE_BOOT_EN_REG);
+    return (secureBootEnableReg & this.EFUSE_SECURE_BOOT_EN_MASK) !== 0;
+  }
+
+  public async getEncryptedDownloadDisabled(loader: ESPLoader): Promise<boolean> {
+    return (
+      ((await loader.readReg(this.EFUSE_DIS_DOWNLOAD_MANUAL_ENCRYPT_REG)) & this.EFUSE_DIS_DOWNLOAD_MANUAL_ENCRYPT) !==
+      0
+    );
+  }
+
+  public async getFlashEncryptionEnabled(loader: ESPLoader): Promise<boolean> {
+    const flashCryptCounter =
+      (await loader.readReg(this.EFUSE_SPI_BOOT_CRYPT_CNT_REG)) & this.EFUSE_SPI_BOOT_CRYPT_CNT_MASK;
+
+    const binaryString = flashCryptCounter.toString(2);
+    const onesCount = binaryString.split("").filter((char) => char === "1").length & 1;
+    return onesCount !== 0;
+  }
+
   public async getPkgVersion(loader: ESPLoader): Promise<number> {
     const numWord = 1;
     const block1Addr = this.EFUSE_BASE + 0x040;

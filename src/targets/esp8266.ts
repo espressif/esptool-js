@@ -42,6 +42,9 @@ export class ESP8266ROM extends ROM {
   public ROM_DATA = ESP8266_STUB.data;
   public ROM_TEXT = ESP8266_STUB.text;
 
+  public SUPPORTS_ENCRYPTED_FLASH = false;
+  public FLASH_ENCRYPTED_WRITE_ALIGN = 16;
+
   public async readEfuse(loader: ESPLoader, offset: number): Promise<number> {
     const addr = this.EFUSE_RD_REG_BASE + 4 * offset;
     loader.debug("Read efuse " + addr);
@@ -134,5 +137,17 @@ export class ESP8266ROM extends ROM {
 
   public getEraseSize(offset: number, size: number) {
     return size;
+  }
+
+  public async getEncryptedDownloadDisabled(loader: ESPLoader): Promise<boolean> {
+    return false;
+  }
+
+  public async getFlashEncryptionEnabled(loader: ESPLoader): Promise<boolean> {
+    return false;
+  }
+
+  public async getSecureBootEnabled(loader: ESPLoader) {
+    return false;
   }
 }
