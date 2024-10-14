@@ -139,7 +139,8 @@ async function magic2Chip(magic: number): Promise<ROM | null> {
       const { ESP32C6ROM } = await import("./targets/esp32c6.js");
       return new ESP32C6ROM();
     }
-    case 0x1101406f: {
+    case 0x1101406f:
+    case 0x63e1406f: {
       const { ESP32C5ROM } = await import("./targets/esp32c5.js");
       return new ESP32C5ROM();
     }
@@ -680,7 +681,7 @@ export class ESPLoader {
     this.info("\n\r", false);
 
     if (!detecting) {
-      const chipMagicValue = (await this.readReg(0x40001000)) >>> 0;
+      const chipMagicValue = (await this.readReg(this.CHIP_DETECT_MAGIC_REG_ADDR)) >>> 0;
       this.debug("Chip Magic " + chipMagicValue.toString(16));
       const chip = await magic2Chip(chipMagicValue);
       if (this.chip === null) {
