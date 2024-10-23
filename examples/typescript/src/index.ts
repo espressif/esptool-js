@@ -20,6 +20,8 @@ const lblConnTo = document.getElementById("lblConnTo");
 const table = document.getElementById("fileTable") as HTMLTableElement;
 const alertDiv = document.getElementById("alertDiv");
 
+const debugLogging = document.getElementById("debugLogging") as HTMLInputElement;
+
 // This is a frontend example of Esptool-JS using local bundle file
 // To optimize use a CDN hosted version like
 // https://unpkg.com/esptool-js@0.2.0/bundle.js
@@ -92,6 +94,7 @@ connectButton.onclick = async () => {
       transport,
       baudrate: parseInt(baudrates.value),
       terminal: espLoaderTerminal,
+      debugLogging: debugLogging.checked,
     } as LoaderOptions;
     esploader = new ESPLoader(flashOptions);
 
