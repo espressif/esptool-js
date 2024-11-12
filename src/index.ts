@@ -1,9 +1,9 @@
 export { IEspLoaderTerminal, ESPLoader, FlashOptions, LoaderOptions } from "./esploader.js";
 export {
-  classicReset,
-  customReset,
-  hardReset,
-  usbJTAGSerialReset,
+  ClassicReset,
+  CustomReset,
+  HardReset,
+  UsbJtagSerialReset,
   validateCustomResetStringSequence,
 } from "./reset.js";
 export { ROM } from "./targets/rom.js";
