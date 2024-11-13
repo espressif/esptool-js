@@ -9,10 +9,9 @@ const consoleStopButton = document.getElementById("consoleStopButton") as HTMLBu
 const eraseButton = document.getElementById("eraseButton") as HTMLButtonElement;
 const addFileButton = document.getElementById("addFile") as HTMLButtonElement;
 const programButton = document.getElementById("programButton");
-const partitionOffsetInput =
-    document.getElementById("partitionOffset") as HTMLInputElement;
-const readPartitionButton =
-    document.getElementById("readPartitionButton") as HTMLButtonElement;
+const partitionOffsetInput = document.getElementById("partitionOffset") as HTMLInputElement;
+const readPartitionButton = document.getElementById("readPartitionButton") as HTMLButtonElement;
+const readPartitionDiv = document.getElementById("readPartitionTable") as HTMLDivElement;
 const partitionTableOutput = document.getElementById("partitionTableOutput");
 const filesDiv = document.getElementById("files");
 const terminal = document.getElementById("terminal");
@@ -30,7 +29,8 @@ const debugLogging = document.getElementById("debugLogging") as HTMLInputElement
 // This is a frontend example of Esptool-JS using local bundle file
 // To optimize use a CDN hosted version like
 // https://unpkg.com/esptool-js@0.5.0/bundle.js
-import { ESPLoader, FlashOptions, LoaderOptions, Transport, Partitions,PartitionDefinition } from "../../../lib";
+import { ESPLoader, FlashOptions, LoaderOptions, Transport,
+  Partitions, PartitionDefinition, PARTITION_TYPES, PARTITION_SUBTYPES } from "../../../lib";
 import { serial } from "web-serial-polyfill";
 
 const serialLib = !navigator.serial && navigator.usb ? serial : navigator.serial;
@@ -52,6 +52,8 @@ eraseButton.style.display = "none";
 consoleStopButton.style.display = "none";
 resetButton.style.display = "none";
 filesDiv.style.display = "none";
+partitionTableOutput.style.display = "none";
+readPartitionDiv.style.display = "none";
 
 /**
  * The built in Event object.
@@ -123,6 +125,8 @@ connectButton.onclick = async () => {
   traceButton.style.display = "initial";
   eraseButton.style.display = "initial";
   filesDiv.style.display = "initial";
+  partitionTableOutput.style.display = "block";
+  readPartitionDiv.style.display = "block";
   consoleDiv.style.display = "none";
 };
 
@@ -221,14 +225,24 @@ function cleanUp() {
 }
 
 readPartitionButton.onclick = async () => {
-  const offset = parseInt(partitionOffsetInput.value, 16);
+  const hexOffset = partitionOffsetInput.value;
+  const offset = parseInt(hexOffset, 16);
   try {
     const data = await esploader.readFlash(offset, 800);
     const decodedData = decodePartitionTable(data);
-    partitionTableOutput.innerHTML = JSON.stringify(decodedData, null, 2);
+    const tableData = decodedData.toCSV();
+    term.writeln(`Extracted partition table from 0x${hexOffset}`);
+    tableData.split("\n").forEach((x) => {
+      term.writeln(x.trim());
+    });
+    console.log(JSON.stringify(decodedData, null, 2));
+    // partitionTableOutput.innerHTML = tableData.split("\n").join("<br/>");
+    populatePartitionTable(tableData);
   } catch (e) {
     console.error(e);
-    term.writeln(`Error: ${e.message}`);
+    const errMsg = `Failed extracting partition table from ${hexOffset}\nError: ${e.message}`;
+    partitionTableOutput.innerHTML = errMsg;
+    term.writeln(errMsg);
   }
 };
 
@@ -240,6 +254,102 @@ function decodePartitionTable(data: Uint8Array) {
   return p;
 }
 
+// Assuming this function gets called when the partition table is read successfully
+function populatePartitionTable(partitionTableCSV: string) {
+  const tableBody = document.getElementById("partitionTableBody") as HTMLTableSectionElement;
+
+  // Clear existing rows
+  tableBody.innerHTML = '';
+
+  // Split the CSV into rows
+  let rows = partitionTableCSV.trim().split("\n").slice(1);
+
+  // Add headers dynamically
+  if (rows.length > 0) {
+    let headers = rows[0].split(",");
+    headers.push("(Encrypted/ReadOnly)");
+    headers[0].replace("# ", "");
+    const headerRow = document.createElement("tr");
+
+    headers.forEach((header) => {
+      const th = document.createElement("th");
+      th.textContent = header.trim();
+      headerRow.appendChild(th);
+    });
+
+    // Add an extra header for the "Download" action
+    const actionHeader = document.createElement("th");
+    actionHeader.textContent = "Action";
+    headerRow.appendChild(actionHeader);
+
+    tableBody.appendChild(headerRow);
+  }
+
+  // Iterate over each row except for the header
+  rows.slice(1).forEach(row => {
+    const columns = row.split(",");
+    const rowElement = document.createElement("tr");
+
+    columns.forEach(column => {
+      const td = document.createElement("td");
+      td.textContent = column.trim();
+      rowElement.appendChild(td);
+    });
+
+    // Add a download button for each row
+    const actionCell = document.createElement("td");
+    const downloadButton = document.createElement("button");
+    downloadButton.className = "btn btn-info btn-sm";
+    downloadButton.textContent = "📂";
+    downloadButton.addEventListener("click", () => {
+      downloadPartitionRow(columns);
+    });
+
+    actionCell.appendChild(downloadButton);
+    rowElement.appendChild(actionCell);
+
+    tableBody.appendChild(rowElement);
+  });
+}
+
+function logToTerm(str: string) {
+  term.writeln(str);
+  console.log(str);
+}
+
+// Mock function for download action
+function downloadPartitionRow(row: string[]) {
+  logToTerm(`Downloading partition/row: ${row}`);
+  try {
+
+    const newJob = async () => {
+      const data = await esploader.readFlash(parseInt(row[3], 16), parseInt(row[4], 16), (pkt, progress, total) => {
+        logToTerm(`Reading flash...${progress}/${total}`);
+      });
+      logToTerm("Done fetching data, generating download...");
+      // Create blob and download to browser
+      const type = row[0] === "user_fs" ? `${row[0]}_${row[2]}` : row[0];
+      const fileName = `${chip}_${type}_${row[3]}_${row[4]}b.bin`;
+      const blob = new Blob([data], { type: 'application/octet-stream' });
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.style.display = "none";
+      a.href = url;
+      a.download = fileName;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+      logToTerm(`Download triggered for ${row}`);
+    };
+    newJob();
+  } catch (e) {
+    console.error(e);
+    logToTerm("Error fetching data:");
+    logToTerm(e);
+  }
+}
+
 disconnectButton.onclick = async () => {
   if (transport) await transport.disconnect();
 
@@ -248,6 +358,8 @@ disconnectButton.onclick = async () => {
   baudrates.style.display = "initial";
   consoleBaudrates.style.display = "initial";
   connectButton.style.display = "initial";
+  readPartitionDiv.style.display = "none";
+  partitionTableOutput.style.display = "none";
   disconnectButton.style.display = "none";
   traceButton.style.display = "none";
   eraseButton.style.display = "none";
