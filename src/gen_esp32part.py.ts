@@ -23,7 +23,7 @@ const DATA_TYPE = 0x01;
 const BOOTLOADER_TYPE = 0x02;
 const PARTITION_TABLE_TYPE = 0x03;
 
-const TYPES: Record<string, number> = {
+export const TYPES: Record<string, number> = {
   'bootloader': BOOTLOADER_TYPE,
   'partition_table': PARTITION_TABLE_TYPE,
   'app': APP_TYPE,
@@ -35,7 +35,7 @@ const TYPES: Record<string, number> = {
 //   return TYPES[ptype] ?? parseInt(ptype, 0);
 // }
 
-const SUBTYPES: Record<number, Record<string, number>> = {
+export const SUBTYPES: Record<number, Record<string, number>> = {
   [BOOTLOADER_TYPE]: {
     'primary': 0x00,
     'ota': 0x01,
