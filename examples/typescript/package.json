@@ -19,6 +19,7 @@
     "@types/w3c-web-usb": "^1.0.10",
     "@types/yargs": "^17.0.33",
     "buffer": "^6.0.3",
+    "crypto-browserify": "^3.12.1",
     "parcel": "^2.8.3",
     "parcel-resolver-ignore": "^2.1.5",
     "process": "^0.11.10",
