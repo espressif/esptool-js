@@ -9,6 +9,11 @@ const consoleStopButton = document.getElementById("consoleStopButton") as HTMLBu
 const eraseButton = document.getElementById("eraseButton") as HTMLButtonElement;
 const addFileButton = document.getElementById("addFile") as HTMLButtonElement;
 const programButton = document.getElementById("programButton");
+const partitionOffsetInput =
+    document.getElementById("partitionOffset") as HTMLInputElement;
+const readPartitionButton =
+    document.getElementById("readPartitionButton") as HTMLButtonElement;
+const partitionTableOutput = document.getElementById("partitionTableOutput");
 const filesDiv = document.getElementById("files");
 const terminal = document.getElementById("terminal");
 const programDiv = document.getElementById("program");
@@ -213,6 +218,25 @@ function cleanUp() {
   device = null;
   transport = null;
   chip = null;
+}
+
+readPartitionButton.onclick = async () => {
+  const offset = parseInt(partitionOffsetInput.value, 16);
+  try {
+    const data = await esploader.readFlash(offset, 800);
+    const decodedData = decodePartitionTable(data);
+    partitionTableOutput.innerHTML = JSON.stringify(decodedData, null, 2);
+  } catch (e) {
+    console.error(e);
+    term.writeln(`Error: ${e.message}`);
+  }
+};
+
+function decodePartitionTable(data: Uint8Array) {
+  // Add decoding logic for partition table here
+  console.log("Partition table data: ", data);
+  //TODO: replace this with the actual decoding logic
+  return data;
 }
 
 disconnectButton.onclick = async () => {
