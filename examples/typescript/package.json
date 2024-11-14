@@ -20,7 +20,7 @@
     "@types/yargs": "^17.0.33",
     "buffer": "^6.0.3",
     "crypto-browserify": "^3.12.1",
-    "parcel": "^2.8.3",
+    "parcel": "^2.13.0",
     "parcel-resolver-ignore": "^2.1.5",
     "process": "^0.11.10",
     "rimraf": "^4.1.2",
