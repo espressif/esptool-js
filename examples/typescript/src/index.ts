@@ -24,10 +24,11 @@ const debugLogging = document.getElementById("debugLogging") as HTMLInputElement
 
 // This is a frontend example of Esptool-JS using local bundle file
 // To optimize use a CDN hosted version like
-// https://unpkg.com/esptool-js@0.2.0/bundle.js
+// https://unpkg.com/esptool-js@0.5.0/bundle.js
 import { ESPLoader, FlashOptions, LoaderOptions, Transport } from "../../../lib";
 import { serial } from "web-serial-polyfill";
-if (!navigator.serial && navigator.usb) navigator.serial = serial;
+
+const serialLib = !navigator.serial && navigator.usb ? serial : navigator.serial;
 
 declare let Terminal; // Terminal is imported in HTML script
 declare let CryptoJS; // CryptoJS is imported in HTML script
@@ -85,7 +86,7 @@ const espLoaderTerminal = {
 
 connectButton.onclick = async () => {
   if (device === null) {
-    device = await navigator.serial.requestPort({});
+    device = await serialLib.requestPort({});
     transport = new Transport(device, true);
   }
 
@@ -235,7 +236,7 @@ disconnectButton.onclick = async () => {
 let isConsoleClosed = false;
 consoleStartButton.onclick = async () => {
   if (device === null) {
-    device = await navigator.serial.requestPort({});
+    device = await serialLib.requestPort({});
     transport = new Transport(device, true);
   }
   lblConsoleFor.style.display = "block";
@@ -250,12 +251,13 @@ consoleStartButton.onclick = async () => {
   isConsoleClosed = false;
 
   while (true && !isConsoleClosed) {
-    const val = await transport.rawRead();
-    if (typeof val !== "undefined") {
-      term.write(val);
-    } else {
+    const readLoop = transport.rawRead();
+    const { value, done } = await readLoop.next();
+
+    if (done || !value) {
       break;
     }
+    term.write(value);
   }
   console.log("quitting console");
 };

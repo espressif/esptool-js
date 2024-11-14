@@ -58,7 +58,6 @@ export interface SerialOptions {
  */
 class Transport {
   public slipReaderEnabled = false;
-  public leftOver = new Uint8Array(0);
   public baudrate = 0;
   private traceLog = "";
   private lastTraceTime = Date.now();
@@ -263,6 +262,10 @@ class Transport {
     return this.buffer.length;
   }
 
+  /**
+   * Detect if the data read from device is a Fatal or Guru meditation error.
+   * @param {Uint8Array} input Data read from device
+   */
   private detectPanicHandler(input: Uint8Array) {
     const guruMeditationRegex = /G?uru Meditation Error: (?:Core \d panic'ed \(([a-zA-Z ]*)\))?/;
     const fatalExceptionRegex = /F?atal exception \(\d+\): (?:([a-zA-Z ]*)?.*epc)?/;
@@ -282,6 +285,12 @@ class Transport {
   private SLIP_ESC_END = 0xdc;
   private SLIP_ESC_ESC = 0xdd;
 
+  /**
+   * Take a data array and return the first well formed packet after
+   * replacing the escape sequence. Reads at least 8 bytes.
+   * @param {number} timeout Timeout read data.
+   * @yields {Uint8Array} Formatted packet using SLIP escape sequences.
+   */
   async *read(timeout: number): AsyncGenerator<Uint8Array> {
     if (!this.reader) {
       this.reader = this.device.readable?.getReader();
@@ -351,44 +360,25 @@ class Transport {
 
   /**
    * Read from serial device without slip formatting.
-   * @param {number} timeout Read timeout in milliseconds (ms)
-   * @returns {Uint8Array} 8 bit unsigned data array read from device.
+   * @yields {Uint8Array} The next number in the Fibonacci sequence.
    */
-  async rawRead(timeout = 0) {
-    if (this.leftOver.length != 0) {
-      const p = this.leftOver;
-      this.leftOver = new Uint8Array(0);
-      return p;
-    }
-    if (!this.device.readable) {
-      return this.leftOver;
-    }
-    if (!this.reader) {
-      this.reader = this.device.readable.getReader();
-    }
-    let t;
+  async *rawRead(): AsyncGenerator<Uint8Array> {
+    if (!this.reader) return;
+
     try {
-      if (timeout > 0) {
-        t = setTimeout(() => {
-          if (this.reader) {
-            this.reader.cancel();
-          }
-        }, timeout);
+      while (true) {
+        const { value, done } = await this.reader.read();
+        if (done || !value) break;
+        if (this.tracing) {
+          console.log("Raw Read bytes");
+          this.trace(`Read ${value.length} bytes: ${this.hexConvert(value)}`);
+        }
+        yield value; // Yield each data chunk
       }
-      const { value, done } = await this.reader.read();
-      if (done) {
-        return value;
-      }
-      if (this.tracing) {
-        console.log("Raw Read bytes");
-        this.trace(`Read ${value.length} bytes: ${this.hexConvert(value)}`);
-      }
-      return value;
+    } catch (error) {
+      console.error("Error reading from serial port:", error);
     } finally {
-      if (timeout > 0) {
-        clearTimeout(t);
-      }
-      this.reader.releaseLock();
+      this.buffer = new Uint8Array(0);
     }
   }
 
@@ -432,7 +422,6 @@ class Transport {
       flowControl: serialOptions?.flowControl,
     });
     this.baudrate = baud;
-    this.leftOver = new Uint8Array(0);
     this.reader = this.device.readable?.getReader();
   }
 
@@ -461,8 +450,8 @@ class Transport {
       await this.reader?.cancel();
     }
     await this.waitForUnlock(400);
-    this.reader = undefined;
     await this.device.close();
+    this.reader = undefined;
   }
 }
 
