@@ -51,6 +51,7 @@
     "eslint-config-prettier": "^8.5.0",
     "eslint-plugin-jsdoc": "^46.4.5",
     "eslint-plugin-prettier": "^4.2.1",
+    "parcel": "^2.13.0",
     "prettier": "^2.7.1",
     "rimraf": "^3.0.2",
     "rollup": "^3.3.0",
