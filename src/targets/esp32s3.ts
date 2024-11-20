@@ -1,6 +1,5 @@
 import { ESPLoader } from "../esploader.js";
 import { ROM } from "./rom.js";
-import ESP32S3_STUB from "./stub_flasher/stub_flasher_32s3.json";
 
 export class ESP32S3ROM extends ROM {
   public CHIP_NAME = "ESP32-S3";
@@ -35,12 +34,6 @@ export class ESP32S3ROM extends ROM {
   public USB_RAM_BLOCK = 0x800;
   public UARTDEV_BUF_NO_USB = 3;
   public UARTDEV_BUF_NO = 0x3fcef14c;
-
-  public TEXT_START = ESP32S3_STUB.text_start;
-  public ENTRY = ESP32S3_STUB.entry;
-  public DATA_START = ESP32S3_STUB.data_start;
-  public ROM_DATA = ESP32S3_STUB.data;
-  public ROM_TEXT = ESP32S3_STUB.text;
 
   public async getChipDescription(loader: ESPLoader) {
     const majorRev = await this.getMajorChipVersion(loader);

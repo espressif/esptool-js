@@ -1,6 +1,5 @@
 import { ESPLoader } from "../esploader.js";
 import { ROM } from "./rom.js";
-import ESP8266_STUB from "./stub_flasher/stub_flasher_8266.json";
 
 export class ESP8266ROM extends ROM {
   public CHIP_NAME = "ESP8266";
@@ -35,12 +34,6 @@ export class ESP8266ROM extends ROM {
   public SPI_MOSI_DLEN_OFFS = 0; // not in esp8266
   public SPI_MISO_DLEN_OFFS = 0; // not in esp8266
   public SPI_W0_OFFS = 0x40;
-
-  public TEXT_START = ESP8266_STUB.text_start;
-  public ENTRY = ESP8266_STUB.entry;
-  public DATA_START = ESP8266_STUB.data_start;
-  public ROM_DATA = ESP8266_STUB.data;
-  public ROM_TEXT = ESP8266_STUB.text;
 
   public async readEfuse(loader: ESPLoader, offset: number): Promise<number> {
     const addr = this.EFUSE_RD_REG_BASE + 4 * offset;

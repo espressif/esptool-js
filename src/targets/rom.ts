@@ -79,15 +79,11 @@ export abstract class ROM {
 
   abstract BOOTLOADER_FLASH_OFFSET: number;
   abstract CHIP_NAME: string;
-  abstract DATA_START: number;
   // abstract DR_REG_SYSCON_BASE: number; //esp32
   // abstract EFUSE_RD_REG_BASE: number; //esp32
-  abstract ENTRY: number;
 
   abstract FLASH_WRITE_SIZE: number;
   // abstract IMAGE_CHIP_ID: number; // not in esp8266
-  abstract ROM_DATA: string;
-  abstract ROM_TEXT: string;
   abstract SPI_MOSI_DLEN_OFFS: number; // not in esp8266
   abstract SPI_MISO_DLEN_OFFS: number; // not in esp8266
   abstract SPI_REG_BASE: number;
@@ -98,6 +94,5 @@ export abstract class ROM {
   abstract UART_CLKDIV_MASK: number;
   abstract UART_CLKDIV_REG: number;
   abstract UART_DATE_REG_ADDR: number; // not in esp8266
-  abstract TEXT_START: number;
   // abstract XTAL_CLK_DIVIDER: number; //esp32
 }

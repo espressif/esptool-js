@@ -3,7 +3,7 @@ import { Data, deflate, Inflate } from "pako";
 import { Transport, SerialOptions } from "./webserial.js";
 import { ROM } from "./targets/rom.js";
 import { ClassicReset, ResetStrategy, UsbJtagSerialReset } from "./reset.js";
-import atob from "atob-lite";
+import { getStubJsonByChipName } from "./stubFlasher.js";
 
 /* global SerialPort */
 
@@ -750,7 +750,7 @@ export class ESPLoader {
     op: number | null = null,
     data: Uint8Array = new Uint8Array(0),
     chk = 0,
-    timeout = 3000,
+    timeout = this.DEFAULT_TIMEOUT,
   ) {
     this.debug("check_command " + opDescription);
     const resp = await this.command(op, data, chk, undefined, timeout);
@@ -770,6 +770,30 @@ export class ESPLoader {
    */
   async memBegin(size: number, blocks: number, blocksize: number, offset: number) {
     /* XXX: Add check to ensure that STUB is not getting overwritten */
+    if (this.IS_STUB) {
+      const loadStart = offset;
+      const loadEnd = offset + size;
+      const stub = await getStubJsonByChipName(this.chip.CHIP_NAME);
+      if (stub) {
+        const areasToCheck = [
+          [stub.bss_start || stub.data_start, stub.data_start + stub.decodedData.length],
+          [stub.text_start, stub.text_start + stub.decodedText.length],
+        ];
+        for (const [stubStart, stubEnd] of areasToCheck) {
+          if (loadStart < stubEnd && loadEnd > stubStart) {
+            throw new ESPError(
+              `Software loader is resident at 0x${stubStart.toString(16).padStart(8, "0")}-0x${stubEnd
+                .toString(16)
+                .padStart(8, "0")}. 
+            Can't load binary at overlapping address range 0x${loadStart.toString(16).padStart(8, "0")}-0x${loadEnd
+                .toString(16)
+                .padStart(8, "0")}. 
+            Either change binary loading address, or use the no-stub option to disable the software loader.`,
+            );
+          }
+        }
+      }
+    }
     this.debug("mem_begin " + size + " " + blocks + " " + blocksize + " " + offset.toString(16));
     let pkt = this._appendArray(this._intToByteArray(size), this._intToByteArray(blocks));
     pkt = this._appendArray(pkt, this._intToByteArray(blocksize));
@@ -780,17 +804,15 @@ export class ESPLoader {
   /**
    * Get the checksum for given unsigned 8-bit array
    * @param {Uint8Array} data Unsigned 8-bit integer array
+   * @param {number} state Initial checksum
    * @returns {number} - Array checksum
    */
-  checksum = function (data: Uint8Array) {
-    let i;
-    let chk = 0xef;
-
-    for (i = 0; i < data.length; i++) {
-      chk ^= data[i];
+  checksum(data: Uint8Array, state: number = this.ESP_CHECKSUM_MAGIC): number {
+    for (let i = 0; i < data.length; i++) {
+      state ^= data[i];
     }
-    return chk;
-  };
+    return state;
+  }
 
   /**
    * Send a block of image to RAM
@@ -831,14 +853,14 @@ export class ESPLoader {
    * @param {number} sizeBytes Size bytes number
    * @returns {number} - Scaled timeout for specified size.
    */
-  timeoutPerMb = function (secondsPerMb: number, sizeBytes: number) {
+  timeoutPerMb(secondsPerMb: number, sizeBytes: number) {
     const result = secondsPerMb * (sizeBytes / 1000000);
     if (result < 3000) {
       return 3000;
     } else {
       return result;
     }
-  };
+  }
 
   /**
    * Start downloading to Flash (performs an erase)
@@ -1193,50 +1215,40 @@ export class ESPLoader {
     }
 
     this.info("Uploading stub...");
-    let decoded = atob(this.chip.ROM_TEXT);
-    let chardata = decoded.split("").map(function (x) {
-      return x.charCodeAt(0);
-    });
-    const text = new Uint8Array(chardata);
-
-    decoded = atob(this.chip.ROM_DATA);
-    chardata = decoded.split("").map(function (x) {
-      return x.charCodeAt(0);
-    });
-    const data = new Uint8Array(chardata);
-
-    let blocks = Math.floor((text.length + this.ESP_RAM_BLOCK - 1) / this.ESP_RAM_BLOCK);
-    let i;
-
-    await this.memBegin(text.length, blocks, this.ESP_RAM_BLOCK, this.chip.TEXT_START);
-    for (i = 0; i < blocks; i++) {
-      const fromOffs = i * this.ESP_RAM_BLOCK;
-      const toOffs = fromOffs + this.ESP_RAM_BLOCK;
-      await this.memBlock(text.slice(fromOffs, toOffs), i);
+    const stubFlasher = await getStubJsonByChipName(this.chip.CHIP_NAME);
+    if (stubFlasher === undefined) {
+      this.debug("Error loading Stub json");
+      throw new Error("Error loading Stub json");
     }
 
-    blocks = Math.floor((data.length + this.ESP_RAM_BLOCK - 1) / this.ESP_RAM_BLOCK);
-    await this.memBegin(data.length, blocks, this.ESP_RAM_BLOCK, this.chip.DATA_START);
-    for (i = 0; i < blocks; i++) {
-      const fromOffs = i * this.ESP_RAM_BLOCK;
-      const toOffs = fromOffs + this.ESP_RAM_BLOCK;
-      await this.memBlock(data.slice(fromOffs, toOffs), i);
+    const stub = [stubFlasher.decodedText, stubFlasher.decodedData];
+
+    for (let i = 0; i < stub.length; i++) {
+      if (stub[i]) {
+        const offs = i === 0 ? stubFlasher.text_start : stubFlasher.data_start;
+        const length = stub[i].length;
+        const blocks = Math.floor((length + this.ESP_RAM_BLOCK - 1) / this.ESP_RAM_BLOCK);
+        await this.memBegin(length, blocks, this.ESP_RAM_BLOCK, offs);
+        for (let seq = 0; seq < blocks; seq++) {
+          const fromOffs = seq * this.ESP_RAM_BLOCK;
+          const toOffs = fromOffs + this.ESP_RAM_BLOCK;
+          await this.memBlock(stub[i].slice(fromOffs, toOffs), seq);
+        }
+      }
     }
 
     this.info("Running stub...");
-    await this.memFinish(this.chip.ENTRY);
+    await this.memFinish(stubFlasher.entry);
 
-    // Check up-to next 100 packets to see if stub is running
-    for (let i = 0; i < 100; i++) {
-      const { value: res } = await this.transport.read(1000).next();
-      if (res[0] === 79 && res[1] === 72 && res[2] === 65 && res[3] === 73) {
-        this.info("Stub running...");
-        this.IS_STUB = true;
-        this.FLASH_WRITE_SIZE = 0x4000;
-        return this.chip;
-      }
+    const { value: packetResult } = await this.transport.read(this.DEFAULT_TIMEOUT).next();
+    const packetStr = String.fromCharCode(...packetResult);
+
+    if (packetStr !== "OHAI") {
+      throw new ESPError(`Failed to start stub. Unexpected response ${packetStr}`);
     }
-    throw new ESPError("Failed to start stub. Unexpected response");
+
+    this.info("Stub running...");
+    return this.chip;
   }
 
   /**

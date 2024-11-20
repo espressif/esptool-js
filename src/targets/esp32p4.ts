@@ -1,6 +1,5 @@
 import { ESPLoader } from "../esploader.js";
 import { ESP32ROM } from "./esp32.js";
-import ESP32P4_STUB from "./stub_flasher/stub_flasher_32p4.json";
 
 export class ESP32P4ROM extends ESP32ROM {
   public CHIP_NAME = "ESP32-P4";
@@ -93,12 +92,6 @@ export class ESP32P4ROM extends ESP32ROM {
     11: "SECURE_BOOT_DIGEST2",
     12: "KM_INIT_KEY",
   };
-
-  public TEXT_START = ESP32P4_STUB.text_start;
-  public ENTRY = ESP32P4_STUB.entry;
-  public DATA_START = ESP32P4_STUB.data_start;
-  public ROM_DATA = ESP32P4_STUB.data;
-  public ROM_TEXT = ESP32P4_STUB.text;
 
   public async getPkgVersion(loader: ESPLoader): Promise<number> {
     const numWord = 2;
