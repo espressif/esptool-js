@@ -268,4 +268,17 @@ export class ESP32S2ROM extends ROM {
   public getEraseSize(offset: number, size: number) {
     return size;
   }
+
+  public async usingUsbOtg(loader: ESPLoader) {
+    const uartNo = (await loader.readReg(this.UARTDEV_BUF_NO)) & 0xff;
+    return uartNo === this.UARTDEV_BUF_NO_USB_OTG;
+  }
+
+  public async postConnect(loader: ESPLoader) {
+    const usingUsbOtg = await this.usingUsbOtg(loader);
+    loader.debug("In _post_connect using USB OTG ?" + usingUsbOtg);
+    if (usingUsbOtg) {
+      loader.ESP_RAM_BLOCK = this.USB_RAM_BLOCK;
+    }
+  }
 }
