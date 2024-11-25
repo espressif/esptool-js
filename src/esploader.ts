@@ -914,7 +914,7 @@ export class ESPLoader {
     let writeSize, timeout;
     if (this.IS_STUB) {
       writeSize = size;
-      timeout = 3000;
+      timeout = this.DEFAULT_TIMEOUT;
     } else {
       writeSize = eraseBlocks * this.FLASH_WRITE_SIZE;
       timeout = this.timeoutPerMb(this.ERASE_REGION_TIMEOUT_PER_MB, writeSize);
@@ -1248,6 +1248,7 @@ export class ESPLoader {
     }
 
     this.info("Stub running...");
+    this.IS_STUB = true;
     return this.chip;
   }
 
