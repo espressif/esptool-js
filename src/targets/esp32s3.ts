@@ -1,12 +1,13 @@
 import { ESPLoader } from "../esploader.js";
 import { ROM } from "./rom.js";
-import ESP32S3_STUB from "./stub_flasher/stub_flasher_32s3.json";
 
 export class ESP32S3ROM extends ROM {
   public CHIP_NAME = "ESP32-S3";
   public IMAGE_CHIP_ID = 9;
   public EFUSE_BASE = 0x60007000;
   public MAC_EFUSE_REG = this.EFUSE_BASE + 0x044;
+  public EFUSE_BLOCK1_ADDR = this.EFUSE_BASE + 0x44;
+  public EFUSE_BLOCK2_ADDR = this.EFUSE_BASE + 0x5c;
   public UART_CLKDIV_REG = 0x60000014;
   public UART_CLKDIV_MASK = 0xfffff;
   public UART_DATE_REG_ADDR = 0x60000080;
@@ -34,14 +35,71 @@ export class ESP32S3ROM extends ROM {
   public UARTDEV_BUF_NO_USB = 3;
   public UARTDEV_BUF_NO = 0x3fcef14c;
 
-  public TEXT_START = ESP32S3_STUB.text_start;
-  public ENTRY = ESP32S3_STUB.entry;
-  public DATA_START = ESP32S3_STUB.data_start;
-  public ROM_DATA = ESP32S3_STUB.data;
-  public ROM_TEXT = ESP32S3_STUB.text;
-
   public async getChipDescription(loader: ESPLoader) {
-    return "ESP32-S3";
+    const majorRev = await this.getMajorChipVersion(loader);
+    const minorRev = await this.getMinorChipVersion(loader);
+    const pkgVersion = await this.getPkgVersion(loader);
+
+    const chipName: { [key: number]: string } = {
+      0: "ESP32-S3 (QFN56)",
+      1: "ESP32-S3-PICO-1 (LGA56)",
+    };
+    return `${chipName[pkgVersion] || "unknown ESP32-S3"} (revision v${majorRev}.${minorRev})`;
+  }
+
+  public async getPkgVersion(loader: ESPLoader): Promise<number> {
+    const numWord = 3;
+    return ((await loader.readReg(this.EFUSE_BLOCK1_ADDR + 4 * numWord)) >> 21) & 0x07;
+  }
+
+  public async getRawMinorChipVersion(loader: ESPLoader) {
+    const hiNumWord = 5;
+    const hi = ((await loader.readReg(this.EFUSE_BLOCK1_ADDR + 4 * hiNumWord)) >> 23) & 0x01;
+    const lowNumWord = 3;
+    const low = ((await loader.readReg(this.EFUSE_BLOCK1_ADDR + 4 * lowNumWord)) >> 18) & 0x07;
+    return (hi << 3) + low;
+  }
+
+  public async getMinorChipVersion(loader: ESPLoader) {
+    const minorRaw = await this.getRawMinorChipVersion(loader);
+    if (await this.isEco0(loader, minorRaw)) {
+      return 0;
+    }
+    return this.getRawMinorChipVersion(loader);
+  }
+
+  public async getRawMajorChipVersion(loader: ESPLoader) {
+    const numWord = 5;
+    return ((await loader.readReg(this.EFUSE_BLOCK1_ADDR + 4 * numWord)) >> 24) & 0x03;
+  }
+
+  public async getMajorChipVersion(loader: ESPLoader) {
+    const minorRaw = await this.getRawMinorChipVersion(loader);
+    if (await this.isEco0(loader, minorRaw)) {
+      return 0;
+    }
+    return this.getRawMajorChipVersion(loader);
+  }
+
+  public async getBlkVersionMajor(loader: ESPLoader) {
+    const numWord = 4;
+    return ((await loader.readReg(this.EFUSE_BLOCK2_ADDR + 4 * numWord)) >> 0) & 0x03;
+  }
+
+  public async getBlkVersionMinor(loader: ESPLoader) {
+    const numWord = 3;
+    return ((await loader.readReg(this.EFUSE_BLOCK1_ADDR + 4 * numWord)) >> 24) & 0x07;
+  }
+
+  public async isEco0(loader: ESPLoader, minorRaw: number) {
+    // Workaround: The major version field was allocated to other purposes
+    // when block version is v1.1.
+    // Luckily only chip v0.0 have this kind of block version and efuse usage.
+    return (
+      (minorRaw & 0x7) === 0 &&
+      (await this.getBlkVersionMajor(loader)) === 1 &&
+      (await this.getBlkVersionMinor(loader)) === 1
+    );
   }
 
   public async getFlashCap(loader: ESPLoader): Promise<number> {

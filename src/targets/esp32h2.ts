@@ -1,6 +1,5 @@
 import { ESPLoader } from "../esploader.js";
 import { ROM } from "./rom.js";
-import ESP32H2_STUB from "./stub_flasher/stub_flasher_32h2.json";
 
 export class ESP32H2ROM extends ROM {
   public CHIP_NAME = "ESP32-H2";
@@ -33,12 +32,6 @@ export class ESP32H2ROM extends ROM {
   public USB_RAM_BLOCK = 0x800;
   public UARTDEV_BUF_NO_USB = 3;
   public UARTDEV_BUF_NO = 0x3fcef14c;
-
-  public TEXT_START = ESP32H2_STUB.text_start;
-  public ENTRY = ESP32H2_STUB.entry;
-  public DATA_START = ESP32H2_STUB.data_start;
-  public ROM_DATA = ESP32H2_STUB.data;
-  public ROM_TEXT = ESP32H2_STUB.text;
 
   public async getChipDescription(loader: ESPLoader) {
     return this.CHIP_NAME;

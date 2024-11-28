@@ -1,18 +1,11 @@
 import { ESPLoader } from "../esploader";
 import { ESP32C6ROM } from "./esp32c6";
-import ESP32C61_STUB from "./stub_flasher/stub_flasher_32c61.json";
 
 export class ESP32C61ROM extends ESP32C6ROM {
   public CHIP_NAME = "ESP32-C61";
   public IMAGE_CHIP_ID = 20;
 
   public CHIP_DETECT_MAGIC_VALUE = [0x33f0206f, 0x2421606f];
-
-  public TEXT_START = ESP32C61_STUB.text_start;
-  public ENTRY = ESP32C61_STUB.entry;
-  public DATA_START = ESP32C61_STUB.data_start;
-  public ROM_DATA = ESP32C61_STUB.data;
-  public ROM_TEXT = ESP32C61_STUB.text;
 
   public UART_DATE_REG_ADDR = 0x60000000 + 0x7c;
 

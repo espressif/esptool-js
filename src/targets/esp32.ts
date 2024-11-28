@@ -1,6 +1,5 @@
 import { ESPLoader } from "../esploader.js";
 import { ROM } from "./rom.js";
-import ESP32_STUB from "./stub_flasher/stub_flasher_32.json";
 
 export class ESP32ROM extends ROM {
   public CHIP_NAME = "ESP32";
@@ -30,12 +29,6 @@ export class ESP32ROM extends ROM {
   public SPI_W0_OFFS = 0x80;
   public SPI_MOSI_DLEN_OFFS = 0x28;
   public SPI_MISO_DLEN_OFFS = 0x2c;
-
-  public TEXT_START = ESP32_STUB.text_start;
-  public ENTRY = ESP32_STUB.entry;
-  public DATA_START = ESP32_STUB.data_start;
-  public ROM_DATA = ESP32_STUB.data;
-  public ROM_TEXT = ESP32_STUB.text;
 
   public async readEfuse(loader: ESPLoader, offset: number): Promise<number> {
     const addr = this.EFUSE_RD_REG_BASE + 4 * offset;

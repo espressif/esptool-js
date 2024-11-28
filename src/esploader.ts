@@ -2,8 +2,8 @@ import { ESPError } from "./error.js";
 import { Data, deflate, Inflate } from "pako";
 import { Transport, SerialOptions } from "./webserial.js";
 import { ROM } from "./targets/rom.js";
-import { customReset, usbJTAGSerialReset } from "./reset.js";
-import atob from "atob-lite";
+import { ClassicReset, ResetStrategy, UsbJtagSerialReset } from "./reset.js";
+import { getStubJsonByChipName } from "./stubFlasher.js";
 
 /* global SerialPort */
 
@@ -229,6 +229,7 @@ export class ESPLoader {
   // Response code(s) sent by ROM
   ROM_INVALID_RECV_MSG = 0x05; // response if an invalid message is received
 
+  DEFAULT_TIMEOUT = 3000;
   ERASE_REGION_TIMEOUT_PER_MB = 30000;
   ERASE_WRITE_TIMEOUT_PER_MB = 40000;
   MD5_TIMEOUT_PER_MB = 8000;
@@ -459,7 +460,7 @@ export class ESPLoader {
    */
   async flushInput() {
     try {
-      await this.transport.rawRead(200);
+      await this.transport.flushInput();
     } catch (e) {
       this.error((e as Error).message);
     }
@@ -471,11 +472,17 @@ export class ESPLoader {
    * @param {number} timeout timeout number in milliseconds
    * @returns {[number, Uint8Array]} valid response packet.
    */
-  async readPacket(op: number | null = null, timeout = 3000): Promise<[number, Uint8Array]> {
+  async readPacket(op: number | null = null, timeout = this.DEFAULT_TIMEOUT): Promise<[number, Uint8Array]> {
     // Check up-to next 100 packets for valid response packet
     for (let i = 0; i < 100; i++) {
-      const p = await this.transport.read(timeout);
+      const { value: p } = await this.transport.read(timeout).next();
+      if (!p || p.length < 8) {
+        continue;
+      }
       const resp = p[0];
+      if (resp !== 1) {
+        continue;
+      }
       const opRet = p[1];
       const val = this._byteArrayToInt(p[4], p[5], p[6], p[7]);
       const data = p.slice(8);
@@ -505,7 +512,7 @@ export class ESPLoader {
     data: Uint8Array = new Uint8Array(0),
     chk = 0,
     waitResponse = true,
-    timeout = 3000,
+    timeout = this.DEFAULT_TIMEOUT,
   ): Promise<[number, Uint8Array]> {
     if (op != null) {
       if (this.transport.tracing) {
@@ -546,7 +553,7 @@ export class ESPLoader {
    * @param {number} timeout - Timeout in milliseconds (Default: 3000ms)
    * @returns {number} - Command number value
    */
-  async readReg(addr: number, timeout = 3000) {
+  async readReg(addr: number, timeout = this.DEFAULT_TIMEOUT) {
     const pkt = this._intToByteArray(addr);
     const val = await this.command(this.ESP_READ_REG, pkt, undefined, undefined, timeout);
     return val[0];
@@ -592,11 +599,16 @@ export class ESPLoader {
     }
 
     try {
-      const resp = await this.command(0x08, cmd, undefined, undefined, 100);
+      let resp = await this.command(0x08, cmd, undefined, undefined, 100);
       // ROM bootloaders send some non-zero "val" response. The flasher stub sends 0.
       // If we receive 0 then it probably indicates that the chip wasn't or couldn't be
       // reset properly and esptool is talking to the flasher stub.
-      this.syncStubDetected = this.syncStubDetected && resp[0] === 0;
+      this.syncStubDetected = resp[0] === 0;
+
+      for (let i = 0; i < 7; i++) {
+        resp = await this.command();
+        this.syncStubDetected = this.syncStubDetected && resp[0] === 0;
+      }
       return resp;
     } catch (e) {
       this.debug("Sync err " + e);
@@ -607,56 +619,71 @@ export class ESPLoader {
   /**
    * Attempt to connect to the chip by sending a reset sequence and later a sync command.
    * @param {string} mode - Reset mode to use
-   * @param {boolean} esp32r0Delay - Enable delay for ESP32 R0
+   * @param {ResetStrategy} resetStrategy - Reset strategy class to use for connect
    * @returns {string} - Returns 'success' or 'error' message.
    */
-  async _connectAttempt(mode = "default_reset", esp32r0Delay = false) {
-    this.debug("_connect_attempt " + mode + " " + esp32r0Delay);
-    if (mode !== "no_reset") {
-      if (this.transport.getPid() === this.USB_JTAG_SERIAL_PID) {
-        // Custom reset sequence, which is required when the device
-        // is connecting via its USB-JTAG-Serial peripheral
-        await usbJTAGSerialReset(this.transport);
-      } else {
-        const strSequence = esp32r0Delay ? "D0|R1|W100|W2000|D1|R0|W50|D0" : "D0|R1|W100|D1|R0|W50|D0";
-        await customReset(this.transport, strSequence);
-      }
+  async _connectAttempt(mode = "default_reset", resetStrategy: ResetStrategy): Promise<string> {
+    this.debug("_connect_attempt " + mode);
+    await resetStrategy.reset();
+    const waitingBytes = this.transport.inWaiting();
+    const readBytes = await this.transport.newRead(waitingBytes > 0 ? waitingBytes : 1, this.DEFAULT_TIMEOUT);
+
+    const binaryString = Array.from(readBytes, (byte) => String.fromCharCode(byte)).join("");
+    const regex = /boot:(0x[0-9a-fA-F]+)(.*waiting for download)?/;
+    const match = binaryString.match(regex);
+
+    let bootLogDetected = false,
+      bootMode = "",
+      downloadMode = false;
+    if (match) {
+      bootLogDetected = true;
+      bootMode = match[1];
+      downloadMode = !!match[2];
     }
-    let i = 0;
-    let keepReading = true;
-    while (keepReading) {
+    let lastError = "";
+
+    for (let i = 0; i < 5; i++) {
       try {
-        const res = await this.transport.read(1000);
-        i += res.length;
-      } catch (e) {
-        this.debug((e as Error).message);
-        if (e instanceof Error) {
-          keepReading = false;
-          break;
-        }
-      }
-      await this._sleep(50);
-    }
-    this.transport.slipReaderEnabled = true;
-    this.syncStubDetected = true;
-    i = 7;
-    while (i--) {
-      try {
+        this.debug(`Sync connect attempt ${i}`);
         const resp = await this.sync();
         this.debug(resp[0].toString());
         return "success";
       } catch (error) {
+        this.debug(`Error at sync ${error}`);
         if (error instanceof Error) {
-          if (esp32r0Delay) {
-            this.info("_", false);
-          } else {
-            this.info(".", false);
-          }
+          lastError = error.message;
+        } else if (typeof error === "string") {
+          lastError = error;
+        } else {
+          lastError = JSON.stringify(error);
         }
       }
-      await this._sleep(50);
     }
-    return "error";
+
+    if (bootLogDetected) {
+      lastError = `Wrong boot mode detected (${bootMode}).
+        This chip needs to be in download mode.`;
+      if (downloadMode) {
+        lastError = `Download mode successfully detected, but getting no sync reply:
+           The serial TX path seems to be down.`;
+      }
+    }
+
+    return lastError;
+  }
+
+  constructResetSequency(): ResetStrategy[] {
+    if (this.transport.getPid() === this.USB_JTAG_SERIAL_PID) {
+      // Custom reset sequence, which is required when the device
+      // is connecting via its USB-JTAG-Serial peripheral
+      this.debug("using USB JTAG Serial Reset");
+      return [new UsbJtagSerialReset(this.transport)];
+    } else {
+      const DEFAULT_RESET_DELAY = 50;
+      const EXTRA_DELAY = DEFAULT_RESET_DELAY + 500;
+      this.debug("using Classic Serial Reset");
+      return [new ClassicReset(this.transport, DEFAULT_RESET_DELAY), new ClassicReset(this.transport, EXTRA_DELAY)];
+    }
   }
 
   /**
@@ -666,16 +693,13 @@ export class ESPLoader {
    * @param {boolean} detecting - Detect the connected chip
    */
   async connect(mode = "default_reset", attempts = 7, detecting = false) {
-    let i;
     let resp;
     this.info("Connecting...", false);
     await this.transport.connect(this.romBaudrate, this.serialOptions);
-    for (i = 0; i < attempts; i++) {
-      resp = await this._connectAttempt(mode, false);
-      if (resp === "success") {
-        break;
-      }
-      resp = await this._connectAttempt(mode, true);
+    const resetSequences = this.constructResetSequency();
+    for (let i = 0; i < attempts; i++) {
+      const resetSequence = resetSequences[i % resetSequences.length];
+      resp = await this._connectAttempt(mode, resetSequence);
       if (resp === "success") {
         break;
       }
@@ -683,6 +707,7 @@ export class ESPLoader {
     if (resp !== "success") {
       throw new ESPError("Failed to connect with the device");
     }
+    this.debug("Connect attempt successful.");
     this.info("\n\r", false);
 
     if (!detecting) {
@@ -702,7 +727,7 @@ export class ESPLoader {
    * @param {string} mode Reset mode to use for connection.
    */
   async detectChip(mode = "default_reset") {
-    await this.connect(mode);
+    await this.connect(mode, this.romBaudrate);
     this.info("Detecting chip type... ", false);
     if (this.chip != null) {
       this.info(this.chip.CHIP_NAME);
@@ -725,7 +750,7 @@ export class ESPLoader {
     op: number | null = null,
     data: Uint8Array = new Uint8Array(0),
     chk = 0,
-    timeout = 3000,
+    timeout = this.DEFAULT_TIMEOUT,
   ) {
     this.debug("check_command " + opDescription);
     const resp = await this.command(op, data, chk, undefined, timeout);
@@ -745,6 +770,30 @@ export class ESPLoader {
    */
   async memBegin(size: number, blocks: number, blocksize: number, offset: number) {
     /* XXX: Add check to ensure that STUB is not getting overwritten */
+    if (this.IS_STUB) {
+      const loadStart = offset;
+      const loadEnd = offset + size;
+      const stub = await getStubJsonByChipName(this.chip.CHIP_NAME);
+      if (stub) {
+        const areasToCheck = [
+          [stub.bss_start || stub.data_start, stub.data_start + stub.decodedData.length],
+          [stub.text_start, stub.text_start + stub.decodedText.length],
+        ];
+        for (const [stubStart, stubEnd] of areasToCheck) {
+          if (loadStart < stubEnd && loadEnd > stubStart) {
+            throw new ESPError(
+              `Software loader is resident at 0x${stubStart.toString(16).padStart(8, "0")}-0x${stubEnd
+                .toString(16)
+                .padStart(8, "0")}. 
+            Can't load binary at overlapping address range 0x${loadStart.toString(16).padStart(8, "0")}-0x${loadEnd
+                .toString(16)
+                .padStart(8, "0")}. 
+            Either change binary loading address, or use the no-stub option to disable the software loader.`,
+            );
+          }
+        }
+      }
+    }
     this.debug("mem_begin " + size + " " + blocks + " " + blocksize + " " + offset.toString(16));
     let pkt = this._appendArray(this._intToByteArray(size), this._intToByteArray(blocks));
     pkt = this._appendArray(pkt, this._intToByteArray(blocksize));
@@ -755,17 +804,15 @@ export class ESPLoader {
   /**
    * Get the checksum for given unsigned 8-bit array
    * @param {Uint8Array} data Unsigned 8-bit integer array
+   * @param {number} state Initial checksum
    * @returns {number} - Array checksum
    */
-  checksum = function (data: Uint8Array) {
-    let i;
-    let chk = 0xef;
-
-    for (i = 0; i < data.length; i++) {
-      chk ^= data[i];
+  checksum(data: Uint8Array, state: number = this.ESP_CHECKSUM_MAGIC): number {
+    for (let i = 0; i < data.length; i++) {
+      state ^= data[i];
     }
-    return chk;
-  };
+    return state;
+  }
 
   /**
    * Send a block of image to RAM
@@ -788,7 +835,7 @@ export class ESPLoader {
   async memFinish(entrypoint: number) {
     const isEntry = entrypoint === 0 ? 1 : 0;
     const pkt = this._appendArray(this._intToByteArray(isEntry), this._intToByteArray(entrypoint));
-    await this.checkCommand("leave RAM download mode", this.ESP_MEM_END, pkt, undefined, 50); // XXX: handle non-stub with diff timeout
+    await this.checkCommand("leave RAM download mode", this.ESP_MEM_END, pkt, undefined, 200); // XXX: handle non-stub with diff timeout
   }
 
   /**
@@ -806,14 +853,14 @@ export class ESPLoader {
    * @param {number} sizeBytes Size bytes number
    * @returns {number} - Scaled timeout for specified size.
    */
-  timeoutPerMb = function (secondsPerMb: number, sizeBytes: number) {
+  timeoutPerMb(secondsPerMb: number, sizeBytes: number) {
     const result = secondsPerMb * (sizeBytes / 1000000);
     if (result < 3000) {
       return 3000;
     } else {
       return result;
     }
-  };
+  }
 
   /**
    * Start downloading to Flash (performs an erase)
@@ -867,7 +914,7 @@ export class ESPLoader {
     let writeSize, timeout;
     if (this.IS_STUB) {
       writeSize = size;
-      timeout = 3000;
+      timeout = this.DEFAULT_TIMEOUT;
     } else {
       writeSize = eraseBlocks * this.FLASH_WRITE_SIZE;
       timeout = this.timeoutPerMb(this.ERASE_REGION_TIMEOUT_PER_MB, writeSize);
@@ -1138,7 +1185,7 @@ export class ESPLoader {
 
     let resp = new Uint8Array(0);
     while (resp.length < size) {
-      const packet = await this.transport.read(this.FLASH_READ_TIMEOUT);
+      const { value: packet } = await this.transport.read(this.FLASH_READ_TIMEOUT).next();
 
       if (packet instanceof Uint8Array) {
         if (packet.length > 0) {
@@ -1168,50 +1215,41 @@ export class ESPLoader {
     }
 
     this.info("Uploading stub...");
-    let decoded = atob(this.chip.ROM_TEXT);
-    let chardata = decoded.split("").map(function (x) {
-      return x.charCodeAt(0);
-    });
-    const text = new Uint8Array(chardata);
-
-    decoded = atob(this.chip.ROM_DATA);
-    chardata = decoded.split("").map(function (x) {
-      return x.charCodeAt(0);
-    });
-    const data = new Uint8Array(chardata);
-
-    let blocks = Math.floor((text.length + this.ESP_RAM_BLOCK - 1) / this.ESP_RAM_BLOCK);
-    let i;
-
-    await this.memBegin(text.length, blocks, this.ESP_RAM_BLOCK, this.chip.TEXT_START);
-    for (i = 0; i < blocks; i++) {
-      const fromOffs = i * this.ESP_RAM_BLOCK;
-      const toOffs = fromOffs + this.ESP_RAM_BLOCK;
-      await this.memBlock(text.slice(fromOffs, toOffs), i);
+    const stubFlasher = await getStubJsonByChipName(this.chip.CHIP_NAME);
+    if (stubFlasher === undefined) {
+      this.debug("Error loading Stub json");
+      throw new Error("Error loading Stub json");
     }
 
-    blocks = Math.floor((data.length + this.ESP_RAM_BLOCK - 1) / this.ESP_RAM_BLOCK);
-    await this.memBegin(data.length, blocks, this.ESP_RAM_BLOCK, this.chip.DATA_START);
-    for (i = 0; i < blocks; i++) {
-      const fromOffs = i * this.ESP_RAM_BLOCK;
-      const toOffs = fromOffs + this.ESP_RAM_BLOCK;
-      await this.memBlock(data.slice(fromOffs, toOffs), i);
+    const stub = [stubFlasher.decodedText, stubFlasher.decodedData];
+
+    for (let i = 0; i < stub.length; i++) {
+      if (stub[i]) {
+        const offs = i === 0 ? stubFlasher.text_start : stubFlasher.data_start;
+        const length = stub[i].length;
+        const blocks = Math.floor((length + this.ESP_RAM_BLOCK - 1) / this.ESP_RAM_BLOCK);
+        await this.memBegin(length, blocks, this.ESP_RAM_BLOCK, offs);
+        for (let seq = 0; seq < blocks; seq++) {
+          const fromOffs = seq * this.ESP_RAM_BLOCK;
+          const toOffs = fromOffs + this.ESP_RAM_BLOCK;
+          await this.memBlock(stub[i].slice(fromOffs, toOffs), seq);
+        }
+      }
     }
 
     this.info("Running stub...");
-    await this.memFinish(this.chip.ENTRY);
+    await this.memFinish(stubFlasher.entry);
 
-    // Check up-to next 100 packets to see if stub is running
-    for (let i = 0; i < 100; i++) {
-      const res = await this.transport.read(1000, 6);
-      if (res[0] === 79 && res[1] === 72 && res[2] === 65 && res[3] === 73) {
-        this.info("Stub running...");
-        this.IS_STUB = true;
-        this.FLASH_WRITE_SIZE = 0x4000;
-        return this.chip;
-      }
+    const { value: packetResult } = await this.transport.read(this.DEFAULT_TIMEOUT).next();
+    const packetStr = String.fromCharCode(...packetResult);
+
+    if (packetStr !== "OHAI") {
+      throw new ESPError(`Failed to start stub. Unexpected response ${packetStr}`);
     }
-    throw new ESPError("Failed to start stub. Unexpected response");
+
+    this.info("Stub running...");
+    this.IS_STUB = true;
+    return this.chip;
   }
 
   /**
@@ -1219,30 +1257,13 @@ export class ESPLoader {
    */
   async changeBaud() {
     this.info("Changing baudrate to " + this.baudrate);
-    const secondArg = this.IS_STUB ? this.transport.baudrate : 0;
+    const secondArg = this.IS_STUB ? this.romBaudrate : 0;
     const pkt = this._appendArray(this._intToByteArray(this.baudrate), this._intToByteArray(secondArg));
-    const resp = await this.command(this.ESP_CHANGE_BAUDRATE, pkt);
-    this.debug(resp[0].toString());
+    await this.command(this.ESP_CHANGE_BAUDRATE, pkt);
     this.info("Changed");
     await this.transport.disconnect();
     await this._sleep(50);
     await this.transport.connect(this.baudrate, this.serialOptions);
-
-    /* original code seemed absolutely unreliable. use retries and less sleep */
-    try {
-      let i = 64;
-      while (i--) {
-        try {
-          await this.sync();
-          break;
-        } catch (error) {
-          this.debug((error as Error).message);
-        }
-        await this._sleep(10);
-      }
-    } catch (e) {
-      this.debug((e as Error).message);
-    }
   }
 
   /**

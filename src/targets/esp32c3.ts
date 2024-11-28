@@ -1,6 +1,5 @@
 import { ESPLoader } from "../esploader.js";
 import { ROM } from "./rom.js";
-import ESP32C3_STUB from "./stub_flasher/stub_flasher_32c3.json";
 
 export class ESP32C3ROM extends ROM {
   public CHIP_NAME = "ESP32-C3";
@@ -29,12 +28,6 @@ export class ESP32C3ROM extends ROM {
   public SPI_MOSI_DLEN_OFFS = 0x24;
   public SPI_MISO_DLEN_OFFS = 0x28;
   public SPI_W0_OFFS = 0x58;
-
-  public TEXT_START = ESP32C3_STUB.text_start;
-  public ENTRY = ESP32C3_STUB.entry;
-  public DATA_START = ESP32C3_STUB.data_start;
-  public ROM_DATA = ESP32C3_STUB.data;
-  public ROM_TEXT = ESP32C3_STUB.text;
 
   public async getPkgVersion(loader: ESPLoader): Promise<number> {
     const numWord = 3;

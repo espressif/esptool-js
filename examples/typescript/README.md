@@ -1,6 +1,8 @@
 # Using Esptool-JS in a Typescript environment
 
-This example has example code in `src/index.ts` which is called in the `index.html`. We are using Parcel to bundle resulting files for simplicity here.
+Typescript example shows basic usage of esptool-js in static html js website with Webserial. The main code is in `src/index.ts` which is called in the `index.html`. 
+
+We are using Parcel to bundle resulting files for simplicity here.
 
 **NOTE:** This example is linked to the documentation generated from the source code. You could remove such dependency if necessary by remove `./docs/index.html` from `src/index.html` if you need so. NPM commands used below will generate documentation as well.
 
