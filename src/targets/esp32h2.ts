@@ -1,40 +1,69 @@
 import { ESPLoader } from "../esploader.js";
-import { ROM } from "./rom.js";
+import { ESP32C6ROM } from "./esp32c6.js";
 
-export class ESP32H2ROM extends ROM {
+export class ESP32H2ROM extends ESP32C6ROM {
   public CHIP_NAME = "ESP32-H2";
   public IMAGE_CHIP_ID = 16;
-  public EFUSE_BASE = 0x60008800;
-  public MAC_EFUSE_REG = this.EFUSE_BASE + 0x044;
-  public UART_CLKDIV_REG = 0x3ff40014;
-  public UART_CLKDIV_MASK = 0xfffff;
-  public UART_DATE_REG_ADDR = 0x6000007c;
+  public CHIP_DETECT_MAGIC_VALUE = [0xd7b73e80];
 
-  public FLASH_WRITE_SIZE = 0x400;
-  public BOOTLOADER_FLASH_OFFSET = 0x0;
+  public DR_REG_LP_WDT_BASE = 0x600b1c00;
+  public RTC_CNTL_WDTCONFIG0_REG = this.DR_REG_LP_WDT_BASE + 0x0; // LP_WDT_RWDT_CONFIG0_REG
+  public RTC_CNTL_WDTCONFIG1_REG = this.DR_REG_LP_WDT_BASE + 0x0004; // LP_WDT_RWDT_CONFIG1_REG
+  public RTC_CNTL_WDTWPROTECT_REG = this.DR_REG_LP_WDT_BASE + 0x001c; // LP_WDT_RWDT_WPROTECT_REG
 
-  public FLASH_SIZES = {
-    "1MB": 0x00,
-    "2MB": 0x10,
-    "4MB": 0x20,
-    "8MB": 0x30,
-    "16MB": 0x40,
+  public RTC_CNTL_SWD_CONF_REG = this.DR_REG_LP_WDT_BASE + 0x0020; // LP_WDT_SWD_CONFIG_REG
+  public RTC_CNTL_SWD_AUTO_FEED_EN = 1 << 18;
+  public RTC_CNTL_SWD_WPROTECT_REG = this.DR_REG_LP_WDT_BASE + 0x0024; // LP_WDT_SWD_WPROTECT_REG
+  public RTC_CNTL_SWD_WKEY = 0x50d83aa1; // LP_WDT_SWD_WKEY, same as WDT key in this case
+
+  public FLASH_FREQUENCY = {
+    "48m": 0xf,
+    "24m": 0x0,
+    "16m": 0x1,
+    "12m": 0x2,
   };
 
-  public SPI_REG_BASE = 0x60002000;
-  public SPI_USR_OFFS = 0x18;
-  public SPI_USR1_OFFS = 0x1c;
-  public SPI_USR2_OFFS = 0x20;
-  public SPI_MOSI_DLEN_OFFS = 0x24;
-  public SPI_MISO_DLEN_OFFS = 0x28;
-  public SPI_W0_OFFS = 0x58;
+  public UF2_FAMILY_ID = 0x332726f6;
 
-  public USB_RAM_BLOCK = 0x800;
-  public UARTDEV_BUF_NO_USB = 3;
-  public UARTDEV_BUF_NO = 0x3fcef14c;
+  public EFUSE_MAX_KEY = 5;
+  public KEY_PURPOSES = {
+    0: "USER/EMPTY",
+    1: "ECDSA_KEY",
+    2: "XTS_AES_256_KEY_1",
+    3: "XTS_AES_256_KEY_2",
+    4: "XTS_AES_128_KEY",
+    5: "HMAC_DOWN_ALL",
+    6: "HMAC_DOWN_JTAG",
+    7: "HMAC_DOWN_DIGITAL_SIGNATURE",
+    8: "HMAC_UP",
+    9: "SECURE_BOOT_DIGEST0",
+    10: "SECURE_BOOT_DIGEST1",
+    11: "SECURE_BOOT_DIGEST2",
+  };
+
+  public async getPkgVersion(loader: ESPLoader) {
+    const numWord = 4;
+    return ((await loader.readReg(this.EFUSE_BLOCK1_ADDR + 4 * numWord)) >> 0) & 0x07;
+  }
+
+  public async get_minorChipVersion(loader: ESPLoader) {
+    const numWord = 3;
+    return (await loader.readReg(this.EFUSE_BLOCK1_ADDR + (4 * numWord)) >> 18) & 0x07;
+  }
+
+  public async getMajorChipVersion(loader: ESPLoader) {
+    const numWord = 3;
+    return (await loader.readReg(this.EFUSE_BLOCK1_ADDR + (4 * numWord)) >> 21) & 0x03;
+  }
 
   public async getChipDescription(loader: ESPLoader) {
-    return this.CHIP_NAME;
+    const chipDesc: { [key: number]: string } = {
+      0: "ESP32-H2",
+    };
+    const chipIndex = await this.getPkgVersion(loader);
+    const majorRev = await this.getMajorChipVersion(loader);
+    const minorRev = await this.getMinorChipVersion(loader);
+    return `${chipDesc[chipIndex] || "unknown ESP32-H2"} (revision v${majorRev}.${minorRev})`;
   }
 
   public async getChipFeatures(loader: ESPLoader) {
@@ -49,14 +78,6 @@ export class ESP32H2ROM extends ROM {
   public _d2h(d: number) {
     const h = (+d).toString(16);
     return h.length === 1 ? "0" + h : h;
-  }
-
-  public async postConnect(loader: ESPLoader) {
-    const bufNo = (await loader.readReg(this.UARTDEV_BUF_NO)) & 0xff;
-    loader.debug("In _post_connect " + bufNo);
-    if (bufNo == this.UARTDEV_BUF_NO_USB) {
-      loader.ESP_RAM_BLOCK = this.USB_RAM_BLOCK;
-    }
   }
 
   public async readMac(loader: ESPLoader) {
@@ -89,5 +110,8 @@ export class ESP32H2ROM extends ROM {
 
   public getEraseSize(offset: number, size: number) {
     return size;
+  }
+  public async hardReset(loader: ESPLoader) {
+    return await loader.hardReset();
   }
 }

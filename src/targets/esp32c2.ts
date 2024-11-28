@@ -30,6 +30,12 @@ export class ESP32C2ROM extends ESP32C3ROM {
   public SPI_MISO_DLEN_OFFS = 0x28;
   public SPI_W0_OFFS = 0x58;
 
+  public RTCCNTL_BASE_REG = 0x60008000;
+  public RTC_CNTL_WDTCONFIG0_REG = this.RTCCNTL_BASE_REG + 0x0084;
+  public RTC_CNTL_WDTCONFIG1_REG = this.RTCCNTL_BASE_REG + 0x0088;
+  public RTC_CNTL_WDTWPROTECT_REG = this.RTCCNTL_BASE_REG + 0x009c;
+  public RTC_CNTL_WDT_WKEY = 0x50d83aa1;
+
   public async getPkgVersion(loader: ESPLoader): Promise<number> {
     const numWord = 1;
     const block1Addr = this.EFUSE_BASE + 0x040;
@@ -122,5 +128,9 @@ export class ESP32C2ROM extends ESP32C3ROM {
 
   public getEraseSize(offset: number, size: number) {
     return size;
+  }
+
+  public async hardReset(loader: ESPLoader){
+    return await loader.hardReset();
   }
 }

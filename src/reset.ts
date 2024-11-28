@@ -116,6 +116,7 @@ export class HardReset implements ResetStrategy {
   }
 
   async reset() {
+    await this.transport.setRTS(true);
     if (this.usingUsbOtg) {
       await sleep(200);
       await this.transport.setRTS(false);

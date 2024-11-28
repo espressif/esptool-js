@@ -60,6 +60,10 @@ export class ESP32P4ROM extends ESP32ROM {
 
   public FLASH_ENCRYPTED_WRITE_ALIGN = 16;
 
+  public UARTDEV_BUF_NO = 0x4ff3fec8; // Variable in ROM .bss which indicates the port in use
+  public UARTDEV_BUF_NO_USB_OTG = 5; // The above var when USB-OTG is used
+  public UARTDEV_BUF_NO_USB_JTAG_SERIAL = 6; // The above var when USB-JTAG/Serial is used
+
   public MEMORY_MAP = [
     [0x00000000, 0x00010000, "PADDING"],
     [0x40000000, 0x4c000000, "DROM"],
@@ -93,11 +97,22 @@ export class ESP32P4ROM extends ESP32ROM {
     12: "KM_INIT_KEY",
   };
 
+  public DR_REG_LP_WDT_BASE = 0x50116000;
+  public RTC_CNTL_WDTCONFIG0_REG = this.DR_REG_LP_WDT_BASE + 0x0; // LP_WDT_CONFIG0_REG
+  public RTC_CNTL_WDTCONFIG1_REG = this.DR_REG_LP_WDT_BASE + 0x0004; // LP_WDT_CONFIG1_REG
+  public RTC_CNTL_WDTWPROTECT_REG = this.DR_REG_LP_WDT_BASE + 0x0018; // LP_WDT_WPROTECT_REG
+  public RTC_CNTL_WDT_WKEY = 0x50d83aa1;
+
+  public RTC_CNTL_SWD_CONF_REG = this.DR_REG_LP_WDT_BASE + 0x001c; // RTC_WDT_SWD_CONFIG_REG
+  public RTC_CNTL_SWD_AUTO_FEED_EN = 1 << 18;
+  public RTC_CNTL_SWD_WPROTECT_REG = this.DR_REG_LP_WDT_BASE + 0x0020; // RTC_WDT_SWD_WPROTECT_REG
+  public RTC_CNTL_SWD_WKEY = 0x50d83aa1; // RTC_WDT_SWD_WKEY, same as WDT key in this case
+
   public async getPkgVersion(loader: ESPLoader): Promise<number> {
     const numWord = 2;
     const addr = this.EFUSE_BLOCK1_ADDR + 4 * numWord;
     const registerValue = await loader.readReg(addr);
-    return (registerValue >> 27) & 0x07;
+    return (registerValue >> 20) & 0x07;
   }
 
   public async getMinorChipVersion(loader: ESPLoader): Promise<number> {
@@ -212,4 +227,32 @@ export class ESP32P4ROM extends ESP32ROM {
     }
     return false;
   }
+
+  public async usingUsbOtg(loader: ESPLoader) {
+    const uartNo = (await loader.readReg(this.UARTDEV_BUF_NO)) & 0xff;
+    return uartNo === this.UARTDEV_BUF_NO_USB_OTG;
+  }
+
+  public async usingUsbJtagSerial(loader: ESPLoader) {
+    const uartNo = (await loader.readReg(this.UARTDEV_BUF_NO)) & 0xff;
+    return uartNo === this.UARTDEV_BUF_NO_USB_JTAG_SERIAL;
+  }
+
+
+  public async rtcWdtReset(loader: ESPLoader) {
+    await loader.writeReg(this.RTC_CNTL_WDTWPROTECT_REG, this.RTC_CNTL_WDT_WKEY); // unlock
+    await loader.writeReg(this.RTC_CNTL_WDTCONFIG1_REG, 5000); // set WDT timeout
+    await loader.writeReg(this.RTC_CNTL_WDTCONFIG0_REG, (1 << 31) | (5 << 28) | (1 << 8) | 2); //  enable WDT
+    await loader.writeReg(this.RTC_CNTL_WDTWPROTECT_REG, 0); // lock
+  }
+
+  public async hardReset(loader: ESPLoader) {
+    const isUsingUsbJTAGSerial = await this.usingUsbJtagSerial(loader);
+    if (isUsingUsbJTAGSerial) {
+      await this.rtcWdtReset(loader);
+    } else {
+      loader.hardReset();
+    }
+  }
+
 }
