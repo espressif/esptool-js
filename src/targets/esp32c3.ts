@@ -6,9 +6,10 @@ export class ESP32C3ROM extends ROM {
   public IMAGE_CHIP_ID = 5;
   public EFUSE_BASE = 0x60008800;
   public MAC_EFUSE_REG = this.EFUSE_BASE + 0x044;
-  public UART_CLKDIV_REG = 0x3ff40014;
   public UART_CLKDIV_MASK = 0xfffff;
   public UART_DATE_REG_ADDR = 0x6000007c;
+
+  public CHIP_DETECT_MAGIC_VALUE = [0x6921506f, 0x1b31506f, 0x4881606f, 0x4361606f];
 
   public FLASH_WRITE_SIZE = 0x400;
   public BOOTLOADER_FLASH_OFFSET = 0;
@@ -29,10 +30,41 @@ export class ESP32C3ROM extends ROM {
   public SPI_MISO_DLEN_OFFS = 0x28;
   public SPI_W0_OFFS = 0x58;
 
+  public RTCCNTL_BASE_REG = 0x60008000;
+  public RTC_CNTL_SWD_CONF_REG = this.RTCCNTL_BASE_REG + 0x00ac;
+  public RTC_CNTL_SWD_AUTO_FEED_EN = 1 << 31;
+  public RTC_CNTL_SWD_WPROTECT_REG = this.RTCCNTL_BASE_REG + 0x00b0;
+  public RTC_CNTL_SWD_WKEY = 0x8f1d312a;
+
+  public RTC_CNTL_WDTCONFIG0_REG = this.RTCCNTL_BASE_REG + 0x0090;
+  public RTC_CNTL_WDTCONFIG1_REG = this.RTCCNTL_BASE_REG + 0x0094;
+  public RTC_CNTL_WDTWPROTECT_REG = this.RTCCNTL_BASE_REG + 0x00a8;
+  public RTC_CNTL_WDT_WKEY = 0x50d83aa1;
+
+  public UART_CLKDIV_REG = 0x60000014;
+  public EFUSE_BLOCK1_ADDR = this.EFUSE_BASE + 0x044;
+
+  public EFUSE_RD_REG_BASE = this.EFUSE_BASE + 0x030; // BLOCK0 read base address
+
+  public EFUSE_PURPOSE_KEY0_REG = this.EFUSE_BASE + 0x34;
+  public EFUSE_PURPOSE_KEY0_SHIFT = 24;
+  public EFUSE_PURPOSE_KEY1_REG = this.EFUSE_BASE + 0x34;
+  public EFUSE_PURPOSE_KEY1_SHIFT = 28;
+  public EFUSE_PURPOSE_KEY2_REG = this.EFUSE_BASE + 0x38;
+  public EFUSE_PURPOSE_KEY2_SHIFT = 0;
+  public EFUSE_PURPOSE_KEY3_REG = this.EFUSE_BASE + 0x38;
+  public EFUSE_PURPOSE_KEY3_SHIFT = 4;
+  public EFUSE_PURPOSE_KEY4_REG = this.EFUSE_BASE + 0x38;
+  public EFUSE_PURPOSE_KEY4_SHIFT = 8;
+  public EFUSE_PURPOSE_KEY5_REG = this.EFUSE_BASE + 0x38;
+  public EFUSE_PURPOSE_KEY5_SHIFT = 12;
+
+  public UARTDEV_BUF_NO = 0x3fcdf07c; // Variable in ROM .bss which indicates the port in use
+  public UARTDEV_BUF_NO_USB_JTAG_SERIAL = 3; // The above var when USB-JTAG/Serial is used
+
   public async getPkgVersion(loader: ESPLoader): Promise<number> {
     const numWord = 3;
-    const block1Addr = this.EFUSE_BASE + 0x044;
-    const addr = block1Addr + 4 * numWord;
+    const addr = this.EFUSE_BLOCK1_ADDR + 4 * numWord;
     const word3 = await loader.readReg(addr);
     const pkgVersion = (word3 >> 21) & 0x07;
     return pkgVersion;
@@ -47,17 +79,30 @@ export class ESP32C3ROM extends ROM {
     return ret;
   }
 
+  public async getMajorChipVersion(loader: ESPLoader) {
+    const numWord = 5;
+    return ((await loader.readReg(this.EFUSE_BLOCK1_ADDR + 4 * numWord)) >> 24) & 0x03;
+  }
+
+  public async getMinorChipVersion(loader: ESPLoader) {
+    const hiNumWord = 5;
+    const hi = ((await loader.readReg(this.EFUSE_BLOCK1_ADDR + 4 * hiNumWord)) >> 23) & 0x01;
+    const lowNumWord = 3;
+    const low = ((await loader.readReg(this.EFUSE_BLOCK1_ADDR + 4 * lowNumWord)) >> 18) & 0x07;
+    return (hi << 3) + low;
+  }
+
   public async getChipDescription(loader: ESPLoader) {
-    let desc: string;
-    const pkgVer = await this.getPkgVersion(loader);
-    if (pkgVer === 0) {
-      desc = "ESP32-C3";
-    } else {
-      desc = "unknown ESP32-C3";
-    }
-    const chip_rev = await this.getChipRevision(loader);
-    desc += " (revision " + chip_rev + ")";
-    return desc;
+    const chipDesc: { [key: number]: string } = {
+      0: "ESP32-C3 (QFN32)",
+      1: "ESP8685 (QFN28)",
+      2: "ESP32-C3 AZ (QFN32)",
+      3: "ESP8686 (QFN24)",
+    };
+    const chipIndex = await this.getPkgVersion(loader);
+    const majorRev = await this.getMajorChipVersion(loader);
+    const minorRev = await this.getMinorChipVersion(loader);
+    return `${chipDesc[chipIndex] || "unknown ESP32-C3"} (revision v${majorRev}.${minorRev})`;
   }
 
   public async getFlashCap(loader: ESPLoader): Promise<number> {
@@ -71,8 +116,7 @@ export class ESP32C3ROM extends ROM {
 
   public async getFlashVendor(loader: ESPLoader): Promise<string> {
     const numWord = 4;
-    const block1Addr = this.EFUSE_BASE + 0x044;
-    const addr = block1Addr + 4 * numWord;
+    const addr = this.EFUSE_BLOCK1_ADDR + 4 * numWord;
     const registerValue = await loader.readReg(addr);
     const vendorId = (registerValue >> 0) & 0x07;
     const vendorMap: { [key: number]: string } = {
@@ -105,7 +149,7 @@ export class ESP32C3ROM extends ROM {
     return features;
   }
 
-  public async getCrystalFreq(loader: ESPLoader) {
+  public async getCrystalFreq(loader?: ESPLoader) {
     return 40;
   }
 
@@ -144,5 +188,26 @@ export class ESP32C3ROM extends ROM {
 
   public getEraseSize(offset: number, size: number) {
     return size;
+  }
+
+  public async useUsbJTAGSerial(loader: ESPLoader) {
+    const reg = (await loader.readReg(this.UARTDEV_BUF_NO)) & 0xff;
+    return this.UARTDEV_BUF_NO_USB_JTAG_SERIAL === reg;
+  }
+
+  public async rtcWdtReset(loader: ESPLoader) {
+    await loader.writeReg(this.RTC_CNTL_WDTWPROTECT_REG, this.RTC_CNTL_WDT_WKEY); // unlock
+    await loader.writeReg(this.RTC_CNTL_WDTCONFIG1_REG, 5000); // set WDT timeout
+    await loader.writeReg(this.RTC_CNTL_WDTCONFIG0_REG, (1 << 31) | (5 << 28) | (1 << 8) | 2); //  enable WDT
+    await loader.writeReg(this.RTC_CNTL_WDTWPROTECT_REG, 0); // lock
+  }
+
+  public async hardReset(loader: ESPLoader) {
+    const isUsingUsbJTAGSerial = await this.useUsbJTAGSerial(loader);
+    if (isUsingUsbJTAGSerial) {
+      await this.rtcWdtReset(loader);
+    } else {
+      loader.hardReset();
+    }
   }
 }

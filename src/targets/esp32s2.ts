@@ -281,4 +281,28 @@ export class ESP32S2ROM extends ROM {
       loader.ESP_RAM_BLOCK = this.USB_RAM_BLOCK;
     }
   }
+
+  public async rtcWdtReset(loader: ESPLoader) {
+    await loader.writeReg(this.RTC_CNTL_WDTWPROTECT_REG, this.RTC_CNTL_WDT_WKEY); // unlock
+    await loader.writeReg(this.RTC_CNTL_WDTCONFIG1_REG, 5000); // set WDT timeout
+    await loader.writeReg(this.RTC_CNTL_WDTCONFIG0_REG, (1 << 31) | (5 << 28) | (1 << 8) | 2); //  enable WDT
+    await loader.writeReg(this.RTC_CNTL_WDTWPROTECT_REG, 0); // lock
+  }
+
+  public async hardReset(loader: ESPLoader) {
+    const isUsingUsbOtg = await this.usingUsbOtg(loader);
+    if (isUsingUsbOtg) {
+      const strapReg = await loader.readReg(this.GPIO_STRAP_REG);
+      const forceDlReg = await loader.readReg(this.RTC_CNTL_OPTION1_REG);
+      if (
+        (strapReg & this.GPIO_STRAP_SPI_BOOT_MASK) === 0 &&
+        (forceDlReg & this.RTC_CNTL_FORCE_DOWNLOAD_BOOT_MASK) === 0
+      ) {
+        // GPIO0 Low
+        await this.rtcWdtReset(loader);
+      }
+    } else {
+      loader.hardReset();
+    }
+  }
 }
