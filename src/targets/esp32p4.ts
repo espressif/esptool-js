@@ -137,15 +137,15 @@ export class ESP32P4ROM extends ESP32ROM {
     return `${chipName} (revision v${majorRev}.${minorRev})`;
   }
 
-  public async getChipFeatures(loader: ESPLoader): Promise<string[]> {
+  public async getChipFeatures(): Promise<string[]> {
     return ["High-Performance MCU"];
   }
 
-  public async getCrystalFreq(loader: ESPLoader): Promise<number> {
+  public async getCrystalFreq(): Promise<number> {
     return 40; // ESP32P4 XTAL is fixed to 40MHz
   }
 
-  public async getFlashVoltage(loader: ESPLoader) {
+  public async getFlashVoltage() {
     return;
   }
 
@@ -181,7 +181,7 @@ export class ESP32P4ROM extends ESP32ROM {
     );
   }
 
-  public async getFlashCryptConfig(loader: ESPLoader) {
+  public async getFlashCryptConfig() {
     return; // doesn't exist on ESP32-P4
   }
 
@@ -238,7 +238,6 @@ export class ESP32P4ROM extends ESP32ROM {
     return uartNo === this.UARTDEV_BUF_NO_USB_JTAG_SERIAL;
   }
 
-
   public async rtcWdtReset(loader: ESPLoader) {
     await loader.writeReg(this.RTC_CNTL_WDTWPROTECT_REG, this.RTC_CNTL_WDT_WKEY); // unlock
     await loader.writeReg(this.RTC_CNTL_WDTCONFIG1_REG, 5000); // set WDT timeout
@@ -254,5 +253,4 @@ export class ESP32P4ROM extends ESP32ROM {
       loader.hardReset();
     }
   }
-
 }

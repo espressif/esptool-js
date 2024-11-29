@@ -149,7 +149,7 @@ export class ESP32C3ROM extends ROM {
     return features;
   }
 
-  public async getCrystalFreq(loader: ESPLoader) {
+  public async getCrystalFreq(loader?: ESPLoader) {
     return 40;
   }
 
