@@ -127,7 +127,7 @@ export class ESP32C6ROM extends ESP32C3ROM {
     return ["Wi-Fi 6", "BT 5", "IEEE802.15.4"];
   }
 
-  public async getCrystalFreq() {
+  public async getCrystalFreq(loader: ESPLoader) {
     return 40;
   }
 
