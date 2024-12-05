@@ -293,6 +293,7 @@ readFlashData.onclick = async () => {
 };
 
 readPartitionButton.onclick = async () => {
+  initializePartitionTable();
   const hexOffset = partitionOffsetInput.value;
   const offset = parseInt(hexOffset, 16);
   try {
