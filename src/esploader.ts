@@ -4,6 +4,7 @@ import { Transport, SerialOptions } from "./webserial.js";
 import { ROM } from "./targets/rom.js";
 import { ClassicReset, ResetStrategy, UsbJtagSerialReset } from "./reset.js";
 import { getStubJsonByChipName } from "./stubFlasher.js";
+import { padTo } from "./util.js";
 
 /* global SerialPort */
 
@@ -1405,14 +1406,15 @@ export class ESPLoader {
     for (let i = 0; i < options.fileArray.length; i++) {
       this.debug("Data Length " + options.fileArray[i].data.length);
       image = options.fileArray[i].data;
-      const reminder = options.fileArray[i].data.length % 4;
-      if (reminder > 0) image += "\xff\xff\xff\xff".substring(4 - reminder);
-      address = options.fileArray[i].address;
       this.debug("Image Length " + image.length);
       if (image.length === 0) {
         this.debug("Warning: File is empty");
         continue;
       }
+      image = this.ui8ToBstr(padTo(this.bstrToUi8(image), 4));
+
+      address = options.fileArray[i].address;
+
       image = this._updateImageFlashParams(image, address, options.flashSize, options.flashMode, options.flashFreq);
       let calcmd5: string | null = null;
       if (options.calculateMD5Hash) {
