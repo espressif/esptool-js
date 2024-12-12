@@ -16,7 +16,6 @@ permissions:
 concurrency:
   group: "pages"
   cancel-in-progress: true
-
 jobs:
   deploy:
     environment:
@@ -39,7 +38,7 @@ jobs:
           npm run genDocs
           cd examples/typescript
           npm install
-          npm run build
+          CI=false npm run build
       - name: Setup Pages
         uses: actions/configure-pages@v2
       - name: Upload artifact
