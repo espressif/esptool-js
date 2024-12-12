@@ -20,7 +20,7 @@ const config = {
     resolve({ preferBuiltins: false, mainFields: ["browser"]}),
     commonjs(),
     babel({ exclude: 'node_modules/**', babelHelpers: "runtime", skipPreflightCheck: true }),
-    json({ namedExports: false, preferConst: true }),
+    json({ namedExports: true, preferConst: true }),
     terser()
   ],
 };
