@@ -107,7 +107,7 @@ export class ESP32C61ROM extends ESP32C6ROM {
     return `${desc} (revision v${majorRev}.${minorRev})`;
   }
 
-  public async getChipFeatures(loader: ESPLoader): Promise<string[]> {
+  public async getChipFeatures(): Promise<string[]> {
     return ["WiFi 6", "BT 5"];
   }
 

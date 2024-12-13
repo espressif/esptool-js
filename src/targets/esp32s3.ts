@@ -5,9 +5,9 @@ export class ESP32S3ROM extends ROM {
   public CHIP_NAME = "ESP32-S3";
   public IMAGE_CHIP_ID = 9;
   public EFUSE_BASE = 0x60007000;
-  public MAC_EFUSE_REG = this.EFUSE_BASE + 0x044;
   public EFUSE_BLOCK1_ADDR = this.EFUSE_BASE + 0x44;
   public EFUSE_BLOCK2_ADDR = this.EFUSE_BASE + 0x5c;
+  public MAC_EFUSE_REG = this.EFUSE_BASE + 0x044;
   public UART_CLKDIV_REG = 0x60000014;
   public UART_CLKDIV_MASK = 0xfffff;
   public UART_DATE_REG_ADDR = 0x60000080;
@@ -33,7 +33,57 @@ export class ESP32S3ROM extends ROM {
 
   public USB_RAM_BLOCK = 0x800;
   public UARTDEV_BUF_NO_USB = 3;
-  public UARTDEV_BUF_NO = 0x3fcef14c;
+  public UARTDEV_BUF_NO = 0x3fcef14c; // Variable in ROM .bss which indicates the port in use
+  public UARTDEV_BUF_NO_USB_OTG = 3; // The above var when USB-OTG is used
+  public UARTDEV_BUF_NO_USB_JTAG_SERIAL = 4; // The above var when USB-JTAG/Serial is used
+
+  public EFUSE_RD_REG_BASE = this.EFUSE_BASE + 0x030; // BLOCK0 read base address
+
+  public EFUSE_PURPOSE_KEY0_REG = this.EFUSE_BASE + 0x34;
+  public EFUSE_PURPOSE_KEY0_SHIFT = 24;
+  public EFUSE_PURPOSE_KEY1_REG = this.EFUSE_BASE + 0x34;
+  public EFUSE_PURPOSE_KEY1_SHIFT = 28;
+  public EFUSE_PURPOSE_KEY2_REG = this.EFUSE_BASE + 0x38;
+  public EFUSE_PURPOSE_KEY2_SHIFT = 0;
+  public EFUSE_PURPOSE_KEY3_REG = this.EFUSE_BASE + 0x38;
+  public EFUSE_PURPOSE_KEY3_SHIFT = 4;
+  public EFUSE_PURPOSE_KEY4_REG = this.EFUSE_BASE + 0x38;
+  public EFUSE_PURPOSE_KEY4_SHIFT = 8;
+  public EFUSE_PURPOSE_KEY5_REG = this.EFUSE_BASE + 0x38;
+  public EFUSE_PURPOSE_KEY5_SHIFT = 12;
+
+  public EFUSE_DIS_DOWNLOAD_MANUAL_ENCRYPT_REG = this.EFUSE_RD_REG_BASE;
+  public EFUSE_DIS_DOWNLOAD_MANUAL_ENCRYPT = 1 << 20;
+
+  public EFUSE_SPI_BOOT_CRYPT_CNT_REG = this.EFUSE_BASE + 0x034;
+  public EFUSE_SPI_BOOT_CRYPT_CNT_MASK = 0x7 << 18;
+
+  public EFUSE_SECURE_BOOT_EN_REG = this.EFUSE_BASE + 0x038;
+  public EFUSE_SECURE_BOOT_EN_MASK = 1 << 20;
+
+  public EFUSE_RD_REPEAT_DATA3_REG = this.EFUSE_BASE + 0x3c;
+  public EFUSE_RD_REPEAT_DATA3_REG_FLASH_TYPE_MASK = 1 << 9;
+
+  public PURPOSE_VAL_XTS_AES256_KEY_1 = 2;
+  public PURPOSE_VAL_XTS_AES256_KEY_2 = 3;
+  public PURPOSE_VAL_XTS_AES128_KEY = 4;
+
+  public RTCCNTL_BASE_REG = 0x60008000;
+  public RTC_CNTL_SWD_CONF_REG = this.RTCCNTL_BASE_REG + 0x00b4;
+  public RTC_CNTL_SWD_AUTO_FEED_EN = 1 << 31;
+  public RTC_CNTL_SWD_WPROTECT_REG = this.RTCCNTL_BASE_REG + 0x00b8;
+  public RTC_CNTL_SWD_WKEY = 0x8f1d312a;
+
+  public RTC_CNTL_WDTCONFIG0_REG = this.RTCCNTL_BASE_REG + 0x0098;
+  public RTC_CNTL_WDTCONFIG1_REG = this.RTCCNTL_BASE_REG + 0x009c;
+  public RTC_CNTL_WDTWPROTECT_REG = this.RTCCNTL_BASE_REG + 0x00b0;
+  public RTC_CNTL_WDT_WKEY = 0x50d83aa1;
+
+  public GPIO_STRAP_REG = 0x60004038;
+  public GPIO_STRAP_SPI_BOOT_MASK = 1 << 3; // Not download mode
+  public GPIO_STRAP_VDDSPI_MASK = 1 << 4;
+  public RTC_CNTL_OPTION1_REG = 0x6000812c;
+  public RTC_CNTL_FORCE_DOWNLOAD_BOOT_MASK = 0x1; // Is download mode forced over USB?
 
   public async getChipDescription(loader: ESPLoader) {
     const majorRev = await this.getMajorChipVersion(loader);
@@ -104,8 +154,7 @@ export class ESP32S3ROM extends ROM {
 
   public async getFlashCap(loader: ESPLoader): Promise<number> {
     const numWord = 3;
-    const block1Addr = this.EFUSE_BASE + 0x044;
-    const addr = block1Addr + 4 * numWord;
+    const addr = this.EFUSE_BLOCK1_ADDR + 4 * numWord;
     const registerValue = await loader.readReg(addr);
     const flashCap = (registerValue >> 27) & 0x07;
     return flashCap;
@@ -113,8 +162,7 @@ export class ESP32S3ROM extends ROM {
 
   public async getFlashVendor(loader: ESPLoader): Promise<string> {
     const numWord = 4;
-    const block1Addr = this.EFUSE_BASE + 0x044;
-    const addr = block1Addr + 4 * numWord;
+    const addr = this.EFUSE_BLOCK1_ADDR + 4 * numWord;
     const registerValue = await loader.readReg(addr);
     const vendorId = (registerValue >> 0) & 0x07;
     const vendorMap: { [key: number]: string } = {
@@ -129,17 +177,17 @@ export class ESP32S3ROM extends ROM {
 
   public async getPsramCap(loader: ESPLoader): Promise<number> {
     const numWord = 4;
-    const block1Addr = this.EFUSE_BASE + 0x044;
-    const addr = block1Addr + 4 * numWord;
+    const addr = this.EFUSE_BLOCK1_ADDR + 4 * numWord;
     const registerValue = await loader.readReg(addr);
     const psramCap = (registerValue >> 3) & 0x03;
-    return psramCap;
+    const capHiBitNumWord = 5;
+    const psramCapHiBit = ((await loader.readReg(this.EFUSE_BLOCK1_ADDR + 4 * capHiBitNumWord)) >> 19) & 0x01;
+    return (psramCapHiBit << 2) | psramCap;
   }
 
   public async getPsramVendor(loader: ESPLoader): Promise<string> {
     const numWord = 4;
-    const block1Addr = this.EFUSE_BASE + 0x044;
-    const addr = block1Addr + 4 * numWord;
+    const addr = this.EFUSE_BLOCK1_ADDR + 4 * numWord;
     const registerValue = await loader.readReg(addr);
     const vendorId = (registerValue >> 7) & 0x03;
     const vendorMap: { [key: number]: string } = {
@@ -169,6 +217,8 @@ export class ESP32S3ROM extends ROM {
       0: null,
       1: "Embedded PSRAM 8MB",
       2: "Embedded PSRAM 2MB",
+      3: "Embedded PSRAM 16MB",
+      4: "Embedded PSRAM 4MB",
     };
     const psramCap = await this.getPsramCap(loader);
     const psramVendor = await this.getPsramVendor(loader);
@@ -180,7 +230,7 @@ export class ESP32S3ROM extends ROM {
     return features;
   }
 
-  public async getCrystalFreq(loader: ESPLoader) {
+  public async getCrystalFreq() {
     return 40;
   }
   public _d2h(d: number) {
@@ -226,5 +276,52 @@ export class ESP32S3ROM extends ROM {
 
   public getEraseSize(offset: number, size: number) {
     return size;
+  }
+
+  public async usingUsbOtg(loader: ESPLoader) {
+    const uartNo = (await loader.readReg(this.UARTDEV_BUF_NO)) & 0xff;
+    return uartNo === this.UARTDEV_BUF_NO_USB_OTG;
+  }
+
+  public async useUsbJTAGSerial(loader: ESPLoader) {
+    const reg = (await loader.readReg(this.UARTDEV_BUF_NO)) & 0xff; // uart_no
+    return this.UARTDEV_BUF_NO_USB_JTAG_SERIAL === reg;
+  }
+
+  public async rtcWdtReset(loader: ESPLoader) {
+    await loader.writeReg(this.RTC_CNTL_WDTWPROTECT_REG, this.RTC_CNTL_WDT_WKEY); // unlock
+    await loader.writeReg(this.RTC_CNTL_WDTCONFIG1_REG, 5000); // set WDT timeout
+    await loader.writeReg(this.RTC_CNTL_WDTCONFIG0_REG, (1 << 31) | (5 << 28) | (1 << 8) | 2); //  enable WDT
+    await loader.writeReg(this.RTC_CNTL_WDTWPROTECT_REG, 0); // lock
+  }
+
+  public async hardReset(loader: ESPLoader) {
+    try {
+      // Clear force download boot mode to avoid the chip being stuck in download mode after reset
+      await loader.writeReg(this.RTC_CNTL_OPTION1_REG, 0, this.RTC_CNTL_FORCE_DOWNLOAD_BOOT_MASK);
+    } catch (error) {
+      let msg = "Error while clearing force download boot mode";
+      if (error instanceof Error) {
+        msg = error.message;
+      } else if (typeof error === "string") {
+        msg = error;
+      }
+      console.log(msg);
+    }
+    const isUsingUsbOtg = await this.usingUsbOtg(loader);
+    const isUsingUsbJTAGSerial = await this.useUsbJTAGSerial(loader);
+    if (isUsingUsbOtg || isUsingUsbJTAGSerial) {
+      const strapReg = await loader.readReg(this.GPIO_STRAP_REG);
+      const forceDlReg = await loader.readReg(this.RTC_CNTL_OPTION1_REG);
+      if (
+        (strapReg & this.GPIO_STRAP_SPI_BOOT_MASK) === 0 &&
+        (forceDlReg & this.RTC_CNTL_FORCE_DOWNLOAD_BOOT_MASK) === 0
+      ) {
+        // GPIO0 Low
+        await this.rtcWdtReset(loader);
+      }
+    } else {
+      loader.hardReset();
+    }
   }
 }
