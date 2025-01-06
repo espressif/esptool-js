@@ -85,12 +85,11 @@ const espLoaderTerminal = {
 };
 
 connectButton.onclick = async () => {
-  if (device === null) {
-    device = await serialLib.requestPort({});
-    transport = new Transport(device, true);
-  }
-
   try {
+    if (device === null) {
+      device = await serialLib.requestPort({});
+      transport = new Transport(device, true);
+    }
     const flashOptions = {
       transport,
       baudrate: parseInt(baudrates.value),
@@ -103,22 +102,21 @@ connectButton.onclick = async () => {
 
     // Temporarily broken
     // await esploader.flashId();
+    console.log("Settings done for :" + chip);
+    lblBaudrate.style.display = "none";
+    lblConnTo.innerHTML = "Connected to device: " + chip;
+    lblConnTo.style.display = "block";
+    baudrates.style.display = "none";
+    connectButton.style.display = "none";
+    disconnectButton.style.display = "initial";
+    traceButton.style.display = "initial";
+    eraseButton.style.display = "initial";
+    filesDiv.style.display = "initial";
+    consoleDiv.style.display = "none";
   } catch (e) {
     console.error(e);
     term.writeln(`Error: ${e.message}`);
   }
-
-  console.log("Settings done for :" + chip);
-  lblBaudrate.style.display = "none";
-  lblConnTo.innerHTML = "Connected to device: " + chip;
-  lblConnTo.style.display = "block";
-  baudrates.style.display = "none";
-  connectButton.style.display = "none";
-  disconnectButton.style.display = "initial";
-  traceButton.style.display = "initial";
-  eraseButton.style.display = "initial";
-  filesDiv.style.display = "initial";
-  consoleDiv.style.display = "none";
 };
 
 traceButton.onclick = async () => {
