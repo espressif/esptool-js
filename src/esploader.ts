@@ -519,9 +519,11 @@ export class ESPLoader {
    * @param {ResetStrategy} resetStrategy - Reset strategy class to use for connect
    * @returns {string} - Returns 'success' or 'error' message.
    */
-  async _connectAttempt(mode = "default_reset", resetStrategy: ResetStrategy): Promise<string> {
+  async _connectAttempt(mode = "default_reset", resetStrategy: ResetStrategy | null): Promise<string> {
     this.debug("_connect_attempt " + mode);
-    await resetStrategy.reset();
+    if (resetStrategy) {
+      await resetStrategy.reset();
+    }
     const waitingBytes = this.transport.inWaiting();
     const readBytes = await this.transport.newRead(waitingBytes > 0 ? waitingBytes : 1, this.DEFAULT_TIMEOUT);
 
@@ -569,44 +571,37 @@ export class ESPLoader {
     return lastError;
   }
 
-  constructResetSequency(): ResetStrategy[] {
-    if (this.transport.getPid() === this.USB_JTAG_SERIAL_PID) {
-      // Custom reset sequence, which is required when the device
-      // is connecting via its USB-JTAG-Serial peripheral
-      this.debug("using USB JTAG Serial Reset");
-      return [new UsbJtagSerialReset(this.transport)];
-    } else {
-      const DEFAULT_RESET_DELAY = 50;
-      const EXTRA_DELAY = DEFAULT_RESET_DELAY + 500;
-      this.debug("using Classic Serial Reset");
-      return [new ClassicReset(this.transport, DEFAULT_RESET_DELAY), new ClassicReset(this.transport, EXTRA_DELAY)];
-    }
-  }
-
   /**
    * Constructs a sequence of reset strategies based on the OS,
    * used ESP chip, external settings, and environment variables.
    * Returns a tuple of one or more reset strategies to be tried sequentially.
    * @param {string} mode - Reset mode to use
-   * @param {boolean} esp32r0Delay - Enable delay for ESP32 R0
+   * @returns {ResetStrategy[]} - Array of reset strategies
    */
-  async constructResetSequence(mode: Before, esp32r0Delay: boolean) {
+  constructResetSequence(mode: Before) {
     if (mode !== "no_reset") {
       if (mode === "usb_reset" || this.transport.getPid() === this.USB_JTAG_SERIAL_PID) {
         // Custom reset sequence, which is required when the device
         // is connecting via its USB-JTAG-Serial peripheral
         if (this.resetConstructors.usbJTAGSerialReset) {
-          const usbJTAGSerialReset = this.resetConstructors.usbJTAGSerialReset(this.transport);
-          await usbJTAGSerialReset.reset();
+          this.debug("using USB JTAG Serial Reset");
+          return [this.resetConstructors.usbJTAGSerialReset(this.transport)];
         }
       } else {
-        const strSequence = esp32r0Delay ? "D0|R1|W100|W2000|D1|R0|W50|D0" : "D0|R1|W100|D1|R0|W50|D0";
-        if (this.resetConstructors.customReset) {
-          const customReset = this.resetConstructors.customReset(this.transport, strSequence);
-          await customReset.reset();
+        const DEFAULT_RESET_DELAY = 50;
+        const EXTRA_DELAY = DEFAULT_RESET_DELAY + 500;
+        this.debug("using Classic Serial Reset");
+        if (this.resetConstructors.classicReset) {
+          this.debug("using Classic Serial Reset");
+          return [
+            this.resetConstructors.classicReset(this.transport, DEFAULT_RESET_DELAY),
+            this.resetConstructors.classicReset(this.transport, EXTRA_DELAY),
+          ];
         }
       }
     }
+
+    return [];
   }
 
   /**
@@ -619,9 +614,9 @@ export class ESPLoader {
     let resp;
     this.info("Connecting...", false);
     await this.transport.connect(this.romBaudrate, this.serialOptions);
-    const resetSequences = this.constructResetSequency();
+    const resetSequences = this.constructResetSequence(mode);
     for (let i = 0; i < attempts; i++) {
-      const resetSequence = resetSequences[i % resetSequences.length];
+      const resetSequence = resetSequences.length > 0 ? resetSequences[i % resetSequences.length] : null;
       resp = await this._connectAttempt(mode, resetSequence);
       if (resp === "success") {
         break;
@@ -707,10 +702,10 @@ export class ESPLoader {
             throw new ESPError(
               `Software loader is resident at 0x${stubStart.toString(16).padStart(8, "0")}-0x${stubEnd
                 .toString(16)
-                .padStart(8, "0")}. 
+                .padStart(8, "0")}.
             Can't load binary at overlapping address range 0x${loadStart.toString(16).padStart(8, "0")}-0x${loadEnd
                 .toString(16)
-                .padStart(8, "0")}. 
+                .padStart(8, "0")}.
             Either change binary loading address, or use the no-stub option to disable the software loader.`,
             );
           }
