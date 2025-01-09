@@ -625,7 +625,9 @@ export class ESPLoader {
    */
   async _connectAttempt(mode = "default_reset", resetStrategy: ResetStrategy): Promise<string> {
     this.debug("_connect_attempt " + mode);
-    await resetStrategy.reset();
+    if (mode !== "no_reset") {
+      await resetStrategy.reset();
+    }
     const waitingBytes = this.transport.inWaiting();
     const readBytes = await this.transport.newRead(waitingBytes > 0 ? waitingBytes : 1, this.DEFAULT_TIMEOUT);
 
@@ -785,10 +787,10 @@ export class ESPLoader {
             throw new ESPError(
               `Software loader is resident at 0x${stubStart.toString(16).padStart(8, "0")}-0x${stubEnd
                 .toString(16)
-                .padStart(8, "0")}. 
+                .padStart(8, "0")}.
             Can't load binary at overlapping address range 0x${loadStart.toString(16).padStart(8, "0")}-0x${loadEnd
                 .toString(16)
-                .padStart(8, "0")}. 
+                .padStart(8, "0")}.
             Either change binary loading address, or use the no-stub option to disable the software loader.`,
             );
           }
