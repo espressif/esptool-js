@@ -1,7 +1,7 @@
 import { ESPLoader } from "../esploader.js";
-import { ROM } from "./rom.js";
+import { ESP32C3ROM } from "./esp32c3.js";
 
-export class ESP32C6ROM extends ROM {
+export class ESP32C6ROM extends ESP32C3ROM {
   public CHIP_NAME = "ESP32-C6";
   public IMAGE_CHIP_ID = 13;
   public EFUSE_BASE = 0x600b0800;
@@ -11,7 +11,7 @@ export class ESP32C6ROM extends ROM {
   public UART_DATE_REG_ADDR = 0x6000007c;
 
   public FLASH_WRITE_SIZE = 0x400;
-  public BOOTLOADER_FLASH_OFFSET = 0;
+  public BOOTLOADER_FLASH_OFFSET = 0x0;
 
   public FLASH_SIZES = {
     "1MB": 0x00,
@@ -29,12 +29,65 @@ export class ESP32C6ROM extends ROM {
   public SPI_MISO_DLEN_OFFS = 0x28;
   public SPI_W0_OFFS = 0x58;
 
+  public UARTDEV_BUF_NO = 0x4087f580; // Variable in ROM .bss which indicates the port in use
+  public UARTDEV_BUF_NO_USB_JTAG_SERIAL = 3; // The above var when USB-JTAG/Serial is used
+
+  public DR_REG_LP_WDT_BASE = 0x600b1c00;
+
+  public RTC_CNTL_WDTCONFIG0_REG = this.DR_REG_LP_WDT_BASE + 0x0; // LP_WDT_RWDT_CONFIG0_REG
+  public RTC_CNTL_WDTCONFIG1_REG = this.DR_REG_LP_WDT_BASE + 0x0004; // LP_WDT_RWDT_CONFIG1_REG
+  public RTC_CNTL_WDTWPROTECT_REG = this.DR_REG_LP_WDT_BASE + 0x0018; // LP_WDT_RWDT_WPROTECT_REG
+
+  public RTC_CNTL_SWD_CONF_REG = this.DR_REG_LP_WDT_BASE + 0x001c; // LP_WDT_SWD_CONFIG_REG
+  public RTC_CNTL_SWD_AUTO_FEED_EN = 1 << 18;
+  public RTC_CNTL_SWD_WPROTECT_REG = this.DR_REG_LP_WDT_BASE + 0x0020; // LP_WDT_SWD_WPROTECT_REG
+  public RTC_CNTL_SWD_WKEY = 0x50d83aa1; // LP_WDT_SWD_WKEY, same as WDT key in this case
+
+  public IROM_MAP_START = 0x42000000;
+  public IROM_MAP_END = 0x42800000;
+  public DROM_MAP_START = 0x42800000;
+  public DROM_MAP_END = 0x43000000;
+
+  // Magic value for ESP32C6
+  CHIP_DETECT_MAGIC_VALUE = [0x2ce0806f];
+
+  EFUSE_BLOCK1_ADDR = this.EFUSE_BASE + 0x044;
+
+  EFUSE_RD_REG_BASE = this.EFUSE_BASE + 0x030; // BLOCK0 read base address
+
+  EFUSE_PURPOSE_KEY0_REG = this.EFUSE_BASE + 0x34;
+  EFUSE_PURPOSE_KEY0_SHIFT = 24;
+  EFUSE_PURPOSE_KEY1_REG = this.EFUSE_BASE + 0x34;
+  EFUSE_PURPOSE_KEY1_SHIFT = 28;
+  EFUSE_PURPOSE_KEY2_REG = this.EFUSE_BASE + 0x38;
+  EFUSE_PURPOSE_KEY2_SHIFT = 0;
+  EFUSE_PURPOSE_KEY3_REG = this.EFUSE_BASE + 0x38;
+  EFUSE_PURPOSE_KEY3_SHIFT = 4;
+  EFUSE_PURPOSE_KEY4_REG = this.EFUSE_BASE + 0x38;
+  EFUSE_PURPOSE_KEY4_SHIFT = 8;
+  EFUSE_PURPOSE_KEY5_REG = this.EFUSE_BASE + 0x38;
+  EFUSE_PURPOSE_KEY5_SHIFT = 12;
+
+  EFUSE_DIS_DOWNLOAD_MANUAL_ENCRYPT_REG = this.EFUSE_RD_REG_BASE;
+  EFUSE_DIS_DOWNLOAD_MANUAL_ENCRYPT = 1 << 20;
+
+  EFUSE_SPI_BOOT_CRYPT_CNT_REG = this.EFUSE_BASE + 0x034;
+  EFUSE_SPI_BOOT_CRYPT_CNT_MASK = 0x7 << 18;
+
+  EFUSE_SECURE_BOOT_EN_REG = this.EFUSE_BASE + 0x038;
+  EFUSE_SECURE_BOOT_EN_MASK = 1 << 20;
+
+  PURPOSE_VAL_XTS_AES128_KEY = 4;
+
+  SUPPORTS_ENCRYPTED_FLASH = true;
+
+  FLASH_ENCRYPTED_WRITE_ALIGN = 16;
+
   public async getPkgVersion(loader: ESPLoader) {
     const numWord = 3;
-    const block1Addr = this.EFUSE_BASE + 0x044;
-    const addr = block1Addr + 4 * numWord;
+    const addr = this.EFUSE_BLOCK1_ADDR + 4 * numWord;
     const word3 = await loader.readReg(addr);
-    const pkgVersion = (word3 >> 21) & 0x07;
+    const pkgVersion = (word3 >> 24) & 0x07;
     return pkgVersion;
   }
 
@@ -47,20 +100,30 @@ export class ESP32C6ROM extends ROM {
     return ret;
   }
 
-  public async getChipDescription(loader: ESPLoader) {
-    let desc: string;
-    const pkgVer = await this.getPkgVersion(loader);
-    if (pkgVer === 0) {
-      desc = "ESP32-C6";
-    } else {
-      desc = "unknown ESP32-C6";
-    }
-    const chipRev = await this.getChipRevision(loader);
-    desc += " (revision " + chipRev + ")";
-    return desc;
+  public async getMinorChipVersion(loader: ESPLoader) {
+    const numWord = 3;
+    const regValue = await loader.readReg(this.EFUSE_BLOCK1_ADDR + 4 * numWord);
+    return (regValue >> 18) & 0x0f;
   }
 
-  public async getChipFeatures(loader: ESPLoader) {
+  public async getMajorChipVersion(loader: ESPLoader) {
+    const numWord = 3;
+    const regValue = await loader.readReg(this.EFUSE_BLOCK1_ADDR + 4 * numWord);
+    return (regValue >> 22) & 0x03;
+  }
+
+  public async getChipDescription(loader: ESPLoader) {
+    const pkgVer = await this.getPkgVersion(loader);
+    const chipDesc: { [key: number]: string } = {
+      0: "ESP32-C6 (QFN40)",
+      1: "ESP32-C6FH4 (QFN32)",
+    };
+    const majorRev = await this.getMajorChipVersion(loader);
+    const minorRev = await this.getMinorChipVersion(loader);
+    return `${chipDesc[pkgVer] || "unknown ESP32-C6"} (revision v${majorRev}.${minorRev})`;
+  }
+
+  public async getChipFeatures() {
     return ["Wi-Fi 6", "BT 5", "IEEE802.15.4"];
   }
 

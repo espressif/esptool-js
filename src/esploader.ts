@@ -2,7 +2,7 @@ import { ESPError } from "./error.js";
 import { Data, deflate, Inflate } from "pako";
 import { Transport, SerialOptions } from "./webserial.js";
 import { ROM } from "./targets/rom.js";
-import { ClassicReset, ResetStrategy, UsbJtagSerialReset } from "./reset.js";
+import { ClassicReset, HardReset, ResetStrategy, UsbJtagSerialReset } from "./reset.js";
 import { getStubJsonByChipName } from "./stubFlasher.js";
 import { padTo } from "./util.js";
 
@@ -1545,11 +1545,11 @@ export class ESPLoader {
 
   /**
    * Perform a chip hard reset by setting RTS to LOW and then HIGH.
+   * @param {boolean} usesUsb Is the chip using USB
    */
-  async hardReset() {
-    await this.transport.setRTS(true); // EN->LOW
-    await this._sleep(100);
-    await this.transport.setRTS(false);
+  async hardReset(usesUsb = false) {
+    const hardReset = new HardReset(this.transport, usesUsb); // TODO add usbOTGLogic
+    await hardReset.reset();
   }
 
   /**
