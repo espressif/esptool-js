@@ -578,7 +578,7 @@ export class ESPLoader {
    * @param {string} mode - Reset mode to use
    * @returns {ResetStrategy[]} - Array of reset strategies
    */
-  constructResetSequence(mode: Before) {
+  constructResetSequence(mode: Before): ResetStrategy[] {
     if (mode !== "no_reset") {
       if (mode === "usb_reset" || this.transport.getPid() === this.USB_JTAG_SERIAL_PID) {
         // Custom reset sequence, which is required when the device
@@ -1459,15 +1459,6 @@ export class ESPLoader {
   }
 
   /**
-   * Perform a chip hard reset by setting RTS to LOW and then HIGH.
-   */
-  async hardReset() {
-    await this.transport.setRTS(true); // EN->LOW
-    await this._sleep(100);
-    await this.transport.setRTS(false);
-  }
-
-  /**
    * Soft reset the device chip. Soft reset with run user code is the closest.
    * @param {boolean} stayInBootloader Flag to indicate if to stay in bootloader
    */
@@ -1497,14 +1488,16 @@ export class ESPLoader {
 
   /**
    * Execute this function to execute after operation reset functions.
-   * @param {After} mode After operation mode
+   * @param {After} mode After operation mode. Default is 'hard_reset'.
    * @param { boolean } usingUsbOtg For 'hard_reset' to specify if using USB-OTG
    */
-  async after(mode: After, usingUsbOtg?: boolean) {
+  async after(mode: After = "hard_reset", usingUsbOtg?: boolean) {
     switch (mode) {
       case "hard_reset":
         if (this.resetConstructors.hardReset) {
-          await this.resetConstructors.hardReset(this.transport, usingUsbOtg);
+          this.info("Hard resetting via RTS pin...");
+          const hardReset = this.resetConstructors.hardReset(this.transport, usingUsbOtg);
+          await hardReset.reset();
         }
         break;
       case "soft_reset":
