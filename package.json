@@ -45,6 +45,8 @@
     "@typescript-eslint/eslint-plugin": "^6.21.0",
     "@typescript-eslint/parser": "^6.21.0",
     "babel-loader": "^9.1.0",
+    "buffer": "^6.0.3",
+    "crypto-browserify": "^3.12.1",
     "eslint": "^8.28.0",
     "eslint-config-prettier": "^8.5.0",
     "eslint-plugin-jsdoc": "^46.4.5",
@@ -52,6 +54,7 @@
     "prettier": "^2.7.1",
     "rimraf": "^3.0.2",
     "rollup": "^3.3.0",
+    "stream-browserify": "^3.0.0",
     "typedoc": "^0.25.13",
     "typescript": "^5.3.3"
   }
