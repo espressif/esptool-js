@@ -80,4 +80,4 @@ If you are testing the main branch or any Pull Request (PR) artifact you can fol
 
 ## License
 
-The code in this repository is Copyright (c) 2023 Espressif Systems (Shanghai) Co. Ltd. It is licensed under Apache 2.0 license, as described in [LICENSE](LICENSE) file.
+The code in this repository is Copyright (c) 2023 Espressif Systems (Shanghai) Co. Ltd. It is licensed under Apache 2.0 license, as described in [LICENSE](https://github.com/espressif/esptool-js/blob/main/LICENSE) file.
