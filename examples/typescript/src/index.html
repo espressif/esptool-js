@@ -71,6 +71,39 @@
                 </div>
                 <output id="list"></output>
                 <hr/>
+                <div id="readPartitionTable">
+					<h3>Read Flash</h3>
+					<div id="readFlash" style="display:flex; ">
+						<div style="display: inline-flex; flex-grow:1; align-self: flex-start; align-items: baseline; align-content: space-around;">
+							<label for="partitionOffset">Partition Table Offset: </label>
+							<div style="display:inline-block; padding: 0 1rem 0 1rem;"><b>0x</b> <input type="text" id="partitionOffset" value="8000" step="1000" style="width:7rem;" /></div>
+							<input class="btn btn-info btn-sm" type="button" id="readPartitionButton" value="Read Partition Table" />
+						</div>
+						<div style="display: inline-flex; flex-grow: 1; align-self: flex-end; align-items: baseline; padding-left: 3rem;">
+							<label for="readFlashOffset">Read Offset: </label>
+							<div style="display:inline-block; padding: 0 2rem 0 0.5rem;">
+                                <b>0x</b> <input type="text" id="readFlashOffset" value="0" step="1000" style="width:7rem;" /></div>
+							<label for="readFlashSize">Size: </label>
+							<div style="display:inline-block; padding: 0 2rem 0 0.5rem;">
+                                <b>0x</b> <input type="text" id="readFlashSize" value="1000" step="1000" style="width:10rem;" />
+								<div style="display: inline-block">
+                                    <input type="checkbox" id="readFlashAll" title="Read All data from offset to end of flash" />
+                                    <label for="readFlashAll" title="Read All data from offset to end of flash">&nbsp;All</label>
+                                </div>
+							</div>
+							<input class="btn btn-info btn-sm" type="button" id="readFlashData" value="Read Flash Data" />
+						</div>
+					</div>
+                </div>
+                <div id="partitionTableOutput" style="margin: 1rem 0;">
+                    <table class="table table-striped" id="partitionTable">
+                        <thead class="thead-light">
+                            <tr id="partitionHeader"></tr>
+                        </thead>
+                        <tbody id="partitionTableBody">
+                        </tbody>
+                    </table>
+                </div>
             </div>
             <div id="console">
                 <h3>Console </h3>
