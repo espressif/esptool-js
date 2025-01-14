@@ -51,6 +51,7 @@
     "eslint-plugin-jsdoc": "^46.4.5",
     "eslint-plugin-prettier": "^4.2.1",
     "prettier": "^2.7.1",
+    "process": "^0.11.10",
     "rimraf": "^3.0.2",
     "rollup": "^3.3.0",
     "stream-browserify": "^3.0.0",
