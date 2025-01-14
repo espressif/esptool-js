@@ -1,6 +1,39 @@
 import { Transport } from "./webserial.js";
 
 /**
+ * Set of reset functions for ESP Loader connection.
+ * @interface ResetConstructors
+ */
+export interface ResetConstructors {
+  /**
+   * Execute a classic set of commands that will reset the chip.
+   * @param transport Transport class to perform serial communication.
+   * @param resetDelay Delay in milliseconds for reset.
+   */
+  classicReset?: (transport: Transport, resetDelay: number) => ClassicReset;
+
+  /**
+   * Execute a set of commands for USB JTAG serial reset.
+   * @param transport Transport class to perform serial communication.
+   */
+  usbJTAGSerialReset?: (transport: Transport) => UsbJtagSerialReset;
+
+  /**
+   * Execute a classic set of commands that will reset the chip.
+   * @param transport Transport class to perform serial communication.
+   * @param {boolean} usingUsbOtg is it using USB-OTG ?
+   */
+  hardReset?: (transport: Transport, usingUsbOtg?: boolean) => HardReset;
+
+  /**
+   * Execute a custom set of commands that will reset the chip.
+   * @param transport Transport class to perform serial communication.
+   * @param {string} sequenceString Custom string sequence for reset strategy
+   */
+  customReset?: (transport: Transport, sequenceString: string) => CustomReset;
+}
+
+/**
  * Sleep for ms milliseconds
  * @param {number} ms Milliseconds to wait
  * @returns {Promise<void>}

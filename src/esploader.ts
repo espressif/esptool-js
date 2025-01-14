@@ -1,115 +1,14 @@
-import { ESPError } from "./error.js";
+import { ESPError } from "./types/error.js";
 import { Data, deflate, Inflate } from "pako";
 import { Transport, SerialOptions } from "./webserial.js";
 import { ROM } from "./targets/rom.js";
-import { ClassicReset, ResetStrategy, UsbJtagSerialReset } from "./reset.js";
+import { ClassicReset, CustomReset, HardReset, ResetConstructors, ResetStrategy, UsbJtagSerialReset } from "./reset.js";
 import { getStubJsonByChipName } from "./stubFlasher.js";
 import { padTo } from "./util.js";
-
-/* global SerialPort */
-
-/**
- * Options for flashing a device with firmware.
- * @interface FlashOptions
- */
-export interface FlashOptions {
-  /**
-   * An array of file objects representing the data to be flashed.
-   * @type {Array<{ data: string; address: number }>}
-   */
-  fileArray: { data: string; address: number }[];
-
-  /**
-   * The size of the flash memory to be used.
-   * @type {string}
-   */
-  flashSize: string;
-
-  /**
-   * The flash mode to be used (e.g., QIO, QOUT, DIO, DOUT).
-   * @type {string}
-   */
-  flashMode: string;
-
-  /**
-   * The flash frequency to be used (e.g., 40MHz, 80MHz).
-   * @type {string}
-   */
-  flashFreq: string;
-
-  /**
-   * Flag indicating whether to erase all existing data in the flash memory before flashing.
-   * @type {boolean}
-   */
-  eraseAll: boolean;
-
-  /**
-   * Flag indicating whether to compress the data before flashing.
-   * @type {boolean}
-   */
-  compress: boolean;
-
-  /**
-   * A function to report the progress of the flashing operation (optional).
-   * @type {(fileIndex: number, written: number, total: number) => void}
-   */
-  reportProgress?: (fileIndex: number, written: number, total: number) => void;
-
-  /**
-   * A function to calculate the MD5 hash of the firmware image (optional).
-   * @type {(image: string) => string}
-   */
-  calculateMD5Hash?: (image: string) => string;
-}
-
-/**
- * Options to configure ESPLoader.
- * @interface LoaderOptions
- */
-export interface LoaderOptions {
-  /**
-   * The transport mechanism to communicate with the device.
-   * @type {Transport}
-   */
-  transport: Transport;
-
-  /**
-   * The port to initialize the transport class.
-   * @type {SerialPort}
-   */
-  port?: SerialPort;
-
-  /**
-   * Set of options for SerialPort class.
-   * @type {Transport}
-   */
-  serialOptions?: SerialOptions;
-
-  /**
-   * The baud rate to be used for communication with the device.
-   * @type {number}
-   */
-  baudrate: number;
-
-  /**
-   * An optional terminal interface to interact with the loader during the process.
-   * @type {IEspLoaderTerminal}
-   */
-  terminal?: IEspLoaderTerminal;
-
-  /**
-   * The baud rate to be used during the initial ROM communication with the device.
-   * @type {number}
-   */
-  romBaudrate: number;
-
-  /**
-   * Flag indicating whether to enable debug logging for the loader (optional).
-   * @type {boolean}
-   */
-  debugLogging?: boolean;
-  enableTracing?: boolean;
-}
+import { IEspLoaderTerminal } from "./types/loaderTerminal.js";
+import { LoaderOptions } from "./types/loaderOptions.js";
+import { FlashOptions } from "./types/flashOptions.js";
+import { After, Before } from "./types/resetModes.js";
 
 type FlashReadCallback = ((packet: Uint8Array, progress: number, totalSize: number) => void) | null;
 
@@ -176,29 +75,6 @@ async function magic2Chip(magic: number): Promise<ROM | null> {
     default:
       return null;
   }
-}
-
-/**
- * A wrapper around your implementation of a terminal by
- * implementing the clean, write and writeLine methods
- * which are called by the ESPLoader class.
- * @interface IEspLoaderTerminal
- */
-export interface IEspLoaderTerminal {
-  /**
-   * Execute a terminal clean command.
-   */
-  clean: () => void;
-  /**
-   * Write a string of data that include a line terminator.
-   * @param {string} data - The string to write with line terminator.
-   */
-  writeLine: (data: string) => void;
-  /**
-   * Write a string of data.
-   * @param {string} data - The string to write.
-   */
-  write: (data: string) => void;
 }
 
 export class ESPLoader {
@@ -274,6 +150,7 @@ export class ESPLoader {
   private romBaudrate = 115200;
   private debugLogging = false;
   private syncStubDetected = false;
+  private resetConstructors: ResetConstructors;
 
   /**
    * Create a new ESPLoader to perform serial communication
@@ -289,6 +166,12 @@ export class ESPLoader {
 
     this.transport = options.transport;
     this.baudrate = options.baudrate;
+    this.resetConstructors = {
+      classicReset: (transport, resetDelay) => new ClassicReset(transport, resetDelay),
+      customReset: (transport, sequenceString) => new CustomReset(transport, sequenceString),
+      hardReset: (transport, usingUsbOtg) => new HardReset(transport, usingUsbOtg),
+      usbJTAGSerialReset: (transport) => new UsbJtagSerialReset(transport),
+    };
     if (options.serialOptions) {
       this.serialOptions = options.serialOptions;
     }
@@ -308,6 +191,19 @@ export class ESPLoader {
 
     if (typeof options.enableTracing !== "undefined") {
       this.transport.tracing = options.enableTracing;
+    }
+
+    if (options.resetConstructors?.classicReset) {
+      this.resetConstructors.classicReset = options.resetConstructors?.classicReset;
+    }
+    if (options.resetConstructors?.customReset) {
+      this.resetConstructors.customReset = options.resetConstructors?.customReset;
+    }
+    if (options.resetConstructors?.hardReset) {
+      this.resetConstructors.hardReset = options.resetConstructors?.hardReset;
+    }
+    if (options.resetConstructors?.usbJTAGSerialReset) {
+      this.resetConstructors.usbJTAGSerialReset = options.resetConstructors?.usbJTAGSerialReset;
     }
 
     this.info("esptool.js");
@@ -624,9 +520,11 @@ export class ESPLoader {
    * @param {ResetStrategy} resetStrategy - Reset strategy class to use for connect
    * @returns {string} - Returns 'success' or 'error' message.
    */
-  async _connectAttempt(mode = "default_reset", resetStrategy: ResetStrategy): Promise<string> {
+  async _connectAttempt(mode = "default_reset", resetStrategy: ResetStrategy | null): Promise<string> {
     this.debug("_connect_attempt " + mode);
-    await resetStrategy.reset();
+    if (resetStrategy) {
+      await resetStrategy.reset();
+    }
     const waitingBytes = this.transport.inWaiting();
     const readBytes = await this.transport.newRead(waitingBytes > 0 ? waitingBytes : 1, this.DEFAULT_TIMEOUT);
 
@@ -674,18 +572,36 @@ export class ESPLoader {
     return lastError;
   }
 
-  constructResetSequency(): ResetStrategy[] {
-    if (this.transport.getPid() === this.USB_JTAG_SERIAL_PID) {
-      // Custom reset sequence, which is required when the device
-      // is connecting via its USB-JTAG-Serial peripheral
-      this.debug("using USB JTAG Serial Reset");
-      return [new UsbJtagSerialReset(this.transport)];
-    } else {
-      const DEFAULT_RESET_DELAY = 50;
-      const EXTRA_DELAY = DEFAULT_RESET_DELAY + 500;
-      this.debug("using Classic Serial Reset");
-      return [new ClassicReset(this.transport, DEFAULT_RESET_DELAY), new ClassicReset(this.transport, EXTRA_DELAY)];
+  /**
+   * Constructs a sequence of reset strategies based on the OS,
+   * used ESP chip, external settings, and environment variables.
+   * Returns a tuple of one or more reset strategies to be tried sequentially.
+   * @param {string} mode - Reset mode to use
+   * @returns {ResetStrategy[]} - Array of reset strategies
+   */
+  constructResetSequence(mode: Before): ResetStrategy[] {
+    if (mode !== "no_reset") {
+      if (mode === "usb_reset" || this.transport.getPid() === this.USB_JTAG_SERIAL_PID) {
+        // Custom reset sequence, which is required when the device
+        // is connecting via its USB-JTAG-Serial peripheral
+        if (this.resetConstructors.usbJTAGSerialReset) {
+          this.debug("using USB JTAG Serial Reset");
+          return [this.resetConstructors.usbJTAGSerialReset(this.transport)];
+        }
+      } else {
+        const DEFAULT_RESET_DELAY = 50;
+        const EXTRA_DELAY = DEFAULT_RESET_DELAY + 500;
+        if (this.resetConstructors.classicReset) {
+          this.debug("using Classic Serial Reset");
+          return [
+            this.resetConstructors.classicReset(this.transport, DEFAULT_RESET_DELAY),
+            this.resetConstructors.classicReset(this.transport, EXTRA_DELAY),
+          ];
+        }
+      }
     }
+
+    return [];
   }
 
   /**
@@ -694,13 +610,13 @@ export class ESPLoader {
    * @param {number} attempts - Number of connection attempts
    * @param {boolean} detecting - Detect the connected chip
    */
-  async connect(mode = "default_reset", attempts = 7, detecting = false) {
+  async connect(mode: Before = "default_reset", attempts = 7, detecting = false) {
     let resp;
     this.info("Connecting...", false);
     await this.transport.connect(this.romBaudrate, this.serialOptions);
-    const resetSequences = this.constructResetSequency();
+    const resetSequences = this.constructResetSequence(mode);
     for (let i = 0; i < attempts; i++) {
-      const resetSequence = resetSequences[i % resetSequences.length];
+      const resetSequence = resetSequences.length > 0 ? resetSequences[i % resetSequences.length] : null;
       resp = await this._connectAttempt(mode, resetSequence);
       if (resp === "success") {
         break;
@@ -728,7 +644,7 @@ export class ESPLoader {
    * Connect and detect the existing chip.
    * @param {string} mode Reset mode to use for connection.
    */
-  async detectChip(mode = "default_reset") {
+  async detectChip(mode: Before = "default_reset") {
     await this.connect(mode, this.romBaudrate);
     this.info("Detecting chip type... ", false);
     if (this.chip != null) {
@@ -786,10 +702,10 @@ export class ESPLoader {
             throw new ESPError(
               `Software loader is resident at 0x${stubStart.toString(16).padStart(8, "0")}-0x${stubEnd
                 .toString(16)
-                .padStart(8, "0")}. 
+                .padStart(8, "0")}.
             Can't load binary at overlapping address range 0x${loadStart.toString(16).padStart(8, "0")}-0x${loadEnd
                 .toString(16)
-                .padStart(8, "0")}. 
+                .padStart(8, "0")}.
             Either change binary loading address, or use the no-stub option to disable the software loader.`,
             );
           }
@@ -1273,7 +1189,7 @@ export class ESPLoader {
    * @param {string} mode Reset mode to use
    * @returns {string} chip ROM
    */
-  async main(mode = "default_reset") {
+  async main(mode: Before = "default_reset") {
     await this.detectChip(mode);
 
     const chip = await this.chip.getChipDescription(this);
@@ -1544,28 +1460,60 @@ export class ESPLoader {
   }
 
   /**
-   * Perform a chip hard reset by setting RTS to LOW and then HIGH.
-   */
-  async hardReset() {
-    await this.transport.setRTS(true); // EN->LOW
-    await this._sleep(100);
-    await this.transport.setRTS(false);
-  }
-
-  /**
    * Soft reset the device chip. Soft reset with run user code is the closest.
+   * @param {boolean} stayInBootloader Flag to indicate if to stay in bootloader
    */
-  async softReset() {
+  async softReset(stayInBootloader: boolean) {
     if (!this.IS_STUB) {
+      if (stayInBootloader) {
+        return; // ROM bootloader is already in bootloader!
+      }
       // "run user code" is as close to a soft reset as we can do
       await this.flashBegin(0, 0);
       await this.flashFinish(false);
     } else if (this.chip.CHIP_NAME != "ESP8266") {
       throw new ESPError("Soft resetting is currently only supported on ESP8266");
     } else {
-      // running user code from stub loader requires some hacks
-      // in the stub loader
-      await this.command(this.ESP_RUN_USER_CODE, undefined, undefined, false);
+      if (stayInBootloader) {
+        // soft resetting from the stub loader
+        // will re-load the ROM bootloader
+        await this.flashBegin(0, 0);
+        await this.flashFinish(true);
+      } else {
+        // running user code from stub loader requires some hacks
+        // in the stub loader
+        await this.command(this.ESP_RUN_USER_CODE, undefined, undefined, false);
+      }
+    }
+  }
+
+  /**
+   * Execute this function to execute after operation reset functions.
+   * @param {After} mode After operation mode. Default is 'hard_reset'.
+   * @param { boolean } usingUsbOtg For 'hard_reset' to specify if using USB-OTG
+   */
+  async after(mode: After = "hard_reset", usingUsbOtg?: boolean) {
+    switch (mode) {
+      case "hard_reset":
+        if (this.resetConstructors.hardReset) {
+          this.info("Hard resetting via RTS pin...");
+          const hardReset = this.resetConstructors.hardReset(this.transport, usingUsbOtg);
+          await hardReset.reset();
+        }
+        break;
+      case "soft_reset":
+        this.info("Soft resetting...");
+        await this.softReset(false);
+        break;
+      case "no_reset_stub":
+        this.info("Staying in flasher stub.");
+        break;
+      default:
+        this.info("Staying in bootloader.");
+        if (this.IS_STUB) {
+          this.softReset(true);
+        }
+        break;
     }
   }
 }

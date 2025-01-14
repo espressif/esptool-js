@@ -6,7 +6,7 @@
   "scripts": {
     "genDocs": "cd ../.. && npm run genDocs && mkdir -p examples/typescript/dist && cp -r docs examples/typescript/dist && cd examples/typescript",
     "dev": "npm run clean && npm run genDocs && parcel src/index.html",
-    "build": "npm run clean && npm run genDocs && parcel build src/index.html --no-optimize --public-url ./",
+    "build": "npm run clean && PARCEL_WORKERS=0 parcel build src/index.html --no-optimize --public-url ./",
     "clean": "rimraf dist .parcel-cache",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
