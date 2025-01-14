@@ -590,7 +590,6 @@ export class ESPLoader {
       } else {
         const DEFAULT_RESET_DELAY = 50;
         const EXTRA_DELAY = DEFAULT_RESET_DELAY + 500;
-        this.debug("using Classic Serial Reset");
         if (this.resetConstructors.classicReset) {
           this.debug("using Classic Serial Reset");
           return [
