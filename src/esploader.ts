@@ -645,7 +645,7 @@ export class ESPLoader {
    * @param {string} mode Reset mode to use for connection.
    */
   async detectChip(mode: Before = "default_reset") {
-    await this.connect(mode, this.romBaudrate);
+    await this.connect(mode);
     this.info("Detecting chip type... ", false);
     if (this.chip != null) {
       this.info(this.chip.CHIP_NAME);
