@@ -610,7 +610,7 @@ export class ESPLoader {
    * @param {number} attempts - Number of connection attempts
    * @param {boolean} detecting - Detect the connected chip
    */
-  async connect(mode: Before = "default_reset", attempts = 7, detecting = false) {
+  async connect(mode: Before = "default_reset", attempts = 7, detecting = true) {
     let resp;
     this.info("Connecting...", false);
     await this.transport.connect(this.romBaudrate, this.serialOptions);
@@ -628,7 +628,7 @@ export class ESPLoader {
     this.debug("Connect attempt successful.");
     this.info("\n\r", false);
 
-    if (!detecting) {
+    if (detecting) {
       const chipMagicValue = (await this.readReg(this.CHIP_DETECT_MAGIC_REG_ADDR)) >>> 0;
       this.debug("Chip Magic " + chipMagicValue.toString(16));
       const chip = await magic2Chip(chipMagicValue);
