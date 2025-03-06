@@ -36,9 +36,6 @@ jobs:
       - name: Build example project and copy docs
         run: |
           npm run build
-          npm run genDocs
-          mkdir -p examples/typescript/dist
-          cp -r docs examples/typescript/dist
           cd examples/typescript
           npm install
           npm run build
