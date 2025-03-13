@@ -25,7 +25,7 @@ const debugLogging = document.getElementById("debugLogging") as HTMLInputElement
 // This is a frontend example of Esptool-JS using local bundle file
 // To optimize use a CDN hosted version like
 // https://unpkg.com/esptool-js@0.5.0/bundle.js
-import { ESPLoader, FlashOptions, LoaderOptions, Transport } from "../../../lib";
+import { ESPLoader, FlashOptions, LoaderOptions, Transport, UsbJtagSerialReset } from "../../../lib";
 import { serial } from "web-serial-polyfill";
 
 const serialLib = !navigator.serial && navigator.usb ? serial : navigator.serial;
@@ -125,13 +125,31 @@ traceButton.onclick = async () => {
   }
 };
 
-resetButton.onclick = async () => {
-  if (transport) {
+const resetFunction = async () => {
+  // if (transport) {
+  //   await transport.setDTR(false);
+  //   await new Promise((resolve) => setTimeout(resolve, 100));
+  //   await transport.setDTR(true);
+  // }
+  if (!transport) {
+    return;
+  }
+  if ((navigator as any).serial !== undefined) { // WebSerial
     await transport.setDTR(false);
-    await new Promise((resolve) => setTimeout(resolve, 100));
+    await transport.sleep(100);
     await transport.setDTR(true);
+  } else { // WebUSB polyfill
+    new UsbJtagSerialReset(transport).reset();
+    await transport.sleep(100);
+    // can also use SerialReset twice, but then the chip gets reset 1.5 times
+    await transport.setRTS(false);
+    await transport.setDTR(false);
+    await transport.sleep(100);
+    await transport.setDTR(true);
+    await transport.setRTS(false);
   }
 };
+resetButton.onclick = resetFunction
 
 eraseButton.onclick = async () => {
   eraseButton.disabled = true;
@@ -247,7 +265,8 @@ consoleStartButton.onclick = async () => {
 
   await transport.connect(parseInt(consoleBaudrates.value));
   isConsoleClosed = false;
-
+  await transport.sleep(100); // Android JTAG needs some time to wake up
+  await resetFunction();
   while (true && !isConsoleClosed) {
     const readLoop = transport.rawRead();
     const { value, done } = await readLoop.next();
