@@ -4,10 +4,13 @@
   "description": "This an example of using esptool-js with parcel and typescript",
   "source": "src/index.html",
   "scripts": {
-    "genDocs": "cd ../.. && npm run genDocs && mkdir -p examples/typescript/dist && cp -r docs examples/typescript/dist && cd examples/typescript",
-    "dev": "npm run clean && npm run genDocs && parcel src/index.html",
-    "build": "npm run clean && npm run genDocs && PARCEL_WORKERS=0 parcel build src/index.html --no-optimize --public-url ./",
-    "clean": "rimraf dist .parcel-cache",
+    "build": "npm-run-all clean genDocs parcel:build",
+    "clean": "shx rm -rf dist .parcel-cache",
+    "dev": "npm-run-all clean genDocs parcel:dev",
+    "genDocs": "npm run genDocs:root && shx mkdir -p dist && shx cp -r ../../docs dist",
+    "genDocs:root": "cd ../.. && npm run genDocs",
+    "parcel:dev": "cross-env PARCEL_WORKERS=0 parcel src/index.html",
+    "parcel:build": "cross-env PARCEL_WORKERS=0 parcel build src/index.html --no-optimize --public-url ./",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "parcelIgnore": [
@@ -17,9 +20,11 @@
   "license": "ISC",
   "devDependencies": {
     "@types/w3c-web-usb": "^1.0.10",
+    "cross-env": "^7.0.3",
+    "npm-run-all": "^4.1.5",
     "parcel": "^2.8.3",
     "parcel-resolver-ignore": "^2.1.5",
-    "rimraf": "^4.1.2",
+    "shx": "^0.3.4",
     "typescript": "^4.9.4",
     "web-serial-polyfill": "^1.0.15"
   }
