@@ -134,11 +134,13 @@ const resetFunction = async () => {
   if (!transport) {
     return;
   }
-  if ((navigator as any).serial !== undefined) { // WebSerial
+  if ((navigator as any).serial !== undefined) {
+    // WebSerial
     await transport.setDTR(false);
     await transport.sleep(100);
     await transport.setDTR(true);
-  } else { // WebUSB polyfill
+  } else {
+    // WebUSB polyfill
     new UsbJtagSerialReset(transport).reset();
     await transport.sleep(100);
     // can also use SerialReset twice, but then the chip gets reset 1.5 times
@@ -149,7 +151,7 @@ const resetFunction = async () => {
     await transport.setRTS(false);
   }
 };
-resetButton.onclick = resetFunction
+resetButton.onclick = resetFunction;
 
 eraseButton.onclick = async () => {
   eraseButton.disabled = true;
