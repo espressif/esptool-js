@@ -118,6 +118,8 @@ export class ESPLoader {
   FLASH_READ_TIMEOUT = 100000;
   MAX_TIMEOUT = this.CHIP_ERASE_TIMEOUT * 2;
 
+  SPI_ADDR_REG_MSB = true;
+
   CHIP_DETECT_MAGIC_REG_ADDR = 0x40001000;
 
   DETECTED_FLASH_SIZES: { [key: number]: string } = {
@@ -941,15 +943,25 @@ export class ESPLoader {
    * @param {number} readBits Number of bits to read
    * @returns {number} Register SPI_W0_REG value
    */
-  async runSpiflashCommand(spiflashCommand: number, data: Uint8Array, readBits: number) {
+  async runSpiflashCommand(
+    spiflashCommand: number,
+    data: Uint8Array,
+    readBits: number,
+    addr: number | null = null,
+    addrLen = 0,
+    dummyLen = 0,
+  ) {
     // SPI_USR register flags
     const SPI_USR_COMMAND = 1 << 31;
+    const SPI_USR_ADDR = 1 << 30;
+    const SPI_USR_DUMMY = 1 << 29;
     const SPI_USR_MISO = 1 << 28;
     const SPI_USR_MOSI = 1 << 27;
 
     // SPI registers, base address differs ESP32* vs 8266
     const base = this.chip.SPI_REG_BASE;
     const SPI_CMD_REG = base + 0x00;
+    const SPI_ADDR_REG = base + 0x04;
     const SPI_USR_REG = base + this.chip.SPI_USR_OFFS;
     const SPI_USR1_REG = base + this.chip.SPI_USR1_OFFS;
     const SPI_USR2_REG = base + this.chip.SPI_USR2_OFFS;
@@ -966,6 +978,16 @@ export class ESPLoader {
         if (misoBits > 0) {
           await this.writeReg(SPI_MISO_DLEN_REG, misoBits - 1);
         }
+        let flags = 0;
+        if (dummyLen > 0) {
+          flags |= dummyLen - 1;
+        }
+        if (addrLen > 0) {
+          flags |= (addrLen - 1) << SPI_USR_ADDR_LEN_SHIFT;
+        }
+        if (flags) {
+          await this.writeReg(SPI_USR1_REG, flags);
+        }
       };
     } else {
       setDataLengths = async (mosiBits: number, misoBits: number) => {
@@ -974,13 +996,20 @@ export class ESPLoader {
         const SPI_MISO_BITLEN_S = 8;
         const mosiMask = mosiBits === 0 ? 0 : mosiBits - 1;
         const misoMask = misoBits === 0 ? 0 : misoBits - 1;
-        const val = (misoMask << SPI_MISO_BITLEN_S) | (mosiMask << SPI_MOSI_BITLEN_S);
-        await this.writeReg(SPI_DATA_LEN_REG, val);
+        let flags = (misoMask << SPI_MISO_BITLEN_S) | (mosiMask << SPI_MOSI_BITLEN_S);
+        if (dummyLen > 0) {
+          flags |= dummyLen - 1;
+        }
+        if (addrLen > 0) {
+          flags |= (addrLen - 1) << SPI_USR_ADDR_LEN_SHIFT;
+        }
+        await this.writeReg(SPI_DATA_LEN_REG, flags);
       };
     }
 
     const SPI_CMD_USR = 1 << 18;
     const SPI_USR2_COMMAND_LEN_SHIFT = 28;
+    const SPI_USR_ADDR_LEN_SHIFT = 26;
     if (readBits > 32) {
       throw new ESPError("Reading more than 32 bits back from a SPI flash operation is unsupported");
     }
@@ -992,32 +1021,46 @@ export class ESPLoader {
     const oldSpiUsr = await this.readReg(SPI_USR_REG);
     const oldSpiUsr2 = await this.readReg(SPI_USR2_REG);
     let flags = SPI_USR_COMMAND;
-    let i;
     if (readBits > 0) {
       flags |= SPI_USR_MISO;
     }
     if (dataBits > 0) {
       flags |= SPI_USR_MOSI;
     }
+    if (addrLen > 0) {
+      flags |= SPI_USR_ADDR;
+    }
+    if (dummyLen > 0) {
+      flags |= SPI_USR_DUMMY;
+    }
     await setDataLengths(dataBits, readBits);
     await this.writeReg(SPI_USR_REG, flags);
     let val = (7 << SPI_USR2_COMMAND_LEN_SHIFT) | spiflashCommand;
     await this.writeReg(SPI_USR2_REG, val);
+    if (addr && addrLen > 0) {
+      if (this.SPI_ADDR_REG_MSB) {
+        addr = addr << (32 - addrLen);
+      }
+      await this.writeReg(SPI_ADDR_REG, addr);
+    }
     if (dataBits == 0) {
       await this.writeReg(SPI_W0_REG, 0);
     } else {
-      if (data.length % 4 != 0) {
-        const padding = new Uint8Array(data.length % 4);
-        data = this._appendArray(data, padding);
+      data = padTo(data, 4, 0x00);
+      const words = [];
+      for (let i = 0; i < data.length; i += 4) {
+        words.push((data[i] | (data[i + 1] << 8) | (data[i + 2] << 16) | (data[i + 3] << 24)) >>> 0);
       }
       let nextReg = SPI_W0_REG;
-      for (i = 0; i < data.length - 4; i += 4) {
-        val = this._byteArrayToInt(data[i], data[i + 1], data[i + 2], data[i + 3]);
-        await this.writeReg(nextReg, val);
+      for (const word of words) {
+        await this.writeReg(nextReg, word);
         nextReg += 4;
       }
     }
     await this.writeReg(SPI_CMD_REG, SPI_CMD_USR);
+
+    // wait done function
+    let i;
     for (i = 0; i < 10; i++) {
       val = (await this.readReg(SPI_CMD_REG)) & SPI_CMD_USR;
       if (val == 0) {
@@ -1027,10 +1070,10 @@ export class ESPLoader {
     if (i === 10) {
       throw new ESPError("SPI command did not complete in time");
     }
-    const stat = await this.readReg(SPI_W0_REG);
+    const status = await this.readReg(SPI_W0_REG);
     await this.writeReg(SPI_USR_REG, oldSpiUsr);
     await this.writeReg(SPI_USR2_REG, oldSpiUsr2);
-    return stat;
+    return status;
   }
 
   /**
@@ -1211,6 +1254,23 @@ export class ESPLoader {
     if (this.romBaudrate !== this.baudrate) {
       await this.changeBaud();
     }
+
+    // Check flash chip connection
+    try {
+      const flashId = await this.readFlashId();
+      this.info("Flash ID: " + flashId.toString(16));
+      if (flashId === 0xffffff || flashId === 0x000000) {
+        this.info(
+          `WARNING: Failed to communicate with the flash chip,\nread/write operations will fail.\nTry checking the chip connections or removing\nany other hardware connected to IOs.`,
+        );
+      }
+    } catch (error) {
+      throw new ESPError("Unable to verify flash chip connection " + error);
+    }
+    this.info("Configuring flash size...");
+    // update this to match given flash size command
+    let flashSize = await this.detectFlashSize();
+    this.info("Detected flash size set to " + flashSize);
     return chip;
   }
 
@@ -1455,11 +1515,18 @@ export class ESPLoader {
     this.info("Detected flash size: " + this.DETECTED_FLASH_SIZES[flidLowbyte]);
   }
 
-  async getFlashSize() {
-    this.debug("flash_id");
+  async detectFlashSize(flashSize: string = "detect") {
+    this.debug("detectFlashSize");
     const flashid = await this.readFlashId();
-    const flidLowbyte = (flashid >> 16) & 0xff;
-    return this.DETECTED_FLASH_SIZES_NUM[flidLowbyte];
+    const sizeId = (flashid >> 16) & 0xff;
+    let flashSizeStr = this.DETECTED_FLASH_SIZES[sizeId];
+    if (!flashSizeStr) {
+      flashSizeStr = "4MB";
+      this.info("Could not auto-detect Flash size. defaulting " + flashSize);
+    } else {
+      this.info("Auto-detected Flash size: " + flashSizeStr);
+    }
+    return flashSizeStr;
   }
 
   /**

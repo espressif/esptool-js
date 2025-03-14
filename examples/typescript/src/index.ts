@@ -347,6 +347,8 @@ programButton.onclick = async () => {
     const flashOptions: FlashOptions = {
       fileArray: fileArray,
       flashSize: "keep",
+      flashFreq: "keep",
+      flashMode: "keep",
       eraseAll: false,
       compress: true,
       reportProgress: (fileIndex, written, total) => {
