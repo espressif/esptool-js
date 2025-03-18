@@ -75,7 +75,23 @@ export abstract class ROM {
     return size;
   }
 
-  abstract FLASH_SIZES: { [key: string]: number };
+  public FLASH_SIZES: { [key: string]: number } = {
+    "1MB": 0x00,
+    "2MB": 0x10,
+    "4MB": 0x20,
+    "8MB": 0x30,
+    "16MB": 0x40,
+    "32MB": 0x50,
+    "64MB": 0x60,
+    "128MB": 0x70,
+  };
+
+  public FLASH_FREQUENCY: { [key: string]: number } = {
+    "80m": 0xf,
+    "40m": 0x0,
+    "26m": 0x1,
+    "20m": 0x2,
+  };
 
   abstract BOOTLOADER_FLASH_OFFSET: number;
   abstract CHIP_NAME: string;
