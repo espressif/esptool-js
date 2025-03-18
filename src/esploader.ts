@@ -9,8 +9,15 @@ import { IEspLoaderTerminal } from "./types/loaderTerminal.js";
 import { LoaderOptions } from "./types/loaderOptions.js";
 import { FlashOptions } from "./types/flashOptions.js";
 import { After, Before } from "./types/resetModes.js";
+import { FlashFreqValues, FlashModeValues, FlashSizeValues } from "./types/arguments.js";
 
-type FlashReadCallback = ((packet: Uint8Array, progress: number, totalSize: number) => void) | null;
+/**
+ * Flash read callback function type
+ * @param {Uint8Array} packet - Packet data
+ * @param {number} progress - Progress number
+ * @param {number} totalSize - Total size number
+ */
+export type FlashReadCallback = ((packet: Uint8Array, progress: number, totalSize: number) => void) | null;
 
 /**
  * Return the chip ROM based on the given magic number
@@ -130,16 +137,22 @@ export class ESPLoader {
     0x16: "4MB",
     0x17: "8MB",
     0x18: "16MB",
-  };
-
-  DETECTED_FLASH_SIZES_NUM: { [key: number]: number } = {
-    0x12: 256,
-    0x13: 512,
-    0x14: 1024,
-    0x15: 2048,
-    0x16: 4096,
-    0x17: 8192,
-    0x18: 16384,
+    0x19: "32MB",
+    0x1a: "64MB",
+    0x1b: "128MB",
+    0x1c: "256MB",
+    0x20: "64MB",
+    0x21: "128MB",
+    0x22: "256MB",
+    0x32: "256KB",
+    0x33: "512KB",
+    0x34: "1MB",
+    0x35: "2MB",
+    0x36: "4MB",
+    0x37: "8MB",
+    0x38: "16MB",
+    0x39: "32MB",
+    0x3a: "64MB",
   };
 
   USB_JTAG_SERIAL_PID = 0x1001;
@@ -156,6 +169,7 @@ export class ESPLoader {
   private debugLogging = false;
   private syncStubDetected = false;
   private resetConstructors: ResetConstructors;
+  private flashSize: FlashSizeValues = "detect";
 
   /**
    * Create a new ESPLoader to perform serial communication
@@ -180,9 +194,6 @@ export class ESPLoader {
     if (options.serialOptions) {
       this.serialOptions = options.serialOptions;
     }
-    if (options.romBaudrate) {
-      this.romBaudrate = options.romBaudrate;
-    }
     if (options.terminal) {
       this.terminal = options.terminal;
       this.terminal.clean();
@@ -192,6 +203,10 @@ export class ESPLoader {
     }
     if (options.port) {
       this.transport = new Transport(options.port);
+    }
+
+    if (options.flashSize) {
+      this.flashSize = options.flashSize;
     }
 
     if (typeof options.enableTracing !== "undefined") {
@@ -941,6 +956,9 @@ export class ESPLoader {
    * @param {number} spiflashCommand Command to execute in SPI
    * @param {Uint8Array} data Data to send
    * @param {number} readBits Number of bits to read
+   * @param {number} addr Address to use
+   * @param {number} addrLen Length of address
+   * @param {number} dummyLen length of dummy
    * @returns {number} Register SPI_W0_REG value
    */
   async runSpiflashCommand(
@@ -1136,6 +1154,13 @@ export class ESPLoader {
     return strmd5;
   }
 
+  /**
+   * Read flash memory from the chip.
+   * @param {number} addr Address number
+   * @param {number} size Package size
+   * @param {FlashReadCallback} onPacketReceived Callback function to call when packet is received
+   * @returns {Uint8Array} Flash read data
+   */
   async readFlash(addr: number, size: number, onPacketReceived: FlashReadCallback = null) {
     let pkt = this._appendArray(this._intToByteArray(addr), this._intToByteArray(size));
     pkt = this._appendArray(pkt, this._intToByteArray(0x1000));
@@ -1225,9 +1250,12 @@ export class ESPLoader {
     const pkt = this._appendArray(this._intToByteArray(this.baudrate), this._intToByteArray(secondArg));
     await this.command(this.ESP_CHANGE_BAUDRATE, pkt);
     this.info("Changed");
+    this.info("If the chip does not respond to any further commands, consider using a lower baud rate.");
+    await this._sleep(50);
     await this.transport.disconnect();
     await this._sleep(50);
     await this.transport.connect(this.baudrate, this.serialOptions);
+    await this._sleep(50);
   }
 
   /**
@@ -1267,10 +1295,13 @@ export class ESPLoader {
     } catch (error) {
       throw new ESPError("Unable to verify flash chip connection " + error);
     }
-    this.info("Configuring flash size...");
-    // update this to match given flash size command
-    let flashSize = await this.detectFlashSize();
-    this.info("Detected flash size set to " + flashSize);
+    if (this.flashSize === "keep" || this.flashSize == "detect") {
+      this.info("Configuring flash size...");
+      // update this to match given flash size command
+      const flashSize = await this.detectFlashSize(this.flashSize);
+      this.info("Detected flash size set to " + flashSize);
+      this.flashSize = flashSize as FlashSizeValues;
+    }
     return chip;
   }
 
@@ -1279,22 +1310,24 @@ export class ESPLoader {
    * @param {string} flashSize Flash Size string
    * @returns {number} Flash size bytes
    */
-  flashSizeBytes = function (flashSize: string) {
+  flashSizeBytes(flashSize: FlashSizeValues) {
     let flashSizeB = -1;
-    if (flashSize.indexOf("KB") !== -1) {
-      flashSizeB = parseInt(flashSize.slice(0, flashSize.indexOf("KB"))) * 1024;
-    } else if (flashSize.indexOf("MB") !== -1) {
-      flashSizeB = parseInt(flashSize.slice(0, flashSize.indexOf("MB"))) * 1024 * 1024;
+    this.transport.trace(`Flash size string ${flashSize}`);
+    if (flashSize.toString().indexOf("KB") !== -1) {
+      flashSizeB = parseInt(flashSize.toString().slice(0, flashSize.toString().indexOf("KB"))) * 1024;
+    } else if (flashSize.toString().indexOf("MB") !== -1) {
+      flashSizeB = parseInt(flashSize.toString().slice(0, flashSize.toString().indexOf("MB"))) * 1024 * 1024;
     }
+    this.transport.trace(`Flash size in bytes ${flashSizeB}`);
     return flashSizeB;
-  };
+  }
 
   /**
    * Parse a given flash size string to a number
    * @param {string} flsz Flash size to request
    * @returns {number} Flash size number
    */
-  parseFlashSizeArg(flsz: string) {
+  parseFlashSizeArg(flsz: FlashSizeValues) {
     if (typeof this.chip.FLASH_SIZES[flsz] === "undefined") {
       throw new ESPError(
         "Flash size " + flsz + " is not supported by this chip type. Supported sizes: " + this.chip.FLASH_SIZES,
@@ -1307,20 +1340,24 @@ export class ESPLoader {
    * Update the image flash parameters with given arguments.
    * @param {string} image binary image as string
    * @param {number} address flash address number
-   * @param {string} flashSize Flash size string
-   * @param {string} flashMode Flash mode string
-   * @param {string} flashFreq Flash frequency string
+   * @param {FlashModeValues} flashMode Flash mode string
+   * @param {FlashFreqValues} flashFreq Flash frequency string
    * @returns {string} modified image string
    */
-  _updateImageFlashParams(image: string, address: number, flashSize: string, flashMode: string, flashFreq: string) {
-    this.debug("_update_image_flash_params " + flashSize + " " + flashMode + " " + flashFreq);
+  _updateImageFlashParams(
+    image: string,
+    address: number,
+    flashMode: FlashModeValues = "keep",
+    flashFreq: FlashFreqValues = "keep",
+  ) {
+    this.debug(`_update_image_flash_params ${this.flashSize} ${flashMode} ${flashFreq}`);
     if (image.length < 8) {
       return image;
     }
     if (address != this.chip.BOOTLOADER_FLASH_OFFSET) {
       return image;
     }
-    if (flashSize === "keep" && flashMode === "keep" && flashFreq === "keep") {
+    if (this.flashSize === "keep" && flashMode === "keep" && flashFreq === "keep") {
       this.info("Not changing the image");
       return image;
     }
@@ -1349,8 +1386,8 @@ export class ESPLoader {
       aFlashFreq = flashFreqs[flashFreq];
     }
     let aFlashSize = flashSizeFreq & 0xf0;
-    if (flashSize !== "keep") {
-      aFlashSize = this.parseFlashSizeArg(flashSize);
+    if (this.flashSize !== "keep") {
+      aFlashSize = this.parseFlashSizeArg(this.flashSize);
     }
 
     const flashParams = (aFlashMode << 8) | (aFlashFreq + aFlashSize);
@@ -1370,8 +1407,8 @@ export class ESPLoader {
    */
   async writeFlash(options: FlashOptions) {
     this.debug("EspLoader program");
-    if (options.flashSize !== "keep") {
-      const flashEnd = this.flashSizeBytes(options.flashSize);
+    if (this.flashSize !== "keep") {
+      const flashEnd = this.flashSizeBytes(this.flashSize);
       for (let i = 0; i < options.fileArray.length; i++) {
         if (options.fileArray[i].data.length + options.fileArray[i].address > flashEnd) {
           throw new ESPError(`File ${i + 1} doesn't fit in the available flash`);
@@ -1395,7 +1432,7 @@ export class ESPLoader {
 
       address = options.fileArray[i].address;
 
-      image = this._updateImageFlashParams(image, address, options.flashSize, options.flashMode, options.flashFreq);
+      image = this._updateImageFlashParams(image, address, options.flashMode, options.flashFreq);
       let calcmd5: string | null = null;
       if (options.calculateMD5Hash) {
         calcmd5 = options.calculateMD5Hash(image);
@@ -1515,7 +1552,7 @@ export class ESPLoader {
     this.info("Detected flash size: " + this.DETECTED_FLASH_SIZES[flidLowbyte]);
   }
 
-  async detectFlashSize(flashSize: string = "detect") {
+  async detectFlashSize(flashSize: FlashSizeValues) {
     this.debug("detectFlashSize");
     const flashid = await this.readFlashId();
     const sizeId = (flashid >> 16) & 0xff;

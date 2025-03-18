@@ -125,14 +125,6 @@ export class ESP32S2ROM extends ROM {
   public FLASH_WRITE_SIZE = 0x400;
   public BOOTLOADER_FLASH_OFFSET = 0x1000;
 
-  public FLASH_SIZES = {
-    "1MB": 0x00,
-    "2MB": 0x10,
-    "4MB": 0x20,
-    "8MB": 0x30,
-    "16MB": 0x40,
-  };
-
   public async getPkgVersion(loader: ESPLoader): Promise<number> {
     const numWord = 4;
     const addr = this.EFUSE_BLOCK1_ADDR + 4 * numWord;

@@ -44,6 +44,7 @@ function sleep(ms: number): Promise<void> {
 
 /**
  * Reset strategy class
+ * @interface ResetStrategy
  */
 export interface ResetStrategy {
   transport: Transport;

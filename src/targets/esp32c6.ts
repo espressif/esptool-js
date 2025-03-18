@@ -14,14 +14,6 @@ export class ESP32C6ROM extends ROM {
   public FLASH_WRITE_SIZE = 0x400;
   public BOOTLOADER_FLASH_OFFSET = 0;
 
-  public FLASH_SIZES = {
-    "1MB": 0x00,
-    "2MB": 0x10,
-    "4MB": 0x20,
-    "8MB": 0x30,
-    "16MB": 0x40,
-  };
-
   public SPI_REG_BASE = 0x60002000;
   public SPI_USR_OFFS = 0x18;
   public SPI_USR1_OFFS = 0x1c;

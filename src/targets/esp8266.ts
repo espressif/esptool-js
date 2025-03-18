@@ -27,6 +27,13 @@ export class ESP8266ROM extends ROM {
     "16MB": 0x90,
   };
 
+  public FLASH_FREQUENCY = {
+    "80m": 0xf,
+    "40m": 0x0,
+    "26m": 0x1,
+    "20m": 0x2,
+  };
+
   public SPI_REG_BASE = 0x60000200;
   public SPI_USR_OFFS = 0x1c;
   public SPI_USR1_OFFS = 0x20;
