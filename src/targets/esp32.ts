@@ -17,6 +17,16 @@ export class ESP32ROM extends ROM {
     "4MB": 0x20,
     "8MB": 0x30,
     "16MB": 0x40,
+    "32MB": 0x50,
+    "64MB": 0x60,
+    "128MB": 0x70,
+  };
+
+  public FLASH_FREQUENCY: { [key: string]: number } = {
+    "80m": 0xf,
+    "40m": 0x0,
+    "26m": 0x1,
+    "20m": 0x2,
   };
 
   public FLASH_WRITE_SIZE = 0x400;
