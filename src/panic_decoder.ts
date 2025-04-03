@@ -41,9 +41,10 @@ export class AddressDecoder {
         this.intervals.push({
           start: interval[0],
           end: interval[1],
-          elfIdx: i++,
+          elfIdx: i,
         });
       }
+      i++;
     }
     this.intervals.sort((a, b) => a.start - b.start);
   }
@@ -144,10 +145,10 @@ export class AddressDecoder {
     const { directory, filename, lineNumber, column, discriminator } = line;
     if (discriminator > 0) {
       // eslint-disable-next-line prettier/prettier
-      outputFn("0x" + hexAddress + ": " + directory + "/" + fnName + " at " + filename + ":" + lineNumber + ":" + column + " (discriminator " + discriminator + ")");
+      outputFn("0x" + hexAddress + ": " + fnName + " at " + directory + "/" + filename + ":" + lineNumber + ":" + column + " (discriminator " + discriminator + ")");
     } else {
       // eslint-disable-next-line prettier/prettier
-      outputFn("0x" + hexAddress + ": " + directory + "/" + fnName + " at " + filename + ":" + lineNumber + ":" + column);
+      outputFn("0x" + hexAddress + ": " + fnName + " at " + directory + "/" + filename + ":" + lineNumber + ":" + column);
     }
     return true;
   }
@@ -172,7 +173,7 @@ export class AddressDecoder {
       return;
     } else if (line.includes("ELF file SHA256:")) {
       const hash = this.extractHash(line);
-      if (hash) {
+      if (hash && this.sha) {
         outputFn(line);
         if (!this.sha.startsWith(hash)) {
           parserOutput(
