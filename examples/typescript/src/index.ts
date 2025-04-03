@@ -83,7 +83,6 @@ async function handleElfFileSelect(evt) {
   if (files.length === 0) return;
   // get all files as an array of arrayBuffers
   const elfFileBuffers = await Promise.all(Array.from(files).map((file: File) => file.arrayBuffer()));
-  console.log(files, elfFileBuffers);
   await AddressDecoder.update(elfFileBuffers);
 }
 

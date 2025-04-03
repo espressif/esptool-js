@@ -24,13 +24,15 @@ export class AddressDecoder {
   private static elfFiles: ParsedElfFile[] = [];
   private static sha = "";
   private static intervals: Interval[] = [];
+  private static appIdx = 0;
 
   /**
    * load elf files and filter for faster address decoding
    * @param {ArrayBufferLike[]} elfFileBuffers elf file buffers
-   * @param appIdx the index in the {@link elfFileBuffers} array to use for the sha
+   * @param {number} appIdx the index in the {@link elfFileBuffers} array to use for the sha
    */
   static async update(elfFileBuffers: ArrayBufferLike[], appIdx = 0): Promise<void> {
+    this.appIdx = appIdx;
     for (const elfFileBuffer of elfFileBuffers) {
       this.elfFiles.push(await this.loadElfFile(elfFileBuffer));
     }
@@ -94,8 +96,8 @@ export class AddressDecoder {
 
   /**
    * get the index of the elf file that contains the address
-   * @param address resolves an address to an elf file index
-   * @returns the elf index of the elf file that contains the address or -1 if no elf file contains the address
+   * @param {number} address resolves an address to an elf file index
+   * @returns {number} the elf index of the elf file that contains the address or -1 if no elf file contains the address
    */
   static getElfIdx(address: number): number | undefined {
     for (const { start, end, elfIdx } of this.intervals) {
@@ -108,7 +110,9 @@ export class AddressDecoder {
     return undefined;
   }
 
-  static getDecodedAddress(address: number): { fnName: string; line: AddressLocation | undefined } | undefined {
+  static getDecodedAddress(
+    address: number,
+  ): { fnName: string; line: AddressLocation | undefined; isRom: boolean } | undefined {
     const addressElfIdx = this.getElfIdx(address);
     if (addressElfIdx === undefined) {
       return undefined;
@@ -122,6 +126,7 @@ export class AddressDecoder {
         const line = this.checkLineprogram(subprogram.cu, address, addressElfIdx);
         return {
           fnName: subprogram.attributes["DW_AT_name"].value,
+          isRom: addressElfIdx !== this.appIdx,
           line,
         };
       }
@@ -131,25 +136,28 @@ export class AddressDecoder {
 
   /**
    * decode the address and call the output function with the decoded address
-   * @param address the address to decode
-   * @param outputFn the function to call with the decoded address
-   * @returns true if the address was decoded, false otherwise
+   * @param {number} address the address to decode
+   * @param {(message: string) => void} outputFn the function to call with the decoded address
+   * @returns {boolean} true if the address was decoded, false otherwise
    */
   static decode(address: number, outputFn: (message: string) => void): boolean {
     const decodedAddress = this.getDecodedAddress(address);
-    if (decodedAddress === undefined || decodedAddress.line === undefined) {
+    if (decodedAddress === undefined) {
       return false;
     }
     const hexAddress = address.toString(16);
-    const { fnName, line } = decodedAddress;
-    const { directory, filename, lineNumber, column, discriminator } = line;
-    if (discriminator > 0) {
-      // eslint-disable-next-line prettier/prettier
-      outputFn("0x" + hexAddress + ": " + fnName + " at " + directory + "/" + filename + ":" + lineNumber + ":" + column + " (discriminator " + discriminator + ")");
-    } else {
-      // eslint-disable-next-line prettier/prettier
-      outputFn("0x" + hexAddress + ": " + fnName + " at " + directory + "/" + filename + ":" + lineNumber + ":" + column);
+    const { fnName, line, isRom } = decodedAddress;
+    let decodedLine = "0x" + hexAddress + ": " + fnName;
+    if (line !== undefined) {
+      decodedLine += ` at ${line.directory}/${line.filename}:${line.lineNumber}:${line.column}`;
+      if (line.discriminator > 0) {
+        decodedLine += ` (discriminator ${line.discriminator})`;
+      }
     }
+    if (isRom) {
+      decodedLine += " in ROM";
+    }
+    outputFn(decodedLine);
     return true;
   }
 
