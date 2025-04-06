@@ -1,135 +1,100 @@
-import ELFFile, { CompileUnit, Die, DWARFInfo } from "jselftools";
+import ELFFile, { CompileUnit, DWARFInfo } from "jselftools";
 import { AddressLocation } from "./types/decoder";
 import { getSHA256 } from "./util";
 
 const ADDRESS_RE = /0x[0-9a-f]{8}/gi;
 
-interface ParsedElfFile {
-  dwarfinfo: DWARFInfo;
-  subprograms: Die[];
-  intervals: number[][];
-  sha: string;
-}
-
-interface Interval {
-  start: number;
-  end: number;
-  elfIdx: number;
-}
+type SubprogramInfo = [start: number, end: number, fnName: string, dwarfinfo?: DWARFInfo, CU?: CompileUnit];
 
 /**
  * Class to check and decode an address
  */
 export class AddressDecoder {
-  private static elfFiles: ParsedElfFile[] = [];
-  private static sha = "";
-  private static intervals: Interval[] = [];
-  private static appIdx = 0;
+  private static subprograms: SubprogramInfo[] = [];
+  private static sha: string[] = [];
 
   /**
    * load elf files and filter for faster address decoding
    * @param {ArrayBufferLike[]} elfFileBuffers elf file buffers
-   * @param {number} appIdx the index in the {@link elfFileBuffers} array to use for the sha
    */
-  static async update(elfFileBuffers: ArrayBufferLike[], appIdx = 0): Promise<void> {
-    this.appIdx = appIdx;
+  static async update(elfFileBuffers: ArrayBufferLike[]): Promise<void> {
+    this.subprograms = [];
+    this.sha = [];
     for (const elfFileBuffer of elfFileBuffers) {
-      this.elfFiles.push(await this.loadElfFile(elfFileBuffer));
-    }
-    this.sha = this.elfFiles[appIdx].sha;
-    let i = 0;
-    for (const elfFile of this.elfFiles) {
-      for (const interval of elfFile.intervals) {
-        this.intervals.push({
-          start: interval[0],
-          end: interval[1],
-          elfIdx: i,
-        });
+      const { subprograms, isRom } = await this.loadElfFile(elfFileBuffer);
+      if (!isRom) {
+        this.sha.push(await getSHA256(elfFileBuffer));
       }
-      i++;
+      this.subprograms.push(...subprograms);
     }
-    this.intervals.sort((a, b) => a.start - b.start);
+    this.subprograms.sort((a, b) => a[0] - b[0]);
   }
 
   /**
    * load elf file and parse it
    * @param {ArrayBufferLike} elfFileBuffer elf file buffer
-   * @returns {Promise<ParsedElfFile>} parsed elf file
+   * @returns {Promise<SubprogramInfo[]>} sorted subprograms
    */
-  static async loadElfFile(elfFileBuffer: ArrayBufferLike): Promise<ParsedElfFile> {
-    const sha = await getSHA256(elfFileBuffer);
+  static async loadElfFile(elfFileBuffer: ArrayBufferLike): Promise<{
+    subprograms: SubprogramInfo[];
+    isRom: boolean;
+  }> {
     const elffile = new ELFFile(elfFileBuffer);
-    const dwarfinfo = elffile.get_dwarf_info();
-    const subprograms: Die[] = [];
-
-    for (const CU of dwarfinfo.get_CUs()) {
-      for (const die of CU.dies) {
-        if (die.has_children) {
-          for (const child of die.children) {
-            if (child.tag === "DW_TAG_subprogram") {
-              const highPc = child.attributes["DW_AT_high_pc"];
-              const lowPc = child.attributes["DW_AT_low_pc"];
-              if (lowPc && lowPc.value > 0 && highPc.value > 0) {
-                subprograms.push(child);
+    const subprograms: SubprogramInfo[] = [];
+    let isRom = false;
+    if (elffile.has_dwarf_info()) {
+      // most app elf files have dwarf info
+      const dwarfinfo = elffile.get_dwarf_info();
+      for (const CU of dwarfinfo.get_CUs()) {
+        for (const die of CU.dies) {
+          if (die.has_children) {
+            for (const child of die.children) {
+              if (child.tag === "DW_TAG_subprogram") {
+                const lowPc = child.attributes["DW_AT_low_pc"];
+                const highPc = child.attributes["DW_AT_high_pc"];
+                if (lowPc && lowPc.value > 0 && highPc.value > 0) {
+                  const fnName = child.attributes["DW_AT_name"]?.value;
+                  subprograms.push([lowPc.value, highPc.value + lowPc.value, fnName, dwarfinfo, CU]);
+                }
               }
             }
           }
         }
       }
-    }
-
-    const intervals: number[][] = [];
-    for (const section of elffile.body.sections) {
-      if (section.flags["execinstr"]) {
-        const addr = section.addr;
-        intervals.push([Number(addr), Number(addr) + Number(section.size)]);
+    } else {
+      // rom elf files don't have dwarf info#
+      isRom = true;
+      const symtab = elffile.get_symtab();
+      if (symtab) {
+        for (const symbol of symtab.iter_symbols()) {
+          if (symbol.info.type == "STT_FUNC") {
+            const start = Number(symbol.value);
+            const end = start + Number(symbol.size);
+            subprograms.push([start, end, symbol.name]);
+          }
+        }
       }
     }
-    intervals.sort((a, b) => a[0] - b[0]);
-    return {
-      intervals,
-      sha,
-      dwarfinfo,
-      subprograms,
-    };
+    return { subprograms, isRom };
   }
 
-  /**
-   * get the index of the elf file that contains the address
-   * @param {number} address resolves an address to an elf file index
-   * @returns {number} the elf index of the elf file that contains the address or -1 if no elf file contains the address
-   */
-  static getElfIdx(address: number): number | undefined {
-    for (const { start, end, elfIdx } of this.intervals) {
+  static getDecodedAddress(address: number): { fnName: string; line: AddressLocation | undefined } | undefined {
+    for (const [start, end, fnName, dwarfinfo, cu] of this.subprograms) {
+      if (end < address) {
+        continue;
+      }
       if (start > address) {
+        // already after the function
         break;
-      } else if (start <= address && address < end) {
-        return elfIdx;
       }
-    }
-    return undefined;
-  }
-
-  static getDecodedAddress(
-    address: number,
-  ): { fnName: string; line: AddressLocation | undefined; isRom: boolean } | undefined {
-    const addressElfIdx = this.getElfIdx(address);
-    if (addressElfIdx === undefined) {
-      return undefined;
-    }
-
-    const subprograms = this.elfFiles[addressElfIdx].subprograms;
-    for (const subprogram of subprograms) {
-      const lowPc = subprogram.attributes["DW_AT_low_pc"].value;
-      const highPc = subprogram.attributes["DW_AT_high_pc"].value + lowPc;
-      if (address >= lowPc && address < highPc) {
-        const line = this.checkLineprogram(subprogram.cu, address, addressElfIdx);
-        return {
-          fnName: subprogram.attributes["DW_AT_name"].value,
-          isRom: addressElfIdx !== this.appIdx,
-          line,
-        };
+      let line = undefined;
+      if (cu && dwarfinfo) {
+        line = this.checkLineprogram(cu, address, dwarfinfo);
       }
+      return {
+        fnName: fnName,
+        line,
+      };
     }
     return undefined;
   }
@@ -146,15 +111,14 @@ export class AddressDecoder {
       return false;
     }
     const hexAddress = address.toString(16);
-    const { fnName, line, isRom } = decodedAddress;
+    const { fnName, line } = decodedAddress;
     let decodedLine = "0x" + hexAddress + ": " + fnName;
     if (line !== undefined) {
       decodedLine += ` at ${line.directory}/${line.filename}:${line.lineNumber}:${line.column}`;
       if (line.discriminator > 0) {
         decodedLine += ` (discriminator ${line.discriminator})`;
       }
-    }
-    if (isRom) {
+    } else {
       decodedLine += " in ROM";
     }
     outputFn(decodedLine);
@@ -165,9 +129,9 @@ export class AddressDecoder {
     const parserOutput = (line: string) => {
       outputFn("\x1b[33m-- " + line + "\x1b[0m");
     };
-    if (ADDRESS_RE.test(line)) {
+    const match = line.match(ADDRESS_RE);
+    if (match) {
       outputFn(line);
-      const match = line.match(ADDRESS_RE) ?? [];
       const addrMap = match.map((hex) => parseInt(hex, 16));
       let decoded = false;
       for (const addr of addrMap) {
@@ -183,11 +147,19 @@ export class AddressDecoder {
       const hash = this.extractHash(line);
       if (hash && this.sha) {
         outputFn(line);
-        if (!this.sha.startsWith(hash)) {
-          parserOutput(
-            "Warning: Checksum mismatch between flashed and built applications. Checksum of built application is " +
-              this.sha,
-          );
+        if (this.sha.length !== 0) {
+          let foundHash = false;
+          for (const sha of this.sha) {
+            if (sha.startsWith(hash)) {
+              foundHash = true;
+            }
+          }
+          if (!foundHash) {
+            parserOutput(
+              "Warning: Checksum mismatch between flashed and built applications. Checksum of built application is " +
+                this.sha.join(", "),
+            );
+          }
         }
         return;
       }
@@ -201,19 +173,7 @@ export class AddressDecoder {
     return match ? match[1] : "";
   }
 
-  private static checkLineprogram(
-    cu: CompileUnit,
-    address: number,
-    elfIdx: number | undefined,
-  ): AddressLocation | undefined {
-    if (elfIdx === undefined) {
-      elfIdx = this.getElfIdx(address);
-      if (elfIdx === undefined) {
-        return undefined;
-      }
-    }
-    const dwarfinfo = this.elfFiles[elfIdx].dwarfinfo;
-
+  private static checkLineprogram(cu: CompileUnit, address: number, dwarfinfo: DWARFInfo): AddressLocation | undefined {
     const lineprog = dwarfinfo.line_program_for_CU(cu);
     if (!lineprog) {
       return undefined;
