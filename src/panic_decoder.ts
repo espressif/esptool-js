@@ -10,8 +10,9 @@ type SubprogramInfo = [start: number, end: number, fnName: string, dwarfinfo?: D
  * Class to check and decode an address
  */
 export class AddressDecoder {
-  private static subprograms: SubprogramInfo[] = [];
+  private static subprograms: SubprogramInfo[][] = [];
   private static sha: string[] = [];
+  private static intervals: number[][] = [];
 
   /**
    * load elf files and filter for faster address decoding
@@ -25,9 +26,11 @@ export class AddressDecoder {
       if (!isRom) {
         this.sha.push(await getSHA256(elfFileBuffer));
       }
-      this.subprograms.push(...subprograms);
+      const start = subprograms[0][0];
+      const end = subprograms[subprograms.length - 1][1];
+      this.intervals.push([start, end]);
+      this.subprograms.push(subprograms);
     }
-    this.subprograms.sort((a, b) => a[0] - b[0]);
   }
 
   /**
@@ -62,7 +65,7 @@ export class AddressDecoder {
         }
       }
     } else {
-      // rom elf files don't have dwarf info#
+      // rom elf files don't have dwarf info
       isRom = true;
       const symtab = elffile.get_symtab();
       if (symtab) {
@@ -75,26 +78,38 @@ export class AddressDecoder {
         }
       }
     }
+    subprograms.sort((a, b) => a[0] - b[0]);
     return { subprograms, isRom };
   }
 
+  /**
+   * Given an address, decode it and return the function name and line
+   * @param { number } address the address to decode
+   * @returns { { fnName: string; line: AddressLocation | undefined } | undefined } the decoded address or undefined if it wasn't decoded
+   */
   static getDecodedAddress(address: number): { fnName: string; line: AddressLocation | undefined } | undefined {
-    for (const [start, end, fnName, dwarfinfo, cu] of this.subprograms) {
-      if (end < address) {
-        continue;
+    let i = 0;
+    for (const [start, end] of this.intervals) {
+      if (start <= address && address < end) {
+        for (const [start, end, fnName, dwarfinfo, cu] of this.subprograms[i]) {
+          if (end < address) {
+            continue;
+          }
+          if (start > address) {
+            // already after the function
+            break;
+          }
+          let line = undefined;
+          if (cu && dwarfinfo) {
+            line = this.checkLineprogram(cu, address, dwarfinfo);
+          }
+          return {
+            fnName: fnName,
+            line,
+          };
+        }
       }
-      if (start > address) {
-        // already after the function
-        break;
-      }
-      let line = undefined;
-      if (cu && dwarfinfo) {
-        line = this.checkLineprogram(cu, address, dwarfinfo);
-      }
-      return {
-        fnName: fnName,
-        line,
-      };
+      i++;
     }
     return undefined;
   }
