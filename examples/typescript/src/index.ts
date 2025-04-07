@@ -252,21 +252,28 @@ disconnectButton.onclick = async () => {
   cleanUp();
 };
 
+/**
+ * Handles incoming data from the terminal and writes it to the transport device.
+ * @param {string} data - The string data received from the terminal.
+ */
+function onDataHandler(data: string) {
+  const writer = transport.device.writable?.getWriter();
+  if (writer) {
+    writer.write(stringToUInt8Array(data));
+    writer.releaseLock();
+  } else {
+    console.error("Unable to write to serial port");
+  }
+}
+let onDataDispose: () => void;
+
 let isConsoleClosed = false;
 consoleStartButton.onclick = async () => {
   if (device === null) {
     device = await serialLib.requestPort({});
     transport = new Transport(device, true);
   }
-  term.onData((data: string) => {
-    const writer = transport.device.writable?.getWriter();
-    if (writer) {
-      writer.write(stringToUInt8Array(data));
-      writer.releaseLock();
-    } else {
-      console.error("Unable to write to serial port");
-    }
-  });
+  onDataDispose = term.onData(onDataHandler).dispose;
   lblConsoleFor.style.display = "block";
   lblConsoleBaudrate.style.display = "none";
   consoleBaudrates.style.display = "none";
@@ -305,8 +312,7 @@ consoleStartButton.onclick = async () => {
 };
 
 consoleStopButton.onclick = async () => {
-  // eslint-disable-next-line @typescript-eslint/no-empty-function
-  term.onData = () => {};
+  onDataDispose();
   isConsoleClosed = true;
   if (transport) {
     await transport.disconnect();
