@@ -1,5 +1,5 @@
 import { ESPLoader } from "../esploader.js";
-import { ROM } from "./rom.js";
+import { MemoryMapEntry, ROM } from "./rom.js";
 
 export class ESP32C3ROM extends ROM {
   public CHIP_NAME = "ESP32-C3";
@@ -20,6 +20,23 @@ export class ESP32C3ROM extends ROM {
   public SPI_MOSI_DLEN_OFFS = 0x24;
   public SPI_MISO_DLEN_OFFS = 0x28;
   public SPI_W0_OFFS = 0x58;
+
+  IROM_MAP_START = 0x42000000;
+  IROM_MAP_END = 0x42800000;
+
+  public MEMORY_MAP: MemoryMapEntry[] = [
+    [0x00000000, 0x00010000, "PADDING"],
+    [0x3c000000, 0x3c800000, "DROM"],
+    [0x3fc80000, 0x3fce0000, "DRAM"],
+    [0x3fc88000, 0x3fd00000, "BYTE_ACCESSIBLE"],
+    [0x3ff00000, 0x3ff20000, "DROM_MASK"],
+    [0x40000000, 0x40060000, "IROM_MASK"],
+    [0x42000000, 0x42800000, "IROM"],
+    [0x4037c000, 0x403e0000, "IRAM"],
+    [0x50000000, 0x50002000, "RTC_IRAM"],
+    [0x50000000, 0x50002000, "RTC_DRAM"],
+    [0x600fe000, 0x60100000, "MEM_INTERNAL2"],
+  ];
 
   public async getPkgVersion(loader: ESPLoader): Promise<number> {
     const numWord = 3;

@@ -1,5 +1,7 @@
 import { ESPLoader } from "../esploader.js";
-import { ROM } from "./rom.js";
+import { BaseFirmwareImage } from "../image/base.js";
+import { ESP32FirmwareImage } from "../image/esp32.js";
+import { MemoryMapEntry, ROM } from "./rom.js";
 
 export class ESP32ROM extends ROM {
   public CHIP_NAME = "ESP32";
@@ -10,6 +12,31 @@ export class ESP32ROM extends ROM {
   public UART_CLKDIV_MASK = 0xfffff;
   public UART_DATE_REG_ADDR = 0x60000078;
   public XTAL_CLK_DIVIDER = 1;
+
+  public BOOTLOADER_IMAGE: ESP32FirmwareImage = new ESP32FirmwareImage(this);
+
+  IROM_MAP_START = 0x400d0000;
+  IROM_MAP_END = 0x40400000;
+  DROM_MAP_START = 0x3f400000;
+  DROM_MAP_END = 0x3f800000;
+
+  public MEMORY_MAP: MemoryMapEntry[] = [
+    [0x00000000, 0x00010000, "PADDING"],
+    [0x3f400000, 0x3f800000, "DROM"],
+    [0x3f800000, 0x3fc00000, "EXTRAM_DATA"],
+    [0x3ff80000, 0x3ff82000, "RTC_DRAM"],
+    [0x3ff90000, 0x40000000, "BYTE_ACCESSIBLE"],
+    [0x3ffae000, 0x40000000, "DRAM"],
+    [0x3ffe0000, 0x3ffffffc, "DIRAM_DRAM"],
+    [0x40000000, 0x40070000, "IROM"],
+    [0x40070000, 0x40078000, "CACHE_PRO"],
+    [0x40078000, 0x40080000, "CACHE_APP"],
+    [0x40080000, 0x400a0000, "IRAM"],
+    [0x400a0000, 0x400bfffc, "DIRAM_IRAM"],
+    [0x400c0000, 0x400c2000, "RTC_IRAM"],
+    [0x400d0000, 0x40400000, "IROM"],
+    [0x50000000, 0x50002000, "RTC_DATA"],
+  ];
 
   public FLASH_SIZES: { [key: string]: number } = {
     "1MB": 0x00,

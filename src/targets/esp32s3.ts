@@ -1,5 +1,5 @@
 import { ESPLoader } from "../esploader.js";
-import { ROM } from "./rom.js";
+import { MemoryMapEntry, ROM } from "./rom.js";
 
 export class ESP32S3ROM extends ROM {
   public CHIP_NAME = "ESP32-S3";
@@ -26,6 +26,24 @@ export class ESP32S3ROM extends ROM {
   public USB_RAM_BLOCK = 0x800;
   public UARTDEV_BUF_NO_USB = 3;
   public UARTDEV_BUF_NO = 0x3fcef14c;
+
+  IROM_MAP_START = 0x42000000;
+  IROM_MAP_END = 0x44000000;
+
+  public MEMORY_MAP: MemoryMapEntry[] = [
+    [0x00000000, 0x00010000, "PADDING"],
+    [0x3c000000, 0x3d000000, "DROM"],
+    [0x3d000000, 0x3e000000, "EXTRAM_DATA"],
+    [0x600fe000, 0x60100000, "RTC_DRAM"],
+    [0x3fc88000, 0x3fd00000, "BYTE_ACCESSIBLE"],
+    [0x3fc88000, 0x403e2000, "MEM_INTERNAL"],
+    [0x3fc88000, 0x3fd00000, "DRAM"],
+    [0x40000000, 0x4001a100, "IROM_MASK"],
+    [0x40370000, 0x403e0000, "IRAM"],
+    [0x600fe000, 0x60100000, "RTC_IRAM"],
+    [0x42000000, 0x42800000, "IROM"],
+    [0x50000000, 0x50002000, "RTC_DATA"],
+  ];
 
   public async getChipDescription(loader: ESPLoader) {
     const majorRev = await this.getMajorChipVersion(loader);
