@@ -10,6 +10,8 @@ import { LoaderOptions } from "./types/loaderOptions.js";
 import { FlashOptions } from "./types/flashOptions.js";
 import { After, Before } from "./types/resetModes.js";
 import { FlashFreqValues, FlashModeValues, FlashSizeValues } from "./types/arguments.js";
+import { Sha256 } from "@aws-crypto/sha256-js";
+import { loadFirmwareImage } from "./image/base.js";
 
 /**
  * Flash read callback function type
@@ -652,7 +654,7 @@ export class ESPLoader {
       const chipMagicValue = (await this.readReg(this.CHIP_DETECT_MAGIC_REG_ADDR)) >>> 0;
       this.debug("Chip Magic " + chipMagicValue.toString(16));
       const chip = await magic2Chip(chipMagicValue);
-      if (this.chip === null) {
+      if (typeof this.chip === null) {
         throw new ESPError(`Unexpected CHIP magic value ${chipMagicValue}. Failed to autodetect chip type.`);
       } else {
         this.chip = chip as ROM;
@@ -1344,7 +1346,7 @@ export class ESPLoader {
    * @param {FlashFreqValues} flashFreq Flash frequency string
    * @returns {string} modified image string
    */
-  _updateImageFlashParams(
+  async _updateImageFlashParams(
     image: string,
     address: number,
     flashMode: FlashModeValues = "keep",
@@ -1374,7 +1376,20 @@ export class ESPLoader {
       return image;
     }
 
-    /* XXX: Yet to implement actual image verification */
+    // Verify this is a valid image
+    try {
+      const imageObject = await loadFirmwareImage(this.chip, image);
+      imageObject.verify();
+    } catch (error) {
+      console.log(
+        `Warning: Image file at 0x${address.toString(16)} is not a valid ${
+          this.chip.CHIP_NAME
+        } image, so not changing any flash settings.`,
+      );
+      return image;
+    }
+
+    const shaAppended = this.chip.CHIP_NAME !== "ESP8266" && image[8 + 15] === "1";
 
     if (flashMode !== "keep") {
       const flashModes: { [key: string]: number } = { qio: 0, qout: 1, dio: 2, dout: 3 };
@@ -1397,6 +1412,45 @@ export class ESPLoader {
     }
     if (parseInt(image[3]) !== aFlashFreq + aFlashSize) {
       image = image.substring(0, 3) + (aFlashFreq + aFlashSize).toString() + image.substring(3 + 1);
+    }
+
+    // Recalculate SHA digest if needed
+    if (shaAppended) {
+      // Create image object to get data length
+      const imageObject = await loadFirmwareImage(this.chip, image);
+
+      // Get the image data before SHA digest
+      const imageDataBeforeSha = image.slice(0, imageObject.datalength);
+
+      // Get the image data after SHA digest
+      const imageDataAfterSha = image.slice(imageObject.datalength + imageObject.SHA256_DIGEST_LEN);
+
+      // Calculate new SHA digest
+      const hash = new Sha256();
+      hash.update(imageDataBeforeSha);
+      const shaDigestCalculated = await hash.digest();
+
+      // Combine all parts
+      const updatedImage = imageDataBeforeSha + shaDigestCalculated + imageDataAfterSha;
+
+      // Get the SHA digest stored in the image
+      const imageStoredSha = updatedImage.slice(
+        imageObject.datalength,
+        imageObject.datalength + imageObject.SHA256_DIGEST_LEN,
+      );
+
+      // Compare calculated and stored SHA digests
+      if (this.transport.hexify(shaDigestCalculated) === this.transport.hexify(this.bstrToUi8(imageStoredSha))) {
+        this.info("SHA digest in image updated");
+      } else {
+        this.info(
+          "WARNING: SHA recalculation for binary failed!\n" +
+            `\tExpected calculated SHA: ${this.transport.hexify(shaDigestCalculated)}\n` +
+            `\tSHA stored in binary:    ${this.transport.hexify(this.bstrToUi8(imageStoredSha))}`,
+        );
+      }
+
+      return updatedImage;
     }
     return image;
   }
@@ -1432,7 +1486,7 @@ export class ESPLoader {
 
       address = options.fileArray[i].address;
 
-      image = this._updateImageFlashParams(image, address, options.flashMode, options.flashFreq);
+      image = await this._updateImageFlashParams(image, address, options.flashMode, options.flashFreq);
       let calcmd5: string | null = null;
       if (options.calculateMD5Hash) {
         calcmd5 = options.calculateMD5Hash(image);

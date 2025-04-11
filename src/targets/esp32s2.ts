@@ -1,5 +1,5 @@
 import { ESPLoader } from "../esploader.js";
-import { ROM } from "./rom.js";
+import { MemoryMapEntry, ROM } from "./rom.js";
 
 export class ESP32S2ROM extends ROM {
   public CHIP_NAME = "ESP32-S2";
@@ -81,7 +81,7 @@ export class ESP32S2ROM extends ROM {
   public RTC_CNTL_WDTWPROTECT_REG = this.RTCCNTL_BASE_REG + 0x00ac;
   public RTC_CNTL_WDT_WKEY = 0x50d83aa1;
 
-  public MEMORY_MAP = [
+  public MEMORY_MAP: MemoryMapEntry[] = [
     [0x00000000, 0x00010000, "PADDING"],
     [0x3f000000, 0x3ff80000, "DROM"],
     [0x3f500000, 0x3ff80000, "EXTRAM_DATA"],

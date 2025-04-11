@@ -1,5 +1,5 @@
 import { ESPLoader } from "../esploader.js";
-import { ROM } from "./rom.js";
+import { MemoryMapEntry, ROM } from "./rom.js";
 
 export class ESP32H2ROM extends ROM {
   public CHIP_NAME = "ESP32-H2";
@@ -25,6 +25,23 @@ export class ESP32H2ROM extends ROM {
   public USB_RAM_BLOCK = 0x800;
   public UARTDEV_BUF_NO_USB = 3;
   public UARTDEV_BUF_NO = 0x3fcef14c;
+
+  IROM_MAP_START = 0x42000000;
+  IROM_MAP_END = 0x42800000;
+
+  public MEMORY_MAP: MemoryMapEntry[] = [
+    [0x00000000, 0x00010000, "PADDING"],
+    [0x42000000, 0x43000000, "DROM"],
+    [0x40800000, 0x40880000, "DRAM"],
+    [0x40800000, 0x40880000, "BYTE_ACCESSIBLE"],
+    [0x4004ac00, 0x40050000, "DROM_MASK"],
+    [0x40000000, 0x4004ac00, "IROM_MASK"],
+    [0x42000000, 0x43000000, "IROM"],
+    [0x40800000, 0x40880000, "IRAM"],
+    [0x50000000, 0x50004000, "RTC_IRAM"],
+    [0x50000000, 0x50004000, "RTC_DRAM"],
+    [0x600fe000, 0x60100000, "MEM_INTERNAL2"],
+  ];
 
   public async getPkgVersion(loader: ESPLoader): Promise<number> {
     const numWord = 4;

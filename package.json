@@ -28,6 +28,7 @@
     "url": "https://github.com/espressif/esptool-js/issues"
   },
   "dependencies": {
+    "@aws-crypto/sha256-js": "^5.2.0",
     "atob-lite": "^2.0.0",
     "pako": "^2.1.0",
     "tslib": "^2.4.1"

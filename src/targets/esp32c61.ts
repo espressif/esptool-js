@@ -1,5 +1,6 @@
 import { ESPLoader } from "../esploader";
 import { ESP32C6ROM } from "./esp32c6";
+import { MemoryMapEntry } from "./rom";
 
 export class ESP32C61ROM extends ESP32C6ROM {
   public CHIP_NAME = "ESP32-C61";
@@ -43,7 +44,10 @@ export class ESP32C61ROM extends ESP32C6ROM {
     "20m": 0x2,
   };
 
-  public MEMORY_MAP = [
+  IROM_MAP_START = 0x42000000;
+  IROM_MAP_END = 0x42800000;
+
+  public MEMORY_MAP: MemoryMapEntry[] = [
     [0x00000000, 0x00010000, "PADDING"],
     [0x41800000, 0x42000000, "DROM"],
     [0x40800000, 0x40860000, "DRAM"],

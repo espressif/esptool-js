@@ -1,5 +1,5 @@
 import { ESPLoader } from "../esploader.js";
-import { ROM } from "./rom.js";
+import { MemoryMapEntry, ROM } from "./rom.js";
 
 export class ESP32C6ROM extends ROM {
   public CHIP_NAME = "ESP32-C6";
@@ -21,6 +21,23 @@ export class ESP32C6ROM extends ROM {
   public SPI_MOSI_DLEN_OFFS = 0x24;
   public SPI_MISO_DLEN_OFFS = 0x28;
   public SPI_W0_OFFS = 0x58;
+
+  IROM_MAP_START = 0x42000000;
+  IROM_MAP_END = 0x42800000;
+
+  public MEMORY_MAP: MemoryMapEntry[] = [
+    [0x00000000, 0x00010000, "PADDING"],
+    [0x42000000, 0x43000000, "DROM"],
+    [0x40800000, 0x40880000, "DRAM"],
+    [0x40800000, 0x40880000, "BYTE_ACCESSIBLE"],
+    [0x4004ac00, 0x40050000, "DROM_MASK"],
+    [0x40000000, 0x4004ac00, "IROM_MASK"],
+    [0x42000000, 0x43000000, "IROM"],
+    [0x40800000, 0x40880000, "IRAM"],
+    [0x50000000, 0x50004000, "RTC_IRAM"],
+    [0x50000000, 0x50004000, "RTC_DRAM"],
+    [0x600fe000, 0x60100000, "MEM_INTERNAL2"],
+  ];
 
   public async getPkgVersion(loader: ESPLoader) {
     const numWord = 3;
