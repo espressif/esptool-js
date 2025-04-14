@@ -270,7 +270,7 @@ export class ESP32FirmwareImage extends BaseFirmwareImage {
       // calculate the SHA256 of the whole file and append it
       const shaDigest = await crypto.subtle.digest("SHA-256", output.slice(0, imageLength));
       const digest = new Uint8Array(shaDigest);
-      
+
       output.set(digest, imageLength);
       offset += 32;
     }

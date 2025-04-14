@@ -1438,7 +1438,9 @@ export class ESPLoader {
       );
 
       // Compare calculated and stored SHA digests
-      if (this.transport.hexify(shaDigestCalculatedUintArray) === this.transport.hexify(this.bstrToUi8(imageStoredSha))) {
+      if (
+        this.transport.hexify(shaDigestCalculatedUintArray) === this.transport.hexify(this.bstrToUi8(imageStoredSha))
+      ) {
         this.info("SHA digest in image updated");
       } else {
         this.info(
