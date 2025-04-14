@@ -10,7 +10,6 @@ import { LoaderOptions } from "./types/loaderOptions.js";
 import { FlashOptions } from "./types/flashOptions.js";
 import { After, Before } from "./types/resetModes.js";
 import { FlashFreqValues, FlashModeValues, FlashSizeValues } from "./types/arguments.js";
-import { Sha256 } from "@aws-crypto/sha256-js";
 import { loadFirmwareImage } from "./image/index.js";
 
 /**
@@ -1426,9 +1425,8 @@ export class ESPLoader {
       const imageDataAfterSha = image.slice(imageObject.datalength + imageObject.SHA256_DIGEST_LEN);
 
       // Calculate new SHA digest
-      const hash = new Sha256();
-      hash.update(imageDataBeforeSha);
-      const shaDigestCalculated = await hash.digest();
+      const shaDigestCalculated = await crypto.subtle.digest("SHA-256", this.bstrToUi8(imageDataAfterSha));
+      const shaDigestCalculatedUintArray = new Uint8Array(shaDigestCalculated);
 
       // Combine all parts
       const updatedImage = imageDataBeforeSha + shaDigestCalculated + imageDataAfterSha;
@@ -1440,12 +1438,12 @@ export class ESPLoader {
       );
 
       // Compare calculated and stored SHA digests
-      if (this.transport.hexify(shaDigestCalculated) === this.transport.hexify(this.bstrToUi8(imageStoredSha))) {
+      if (this.transport.hexify(shaDigestCalculatedUintArray) === this.transport.hexify(this.bstrToUi8(imageStoredSha))) {
         this.info("SHA digest in image updated");
       } else {
         this.info(
           "WARNING: SHA recalculation for binary failed!\n" +
-            `\tExpected calculated SHA: ${this.transport.hexify(shaDigestCalculated)}\n` +
+            `\tExpected calculated SHA: ${this.transport.hexify(shaDigestCalculatedUintArray)}\n` +
             `\tSHA stored in binary:    ${this.transport.hexify(this.bstrToUi8(imageStoredSha))}`,
         );
       }
