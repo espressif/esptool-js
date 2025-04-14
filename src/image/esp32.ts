@@ -1,4 +1,3 @@
-import { Sha256 } from "@aws-crypto/sha256-js";
 import { bstrToUi8, ESP_CHECKSUM_MAGIC } from "../util";
 import { alignFilePosition, BaseFirmwareImage, ELFSection, ESP_IMAGE_MAGIC, ImageSegment } from "./base";
 import { ESPError } from "../types/error";
@@ -77,9 +76,8 @@ export class ESP32FirmwareImage extends BaseFirmwareImage {
       const end = offset;
       this.storedDigest = binaryData.slice(offset, offset + this.SHA256_DIGEST_LEN);
 
-      const hash = new Sha256();
-      hash.update(binaryData.slice(start, end));
-      this.calcDigest = new Uint8Array(await hash.digest());
+      const shaDigest = await crypto.subtle.digest("SHA-256", binaryData.slice(start, end));
+      this.calcDigest = new Uint8Array(shaDigest);
       this.dataLength = end - start;
     }
 
@@ -270,9 +268,9 @@ export class ESP32FirmwareImage extends BaseFirmwareImage {
 
     if (this.appendDigest) {
       // calculate the SHA256 of the whole file and append it
-      const hash = new Sha256();
-      hash.update(output.slice(0, imageLength));
-      const digest = new Uint8Array(await hash.digest());
+      const shaDigest = await crypto.subtle.digest("SHA-256", output.slice(0, imageLength));
+      const digest = new Uint8Array(shaDigest);
+      
       output.set(digest, imageLength);
       offset += 32;
     }
