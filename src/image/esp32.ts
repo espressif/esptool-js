@@ -1,9 +1,9 @@
 import { Sha256 } from "@aws-crypto/sha256-js";
-import { ESP32ROM } from "../targets/esp32";
 import { bstrToUi8, ESP_CHECKSUM_MAGIC } from "../util";
 import { alignFilePosition, BaseFirmwareImage, ELFSection, ESP_IMAGE_MAGIC, ImageSegment } from "./base";
-import { ROM } from "../targets/rom";
 import { ESPError } from "../types/error";
+import { ROM } from "../targets/rom";
+import { ESP32ROM } from "../targets/esp32";
 
 export class ESP32FirmwareImage extends BaseFirmwareImage {
   securePad: string | null = null;
@@ -36,13 +36,14 @@ export class ESP32FirmwareImage extends BaseFirmwareImage {
   storedDigest: Uint8Array | null = null;
   calcDigest: Uint8Array | null = null;
   dataLength = 0;
-  ROM_LOADER: ESP32ROM;
 
   IROM_ALIGN = 65536;
 
-  constructor(rom: ESP32ROM, loadFile: string | null = null, appendDigest = true, ramOnlyHeader = false) {
+  ROM_LOADER: ESP32ROM;
+
+  constructor(rom: ROM, loadFile: string | null = null, appendDigest = true, ramOnlyHeader = false) {
     super(rom);
-    this.ROM_LOADER = rom;
+    this.ROM_LOADER = rom as ESP32ROM;
     this.appendDigest = appendDigest;
     this.ramOnlyHeader = ramOnlyHeader;
 
@@ -92,7 +93,7 @@ export class ESP32FirmwareImage extends BaseFirmwareImage {
     );
   }
 
-  async save(filename: string) {
+  async save() {
     let totalSegments = 0;
     const output = new Uint8Array(1024 * 1024); // Start with 1MB buffer, will grow if needed
     let offset = 0;
