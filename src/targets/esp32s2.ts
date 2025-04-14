@@ -1,7 +1,8 @@
 import { ESPLoader } from "../esploader.js";
-import { MemoryMapEntry, ROM } from "./rom.js";
+import { ESP32ROM } from "./esp32.js";
+import { MemoryMapEntry } from "./rom.js";
 
-export class ESP32S2ROM extends ROM {
+export class ESP32S2ROM extends ESP32ROM {
   public CHIP_NAME = "ESP32-S2";
   public IMAGE_CHIP_ID = 2;
   public IROM_MAP_START = 0x40080000;

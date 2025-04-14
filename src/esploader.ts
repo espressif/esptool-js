@@ -11,7 +11,7 @@ import { FlashOptions } from "./types/flashOptions.js";
 import { After, Before } from "./types/resetModes.js";
 import { FlashFreqValues, FlashModeValues, FlashSizeValues } from "./types/arguments.js";
 import { Sha256 } from "@aws-crypto/sha256-js";
-import { loadFirmwareImage } from "./image/base.js";
+import { loadFirmwareImage } from "./image/index.js";
 
 /**
  * Flash read callback function type

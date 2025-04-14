@@ -1,6 +1,4 @@
 import { ESPLoader } from "../esploader.js";
-import { BaseFirmwareImage } from "../image/base.js";
-import { ESP32FirmwareImage } from "../image/esp32.js";
 import { MemoryMapEntry, ROM } from "./rom.js";
 
 export class ESP32ROM extends ROM {
@@ -12,8 +10,6 @@ export class ESP32ROM extends ROM {
   public UART_CLKDIV_MASK = 0xfffff;
   public UART_DATE_REG_ADDR = 0x60000078;
   public XTAL_CLK_DIVIDER = 1;
-
-  public BOOTLOADER_IMAGE: ESP32FirmwareImage = new ESP32FirmwareImage(this);
 
   IROM_MAP_START = 0x400d0000;
   IROM_MAP_END = 0x40400000;

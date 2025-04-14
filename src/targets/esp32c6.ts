@@ -1,7 +1,8 @@
 import { ESPLoader } from "../esploader.js";
-import { MemoryMapEntry, ROM } from "./rom.js";
+import { ESP32C3ROM } from "./esp32c3.js";
+import { MemoryMapEntry } from "./rom.js";
 
-export class ESP32C6ROM extends ROM {
+export class ESP32C6ROM extends ESP32C3ROM {
   public CHIP_NAME = "ESP32-C6";
   public IMAGE_CHIP_ID = 13;
   public EFUSE_BASE = 0x600b0800;

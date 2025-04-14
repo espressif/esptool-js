@@ -1,8 +1,7 @@
 import { ESP8266ROM } from "../targets/esp8266";
 import { ROM } from "../targets/rom";
 import { ESPError } from "../types/error";
-import { bstrToUi8, checksum, ESP_CHECKSUM_MAGIC, padTo } from "../util";
-import { ESP32FirmwareImage } from "./esp32";
+import { checksum, ESP_CHECKSUM_MAGIC, padTo } from "../util";
 
 export const ESP_IMAGE_MAGIC = 0xe9;
 
@@ -11,49 +10,8 @@ export function alignFilePosition(position: number, size: number): number {
   return position + align;
 }
 
-// Helper function to read a 32-bit little-endian integer from a Uint8Array
 function readUInt32LE(data: Uint8Array, offset: number): number {
   return data[offset] | (data[offset + 1] << 8) | (data[offset + 2] << 16) | (data[offset + 3] << 24);
-}
-
-// Function to load a firmware image from a string (from FileReader)
-export async function loadFirmwareImage(rom: ROM, imageData: string): Promise<BaseFirmwareImage> {
-  // Convert the string data to a Uint8Array
-  const binaryData = bstrToUi8(imageData);
-
-  // Select the appropriate image class based on the chip
-  const chipName = rom.CHIP_NAME.toLowerCase().replace(/[-()]/g, "");
-
-  let firmwareImageClass: typeof BaseFirmwareImage;
-
-  if (chipName !== "esp8266") {
-    // For ESP32 and other chips, select the appropriate class
-    // This is a simplified version - in a real implementation, you would have
-    // separate classes for each chip type
-    if (chipName === "esp32") {
-      firmwareImageClass = ESP32FirmwareImage; // Replace with actual ESP32 image class
-    } else {
-      firmwareImageClass = BaseFirmwareImage;
-    }
-  } else {
-    // For ESP8266, check the magic number to determine the image type
-    const magic = binaryData[0];
-    if (magic === ESP_IMAGE_MAGIC) {
-      // This would be ESP8266ROMFirmwareImage in the Python code
-      firmwareImageClass = BaseFirmwareImage;
-    } else if (magic === 0xea) {
-      // IMAGE_V2_MAGIC
-      // This would be ESP8266V2FirmwareImage in the Python code
-      firmwareImageClass = BaseFirmwareImage;
-    } else {
-      throw new ESPError(`Invalid image magic number: ${magic}`);
-    }
-  }
-
-  // Create an instance of the selected image class
-  const image = new firmwareImageClass(rom);
-
-  return image;
 }
 
 // ImageSegment class
@@ -134,8 +92,9 @@ export class BaseFirmwareImage {
   flashSizeFreq = 0;
   checksum = 0;
   ROM_LOADER: ROM;
-  IROM_ALIGN = 65536;
   datalength = 0;
+  IROM_ALIGN = 0;
+  MMU_PAGE_SIZE_CONF: number[] = []; // Default is an empty array
 
   constructor(rom: ROM) {
     this.ROM_LOADER = rom;
@@ -386,8 +345,21 @@ export class BaseFirmwareImage {
   }
 
   setMmuPageSize(size: number): void {
-    console.warn(
-      `WARNING: Changing MMU page size is not supported on ${this.ROM_LOADER.CHIP_NAME}! ` + "Defaulting to 64KB.",
-    );
+    if (!this.MMU_PAGE_SIZE_CONF && size !== this.IROM_ALIGN) {
+      // For chips where MMU page size cannot be set or is fixed, log a warning and use the default.
+      console.warn(
+        `WARNING: Changing MMU page size is not supported on ${this.ROM_LOADER.CHIP_NAME}! ` +
+          (this.IROM_ALIGN !== 0 ? `Defaulting to ${this.IROM_ALIGN / 1024}KB.` : ""),
+      );
+    } else if (this.MMU_PAGE_SIZE_CONF && !this.MMU_PAGE_SIZE_CONF.includes(size)) {
+      // For chips with configurable MMU page sizes, throw an error if the size is invalid.
+      const validSizes = this.MMU_PAGE_SIZE_CONF.map((x) => `${x / 1024}KB`).join(", ");
+      throw new ESPError(
+        `${size} bytes is not a valid ${this.ROM_LOADER.CHIP_NAME} page size, select from ${validSizes}.`,
+      );
+    } else {
+      // Set the MMU page size if valid.
+      this.IROM_ALIGN = size;
+    }
   }
 }

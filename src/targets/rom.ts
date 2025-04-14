@@ -1,5 +1,4 @@
 import { ESPLoader } from "../esploader.js";
-import { BaseFirmwareImage } from "../image/base.js";
 
 export type MemoryMapEntry = [number, number, string];
 
@@ -115,5 +114,4 @@ export abstract class ROM {
   abstract UART_DATE_REG_ADDR: number; // not in esp8266
   // abstract XTAL_CLK_DIVIDER: number; //esp32
   abstract MEMORY_MAP: MemoryMapEntry[];
-  abstract BOOTLOADER_IMAGE: BaseFirmwareImage;
 }
