@@ -258,6 +258,16 @@ export class ESP32FirmwareImage extends BaseFirmwareImage {
 
     const imageLength = offset;
 
+    // Go back to the initial header and write the new segment count
+    // This header is not checksummed
+    if (this.ramOnlyHeader) {
+      // Update the header with the RAM segments quantity as it should be
+      // visible by the ROM bootloader
+      output[1] = ramSegments.length;
+    } else {
+      output[1] = totalSegments;
+    }
+
     if (this.appendDigest) {
       // calculate the SHA256 of the whole file and append it
       const hash = new Sha256();
