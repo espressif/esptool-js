@@ -11,12 +11,14 @@ import { FlashOptions } from "./types/flashOptions.js";
 import { After, Before } from "./types/resetModes.js";
 import { FlashFreqValues, FlashModeValues, FlashSizeValues } from "./types/arguments.js";
 import { loadFirmwareImage } from "./image/index.js";
+import { ROM_LIST } from "./targets/index.js";
 
 /**
- * Flash read callback function type
- * @param {Uint8Array} packet - Packet data
- * @param {number} progress - Progress number
- * @param {number} totalSize - Total size number
+ * Callback function type for handling packets received during flash memory read operations.
+ * @callback FlashReadCallback
+ * @param {Uint8Array} packet - The data packet received from the flash memory.
+ * @param {number} progress - The current progress of the read operation in bytes.
+ * @param {number} totalSize - The total size of the data to be read in bytes.
  */
 export type FlashReadCallback = ((packet: Uint8Array, progress: number, totalSize: number) => void) | null;
 
@@ -105,6 +107,8 @@ export class ESPLoader {
   ESP_FLASH_DEFL_DATA = 0x11;
   ESP_FLASH_DEFL_END = 0x12;
   ESP_SPI_FLASH_MD5 = 0x13;
+
+  ESP_GET_SECURITY_INFO = 0x14;
 
   // Only Stub supported commands
   ESP_ERASE_FLASH = 0xd0;
@@ -409,8 +413,9 @@ export class ESPLoader {
         if (op == null || opRet == op) {
           return [val, data];
         } else if (data[0] != 0 && data[1] == this.ROM_INVALID_RECV_MSG) {
-          await this.flushInput();
-          throw new ESPError("unsupported command error");
+          this.debug("read_packet unsupported command error " + op);
+          // await this.flushInput();
+          throw new ESPError("unsupported command error " + op);
         }
       }
     }
@@ -649,7 +654,7 @@ export class ESPLoader {
     this.debug("Connect attempt successful.");
     this.info("\n\r", false);
 
-    if (detecting) {
+    if (!detecting) {
       const chipMagicValue = (await this.readReg(this.CHIP_DETECT_MAGIC_REG_ADDR)) >>> 0;
       this.debug("Chip Magic " + chipMagicValue.toString(16));
       const chip = await magic2Chip(chipMagicValue);
@@ -662,16 +667,48 @@ export class ESPLoader {
   }
 
   /**
+   * Get the CHIP ID with ESP_GET_SECURITY_INFO check command.
+   * @returns {number} Chip ID number
+   */
+  async getChipId(): Promise<number | undefined> {
+    const response = await this.checkCommand("get security info", this.ESP_GET_SECURITY_INFO, new Uint8Array(0));
+
+    this.debug("get_chip_id " + response.toString(16));
+
+    if (response instanceof Uint8Array && response.length > 16) {
+      const chipId = response[12] | (response[13] << 8) | (response[14] << 16) | (response[15] << 24);
+      return chipId;
+    }
+    return;
+  }
+
+  /**
    * Connect and detect the existing chip.
    * @param {string} mode Reset mode to use for connection.
+   * @param {number} attempts - Number of connection attempts
    */
-  async detectChip(mode: Before = "default_reset") {
+  async detectChip(mode: Before = "default_reset", attempts = 7) {
     await this.connect(mode);
-    this.info("Detecting chip type... ", false);
+    try {
+      this.info("Detecting chip type... ");
+      const chipID = await this.getChipId();
+      const filteredROMList = ROM_LIST.filter(
+        (n) => n.CHIP_NAME !== "ESP8266" && n.CHIP_NAME !== "ESP32" && n.CHIP_NAME !== "ESP32-S2",
+      );
+      for (const cls of filteredROMList) {
+        if (chipID === cls.IMAGE_CHIP_ID) {
+          this.chip = cls;
+          break;
+        }
+      }
+    } catch (error) {
+      await this.transport.disconnect();
+      await this.connect(mode, attempts, false);
+    }
     if (this.chip != null) {
       this.info(this.chip.CHIP_NAME);
     } else {
-      this.info("unknown!");
+      this.info("unknown chip! detectchip has failed.");
     }
   }
 
@@ -1156,11 +1193,14 @@ export class ESPLoader {
   }
 
   /**
-   * Read flash memory from the chip.
-   * @param {number} addr Address number
-   * @param {number} size Package size
-   * @param {FlashReadCallback} onPacketReceived Callback function to call when packet is received
-   * @returns {Uint8Array} Flash read data
+   * Read data from flash memory of the chip.
+   * This function reads a specified amount of data from the flash memory starting at a given address.
+   * It sends a read command to the chip and processes the response packets until the requested size is read.
+   * @param {number} addr - The starting address in flash memory to read from.
+   * @param {number} size - The number of bytes to read from flash memory.
+   * @param {FlashReadCallback} onPacketReceived - Optional callback function to handle each received packet.
+   * @returns {Promise<Uint8Array>} A promise that resolves to the data read from flash memory as a Uint8Array.
+   * @throws {ESPError} If the read operation fails or an unexpected response is received.
    */
   async readFlash(addr: number, size: number, onPacketReceived: FlashReadCallback = null) {
     let pkt = this._appendArray(this._intToByteArray(addr), this._intToByteArray(size));

@@ -244,14 +244,10 @@ class Transport {
   }
 
   async flushInput() {
-    try {
-      if (!this.reader) {
-        this.reader = this.device.readable?.getReader();
-      }
-      await this.reader?.cancel();
+    if (this.reader) {
+      await this.reader.cancel();
+      this.reader.releaseLock();
       this.reader = this.device.readable?.getReader();
-    } catch (error) {
-      this.trace(`Error while flushing input: ${error}`);
     }
     this.buffer = new Uint8Array(0);
   }
