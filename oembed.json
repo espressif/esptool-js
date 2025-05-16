@@ -1,0 +1,12 @@
+{
+  "version": "1.0",
+  "type": "rich",
+  "title": "ESP Partition Reader",
+  "provider_name": "Tyeth",
+  "provider_url": "https://tyeth.github.io",
+  "author_name": "Tyeth",
+  "author_url": "https://github.com/tyeth",
+  "width": 800,
+  "height": 600,
+  "html": "<iframe src='https://tyeth.github.io/read-partitions-esptool-js/' width='800' height='600' style='border: 0; max-width: 100%;' allow='serial; usb' loading='lazy' title='ESP Partition Reader'></iframe>"
+}
