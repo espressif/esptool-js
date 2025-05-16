@@ -39,6 +39,7 @@ jobs:
           cd examples/typescript
           npm install
           npm run build
+          cp oembed.json examples/typescript/dist/oembed.json
       - name: Setup Pages
         uses: actions/configure-pages@v2
       - name: Upload artifact
