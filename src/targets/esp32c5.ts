@@ -122,9 +122,6 @@ export class ESP32C5ROM extends ESP32C6ROM {
     return [
       "Wi-Fi 6 (dual-band)",
       "BT 5 (LE)",
-      "IEEE802.15.4",
-      "Single Core + LP Core",
-      "240MHz",
     ];
   }
 
