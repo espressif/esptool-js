@@ -4,6 +4,7 @@ import { ESP32C6ROM } from "./esp32c6";
 export class ESP32C5ROM extends ESP32C6ROM {
   public CHIP_NAME = "ESP32-C5";
   public IMAGE_CHIP_ID = 23;
+  public BOOTLOADER_FLASH_OFFSET = 0x2000;
 
   public EFUSE_BASE = 0x600b4800;
   public EFUSE_BLOCK1_ADDR = this.EFUSE_BASE + 0x044;
@@ -48,7 +49,7 @@ export class ESP32C5ROM extends ESP32C6ROM {
   public UARTDEV_BUF_NO = 0x4085f51c; // Variable in ROM .bss which indicates the port in use
 
   // Magic value for ESP32C5
-  public CHIP_DETECT_MAGIC_VALUE = [0x1101406f];
+  public CHIP_DETECT_MAGIC_VALUE = [0x1101406f, 0x63e1406f, 0x5fd1406f];
 
   public FLASH_FREQUENCY = {
     "80m": 0xf,
@@ -115,6 +116,10 @@ export class ESP32C5ROM extends ESP32C6ROM {
     const majorRev = await this.getMajorChipVersion(loader);
     const minorRev = await this.getMinorChipVersion(loader);
     return `${desc} (revision v${majorRev}.${minorRev})`;
+  }
+
+  public async getChipFeatures(loader: ESPLoader): Promise<string[]> {
+    return ["Wi-Fi 6 (dual-band)", "BT 5 (LE)"];
   }
 
   public async getCrystalFreq(loader: ESPLoader): Promise<number> {
