@@ -651,6 +651,7 @@ export class ESPLoader {
 
     if (detecting) {
       const chipMagicValue = (await this.readReg(this.CHIP_DETECT_MAGIC_REG_ADDR)) >>> 0;
+      this.info(`Chip Magic: 0x${chipMagicValue.toString(16)}`);
       this.debug("Chip Magic " + chipMagicValue.toString(16));
       const chip = await magic2Chip(chipMagicValue);
       if (typeof this.chip === null) {

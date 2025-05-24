@@ -120,7 +120,13 @@ export class ESP32C5ROM extends ESP32C6ROM {
   }
 
   public async getChipFeatures(loader: ESPLoader): Promise<string[]> {
-    return ["Wi-Fi 6 (dual-band)", "BT 5 (LE)"];
+    return [
+      "Wi-Fi 6 (dual-band)",
+      "BT 5 (LE)",
+      "IEEE802.15.4",
+      "Single Core + LP Core",
+      "240MHz",
+    ];
   }
 
   public async getCrystalFreq(loader: ESPLoader): Promise<number> {
