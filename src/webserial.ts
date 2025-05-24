@@ -21,13 +21,13 @@ export interface SerialOptions {
    * The number of data bits per frame. Either 7 or 8.
    * @type {number | undefined}
    */
-  dataBits?: number | undefined;
+  dataBits?: 7 | 8 | undefined;
 
   /**
    * The number of stop bits at the end of a frame. Either 1 or 2.
    * @type {number | undefined}
    */
-  stopBits?: number | undefined;
+  stopBits?: 1 | 2 | undefined;
 
   /**
    * The parity mode: none, even or odd
