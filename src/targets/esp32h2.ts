@@ -4,7 +4,7 @@ import { ROM } from "./rom.js";
 export class ESP32H2ROM extends ROM {
   public CHIP_NAME = "ESP32-H2";
   public IMAGE_CHIP_ID = 16;
-  public EFUSE_BASE = 0x600B0800;
+  public EFUSE_BASE = 0x600b0800;
   public EFUSE_BLOCK1_ADDR = this.EFUSE_BASE + 0x044;
   public MAC_EFUSE_REG = this.EFUSE_BASE + 0x044;
   public UART_CLKDIV_REG = 0x3ff40014;
@@ -33,7 +33,7 @@ export class ESP32H2ROM extends ROM {
   public USB_RAM_BLOCK = 0x800;
   public UARTDEV_BUF_NO_USB = 3;
   public UARTDEV_BUF_NO = 0x3fcef14c;
-  
+
   public async getPkgVersion(loader: ESPLoader): Promise<number> {
     const numWord = 4;
     return ((await loader.readReg(this.EFUSE_BLOCK1_ADDR + 4 * numWord)) >> 0) & 0x07;
