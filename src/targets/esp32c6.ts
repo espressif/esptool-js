@@ -5,6 +5,7 @@ export class ESP32C6ROM extends ROM {
   public CHIP_NAME = "ESP32-C6";
   public IMAGE_CHIP_ID = 13;
   public EFUSE_BASE = 0x600b0800;
+  public EFUSE_BLOCK1_ADDR = this.EFUSE_BASE + 0x044;
   public MAC_EFUSE_REG = this.EFUSE_BASE + 0x044;
   public UART_CLKDIV_REG = 0x3ff40014;
   public UART_CLKDIV_MASK = 0xfffff;
