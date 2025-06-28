@@ -269,7 +269,7 @@ export class ESPLoader {
    * @param {number} i - Number to convert.
    * @returns {Uint8Array} Byte array.
    */
-  _shortToBytearray(i: number) {
+  _shortToBytearray(i: number): Uint8Array {
     return new Uint8Array([i & 0xff, (i >> 8) & 0xff]);
   }
 
@@ -288,7 +288,7 @@ export class ESPLoader {
    * @param {number} j - Number to convert.
    * @returns {number} Return a short integer number.
    */
-  _byteArrayToShort(i: number, j: number) {
+  _byteArrayToShort(i: number, j: number): number {
     return i | (j >> 8);
   }
 
@@ -300,7 +300,7 @@ export class ESPLoader {
    * @param {number} l - Number to convert.
    * @returns {number} Return a integer number.
    */
-  _byteArrayToInt(i: number, j: number, k: number, l: number) {
+  _byteArrayToInt(i: number, j: number, k: number, l: number): number {
     return i | (j << 8) | (k << 16) | (l << 24);
   }
 
@@ -310,7 +310,7 @@ export class ESPLoader {
    * @param {ArrayBuffer} buffer2 - magic hex number to select ROM.
    * @returns {ArrayBufferLike} Return an array buffer.
    */
-  _appendBuffer(buffer1: ArrayBuffer, buffer2: ArrayBuffer) {
+  _appendBuffer(buffer1: ArrayBuffer, buffer2: ArrayBuffer): ArrayBufferLike {
     const tmp = new Uint8Array(buffer1.byteLength + buffer2.byteLength);
     tmp.set(new Uint8Array(buffer1), 0);
     tmp.set(new Uint8Array(buffer2), buffer1.byteLength);
@@ -323,7 +323,7 @@ export class ESPLoader {
    * @param {Uint8Array} arr2 - magic hex number to select ROM.
    * @returns {Uint8Array} Return a 8 bit unsigned array.
    */
-  _appendArray(arr1: Uint8Array, arr2: Uint8Array) {
+  _appendArray(arr1: Uint8Array, arr2: Uint8Array): Uint8Array {
     const c = new Uint8Array(arr1.length + arr2.length);
     c.set(arr1, 0);
     c.set(arr2, arr1.length);
@@ -335,7 +335,7 @@ export class ESPLoader {
    * @param {Uint8Array} u8Array - magic hex number to select ROM.
    * @returns {string} Return the equivalent string.
    */
-  ui8ToBstr(u8Array: Uint8Array) {
+  ui8ToBstr(u8Array: Uint8Array): string {
     let bStr = "";
     for (let i = 0; i < u8Array.length; i++) {
       bStr += String.fromCharCode(u8Array[i]);
@@ -348,7 +348,7 @@ export class ESPLoader {
    * @param {string} bStr - binary string input
    * @returns {Uint8Array} Return a 8 bit unsigned integer array.
    */
-  bstrToUi8(bStr: string) {
+  bstrToUi8(bStr: string): Uint8Array {
     const u8Array = new Uint8Array(bStr.length);
     for (let i = 0; i < bStr.length; i++) {
       u8Array[i] = bStr.charCodeAt(i);
@@ -371,9 +371,9 @@ export class ESPLoader {
    * Use the device serial port read function with given timeout to create a valid packet.
    * @param {number} op Operation number
    * @param {number} timeout timeout number in milliseconds
-   * @returns {[number, Uint8Array]} valid response packet.
+   * @returns {Promise<[number, Uint8Array]>} valid response packet.
    */
-  async readPacket(op: number | null = null, timeout = this.DEFAULT_TIMEOUT): Promise<[number, Uint8Array]> {
+  async readPacket(op: number | null = null, timeout: number = this.DEFAULT_TIMEOUT): Promise<[number, Uint8Array]> {
     // Check up-to next 100 packets for valid response packet
     for (let i = 0; i < 100; i++) {
       const { value: p } = await this.transport.read(timeout).next();
@@ -413,7 +413,7 @@ export class ESPLoader {
     data: Uint8Array = new Uint8Array(0),
     chk = 0,
     waitResponse = true,
-    timeout = this.DEFAULT_TIMEOUT,
+    timeout: number = this.DEFAULT_TIMEOUT,
   ): Promise<[number, Uint8Array]> {
     if (op != null) {
       if (this.transport.tracing) {
@@ -452,9 +452,9 @@ export class ESPLoader {
    * Read a register from chip.
    * @param {number} addr - Register address number
    * @param {number} timeout - Timeout in milliseconds (Default: 3000ms)
-   * @returns {number} - Command number value
+   * @returns {Promise<number>} - Command number value
    */
-  async readReg(addr: number, timeout = this.DEFAULT_TIMEOUT) {
+  async readReg(addr: number, timeout: number = this.DEFAULT_TIMEOUT): Promise<number> {
     const pkt = this._intToByteArray(addr);
     const val = await this.command(this.ESP_READ_REG, pkt, undefined, undefined, timeout);
     return val[0];
@@ -485,9 +485,9 @@ export class ESPLoader {
 
   /**
    * Sync chip by sending sync command.
-   * @returns {[number, Uint8Array]} Command result
+   * @returns {Promise<[number, Uint8Array]>} Command result
    */
-  async sync() {
+  async sync(): Promise<[number, Uint8Array]> {
     this.debug("Sync");
     const cmd = new Uint8Array(36);
     let i;
@@ -774,7 +774,7 @@ export class ESPLoader {
    * @param {number} sizeBytes Size bytes number
    * @returns {number} - Scaled timeout for specified size.
    */
-  timeoutPerMb(secondsPerMb: number, sizeBytes: number) {
+  timeoutPerMb(secondsPerMb: number, sizeBytes: number): number {
     const result = secondsPerMb * (sizeBytes / 1000000);
     if (result < 3000) {
       return 3000;
@@ -787,9 +787,9 @@ export class ESPLoader {
    * Start downloading to Flash (performs an erase)
    * @param {number} size Size to erase
    * @param {number} offset Offset to erase
-   * @returns {number} Number of blocks (of size self.FLASH_WRITE_SIZE) to write.
+   * @returns {Promise<number>} Number of blocks (of size self.FLASH_WRITE_SIZE) to write.
    */
-  async flashBegin(size: number, offset: number) {
+  async flashBegin(size: number, offset: number): Promise<number> {
     const numBlocks = Math.floor((size + this.FLASH_WRITE_SIZE - 1) / this.FLASH_WRITE_SIZE);
     const eraseSize = this.chip.getEraseSize(offset, size);
 
@@ -823,9 +823,9 @@ export class ESPLoader {
    * @param {number} size Write size
    * @param {number} compsize Compressed size
    * @param {number} offset Offset for write
-   * @returns {number} Returns number of blocks (size self.FLASH_WRITE_SIZE) to write.
+   * @returns {Promise<number>} Returns number of blocks (size self.FLASH_WRITE_SIZE) to write.
    */
-  async flashDeflBegin(size: number, compsize: number, offset: number) {
+  async flashDeflBegin(size: number, compsize: number, offset: number): Promise<number> {
     const numBlocks = Math.floor((compsize + this.FLASH_WRITE_SIZE - 1) / this.FLASH_WRITE_SIZE);
     const eraseBlocks = Math.floor((size + this.FLASH_WRITE_SIZE - 1) / this.FLASH_WRITE_SIZE);
 
@@ -939,9 +939,9 @@ export class ESPLoader {
    * @param {number} spiflashCommand Command to execute in SPI
    * @param {Uint8Array} data Data to send
    * @param {number} readBits Number of bits to read
-   * @returns {number} Register SPI_W0_REG value
+   * @returns {Promise<number>} Register SPI_W0_REG value
    */
-  async runSpiflashCommand(spiflashCommand: number, data: Uint8Array, readBits: number) {
+  async runSpiflashCommand(spiflashCommand: number, data: Uint8Array, readBits: number): Promise<number> {
     // SPI_USR register flags
     const SPI_USR_COMMAND = 1 << 31;
     const SPI_USR_MISO = 1 << 28;
@@ -1037,7 +1037,7 @@ export class ESPLoader {
    * Read flash id by executing the SPIFLASH_RDID flash command.
    * @returns {Promise<number>} Register SPI_W0_REG value
    */
-  async readFlashId() {
+  async readFlashId(): Promise<number> {
     const SPIFLASH_RDID = 0x9f;
     const pkt = new Uint8Array(0);
     return await this.runSpiflashCommand(SPIFLASH_RDID, pkt, 24);
@@ -1190,9 +1190,9 @@ export class ESPLoader {
   /**
    * Execute the main function of ESPLoader.
    * @param {string} mode Reset mode to use
-   * @returns {string} chip ROM
+   * @returns {Promise<string>} chip ROM
    */
-  async main(mode: Before = "default_reset") {
+  async main(mode: Before = "default_reset"): Promise<string> {
     await this.detectChip(mode);
 
     const chip = await this.chip.getChipDescription(this);
@@ -1219,7 +1219,7 @@ export class ESPLoader {
    * @param {string} flashSize Flash Size string
    * @returns {number} Flash size bytes
    */
-  flashSizeBytes = function (flashSize: string) {
+  flashSizeBytes = function (flashSize: string): number {
     let flashSizeB = -1;
     if (flashSize.indexOf("KB") !== -1) {
       flashSizeB = parseInt(flashSize.slice(0, flashSize.indexOf("KB"))) * 1024;
@@ -1234,7 +1234,7 @@ export class ESPLoader {
    * @param {string} flsz Flash size to request
    * @returns {number} Flash size number
    */
-  parseFlashSizeArg(flsz: string) {
+  parseFlashSizeArg(flsz: string): number {
     if (typeof this.chip.FLASH_SIZES[flsz] === "undefined") {
       throw new ESPError(
         "Flash size " + flsz + " is not supported by this chip type. Supported sizes: " + this.chip.FLASH_SIZES,
@@ -1252,7 +1252,13 @@ export class ESPLoader {
    * @param {string} flashFreq Flash frequency string
    * @returns {string} modified image string
    */
-  _updateImageFlashParams(image: string, address: number, flashSize: string, flashMode: string, flashFreq: string) {
+  _updateImageFlashParams(
+    image: string,
+    address: number,
+    flashSize: string,
+    flashMode: string,
+    flashFreq: string,
+  ): string {
     this.debug("_update_image_flash_params " + flashSize + " " + flashMode + " " + flashFreq);
     if (image.length < 8) {
       return image;
