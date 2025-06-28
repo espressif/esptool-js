@@ -141,7 +141,7 @@ class Transport {
    * @param {Uint8Array} data Binary unsigned 8 bit array data to format.
    * @returns {Uint8Array} Formatted unsigned 8 bit data array.
    */
-  slipWriter(data: Uint8Array) {
+  slipWriter(data: Uint8Array): Uint8Array {
     const outData = [];
     outData.push(0xc0);
     for (let i = 0; i < data.length; i++) {
@@ -415,8 +415,8 @@ class Transport {
   async connect(baud = 115200, serialOptions: SerialOptions = {}) {
     await this.device.open({
       baudRate: baud,
-      dataBits: serialOptions?.dataBits,
-      stopBits: serialOptions?.stopBits,
+      dataBits: serialOptions?.dataBits === 7 || serialOptions?.dataBits === 8 ? serialOptions.dataBits : undefined,
+      stopBits: serialOptions?.stopBits === 1 || serialOptions?.stopBits === 2 ? serialOptions.stopBits : undefined,
       bufferSize: serialOptions?.bufferSize,
       parity: serialOptions?.parity,
       flowControl: serialOptions?.flowControl,

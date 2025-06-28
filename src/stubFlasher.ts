@@ -14,9 +14,9 @@ export interface Stub {
 /**
  * Import flash stub json for the given chip name.
  * @param {string} chipName Name of chip to obtain flasher stub
- * @returns {Stub} Stub information and decoded text and data
+ * @returns {Promise<Stub | undefined>} Stub information and decoded text and data
  */
-export async function getStubJsonByChipName(chipName: string) {
+export async function getStubJsonByChipName(chipName: string): Promise<Stub | undefined> {
   let jsonStub;
   switch (chipName) {
     case "ESP32":
@@ -52,6 +52,8 @@ export async function getStubJsonByChipName(chipName: string) {
     case "ESP8266":
       jsonStub = await import("./targets/stub_flasher/stub_flasher_8266.json");
       break;
+    default:
+      return undefined;
   }
 
   if (jsonStub) {
@@ -66,7 +68,7 @@ export async function getStubJsonByChipName(chipName: string) {
       decodedText: decodeBase64Data(jsonStub.text),
     } as Stub;
   }
-  return;
+  return undefined;
 }
 
 /**
@@ -74,7 +76,7 @@ export async function getStubJsonByChipName(chipName: string) {
  * @param {string} dataStr Base64 String to decode
  * @returns {Uint8Array} Decoded Uint8Array
  */
-export function decodeBase64Data(dataStr: string) {
+export function decodeBase64Data(dataStr: string): Uint8Array {
   const decoded = atob(dataStr);
   const chardata = decoded.split("").map(function (x) {
     return x.charCodeAt(0);
