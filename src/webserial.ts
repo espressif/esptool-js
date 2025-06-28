@@ -244,7 +244,7 @@ class Transport {
   }
 
   async flushInput() {
-    if (this.reader && !(await this.reader.closed)) {
+    if (this.reader) {
       await this.reader.cancel();
       this.reader.releaseLock();
       this.reader = this.device.readable?.getReader();
