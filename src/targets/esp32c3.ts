@@ -47,17 +47,35 @@ export class ESP32C3ROM extends ROM {
     return ret;
   }
 
+  public async getMinorChipVersion(loader: ESPLoader): Promise<number> {
+    const hiNumWord = 5;
+    const hiAddr = this.EFUSE_BASE + 0x044 + 4 * hiNumWord;
+    const hi = ((await loader.readReg(hiAddr)) >> 23) & 0x01;
+
+    const lowNumWord = 3;
+    const lowAddr = this.EFUSE_BASE + 0x044 + 4 * lowNumWord;
+    const low = ((await loader.readReg(lowAddr)) >> 18) & 0x07;
+
+    return (hi << 3) + low;
+  }
+
+  public async getMajorChipVersion(loader: ESPLoader): Promise<number> {
+    const numWord = 5;
+    const addr = this.EFUSE_BASE + 0x044 + 4 * numWord;
+    return ((await loader.readReg(addr)) >> 24) & 0x03;
+  }
+
   public async getChipDescription(loader: ESPLoader) {
-    let desc: string;
-    const pkgVer = await this.getPkgVersion(loader);
-    if (pkgVer === 0) {
-      desc = "ESP32-C3";
-    } else {
-      desc = "unknown ESP32-C3";
-    }
-    const chip_rev = await this.getChipRevision(loader);
-    desc += " (revision " + chip_rev + ")";
-    return desc;
+    const chipDesc: { [key: number]: string } = {
+      0: "ESP32-C3 (QFN32)",
+      1: "ESP8685 (QFN28)",
+      2: "ESP32-C3 AZ (QFN32)",
+      3: "ESP8686 (QFN24)",
+    };
+    const chipIndex = await this.getPkgVersion(loader);
+    const majorRev = await this.getMajorChipVersion(loader);
+    const minorRev = await this.getMinorChipVersion(loader);
+    return `${chipDesc[chipIndex] || "Unknown ESP32-C3"} (revision v${majorRev}.${minorRev})`;
   }
 
   public async getFlashCap(loader: ESPLoader): Promise<number> {
