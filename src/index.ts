@@ -1,4 +1,4 @@
-export { ESPLoader } from "./esploader.js";
+export { ESPLoader, FlashReadCallback } from "./esploader.js";
 export {
   ClassicReset,
   CustomReset,
@@ -6,6 +6,7 @@ export {
   UsbJtagSerialReset,
   validateCustomResetStringSequence,
   ResetConstructors,
+  ResetStrategy,
 } from "./reset.js";
 export { ROM } from "./targets/rom.js";
 export { Transport, SerialOptions } from "./webserial.js";
