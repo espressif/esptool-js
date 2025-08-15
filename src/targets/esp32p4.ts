@@ -1,5 +1,6 @@
 import { ESPLoader } from "../esploader.js";
 import { ESP32ROM } from "./esp32.js";
+import { MemoryMapEntry } from "./rom.js";
 
 export class ESP32P4ROM extends ESP32ROM {
   public CHIP_NAME = "ESP32-P4";
@@ -60,7 +61,7 @@ export class ESP32P4ROM extends ESP32ROM {
 
   public FLASH_ENCRYPTED_WRITE_ALIGN = 16;
 
-  public MEMORY_MAP = [
+  public MEMORY_MAP: MemoryMapEntry[] = [
     [0x00000000, 0x00010000, "PADDING"],
     [0x40000000, 0x4c000000, "DROM"],
     [0x4ff00000, 0x4ffa0000, "DRAM"],

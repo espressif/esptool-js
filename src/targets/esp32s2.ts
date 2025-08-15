@@ -1,7 +1,8 @@
 import { ESPLoader } from "../esploader.js";
-import { ROM } from "./rom.js";
+import { ESP32ROM } from "./esp32.js";
+import { MemoryMapEntry } from "./rom.js";
 
-export class ESP32S2ROM extends ROM {
+export class ESP32S2ROM extends ESP32ROM {
   public CHIP_NAME = "ESP32-S2";
   public IMAGE_CHIP_ID = 2;
   public IROM_MAP_START = 0x40080000;
@@ -81,7 +82,7 @@ export class ESP32S2ROM extends ROM {
   public RTC_CNTL_WDTWPROTECT_REG = this.RTCCNTL_BASE_REG + 0x00ac;
   public RTC_CNTL_WDT_WKEY = 0x50d83aa1;
 
-  public MEMORY_MAP = [
+  public MEMORY_MAP: MemoryMapEntry[] = [
     [0x00000000, 0x00010000, "PADDING"],
     [0x3f000000, 0x3ff80000, "DROM"],
     [0x3f500000, 0x3ff80000, "EXTRAM_DATA"],
@@ -124,14 +125,6 @@ export class ESP32S2ROM extends ROM {
 
   public FLASH_WRITE_SIZE = 0x400;
   public BOOTLOADER_FLASH_OFFSET = 0x1000;
-
-  public FLASH_SIZES = {
-    "1MB": 0x00,
-    "2MB": 0x10,
-    "4MB": 0x20,
-    "8MB": 0x30,
-    "16MB": 0x40,
-  };
 
   public async getPkgVersion(loader: ESPLoader): Promise<number> {
     const numWord = 4;
