@@ -14,3 +14,4 @@ export { LoaderOptions } from "./types/loaderOptions.js";
 export { FlashOptions } from "./types/flashOptions.js";
 export { IEspLoaderTerminal } from "./types/loaderTerminal.js";
 export { Before, After } from "./types/resetModes.js";
+export { AddressDecoder } from "./address_decoder";

@@ -29,6 +29,7 @@
   },
   "dependencies": {
     "atob-lite": "^2.0.0",
+    "jselftools": "^0.2.5",
     "pako": "^2.1.0",
     "tslib": "^2.4.1"
   },
