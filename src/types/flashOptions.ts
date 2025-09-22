@@ -1,3 +1,5 @@
+import { FlashFreqValues, FlashModeValues } from "./arguments";
+
 /**
  * Options for flashing a device with firmware.
  * @interface FlashOptions
@@ -10,22 +12,16 @@ export interface FlashOptions {
   fileArray: { data: string; address: number }[];
 
   /**
-   * The size of the flash memory to be used.
-   * @type {string}
-   */
-  flashSize: string;
-
-  /**
    * The flash mode to be used (e.g., QIO, QOUT, DIO, DOUT).
-   * @type {string}
+   * @type {FlashModeValues}
    */
-  flashMode: string;
+  flashMode: FlashModeValues;
 
   /**
    * The flash frequency to be used (e.g., 40MHz, 80MHz).
-   * @type {string}
+   * @type {FlashFreqValues}
    */
-  flashFreq: string;
+  flashFreq: FlashFreqValues;
 
   /**
    * Flag indicating whether to erase all existing data in the flash memory before flashing.
