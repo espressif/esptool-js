@@ -244,17 +244,28 @@ class Transport {
   }
 
   async flushInput() {
-    if (this.reader && !(await this.reader.closed)) {
-      await this.reader.cancel();
-      this.reader.releaseLock();
+    try {
+      if (!this.reader) {
+        this.reader = this.device.readable?.getReader();
+      }
+      await this.reader?.cancel();
       this.reader = this.device.readable?.getReader();
+    } catch (error) {
+      this.trace(`Error while flushing input: ${error}`);
     }
+    this.buffer = new Uint8Array(0);
   }
 
   async flushOutput() {
-    this.buffer = new Uint8Array(0);
-    await this.device.writable?.getWriter().close();
-    this.device.writable?.getWriter().releaseLock();
+    try {
+      if (this.device.writable) {
+        const writer = this.device.writable.getWriter();
+        await writer.close();
+        writer.releaseLock();
+      }
+    } catch (error) {
+      this.trace(`Error while flushing output: ${error}`);
+    }
   }
 
   // `inWaiting` returns the count of bytes in the buffer

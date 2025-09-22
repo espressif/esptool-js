@@ -115,6 +115,7 @@ connectButton.onclick = async () => {
     } as LoaderOptions;
     esploader = new ESPLoader(flashOptions);
 
+    traceButton.style.display = "initial";
     chip = await esploader.main();
 
     // Temporarily broken
@@ -126,7 +127,6 @@ connectButton.onclick = async () => {
     baudrates.style.display = "none";
     connectButton.style.display = "none";
     disconnectButton.style.display = "initial";
-    traceButton.style.display = "initial";
     eraseButton.style.display = "initial";
     filesDiv.style.display = "initial";
     partitionTableOutput.style.display = "block";
@@ -599,7 +599,6 @@ programButton.onclick = async () => {
   try {
     const flashOptions: FlashOptions = {
       fileArray: fileArray,
-      flashSize: "keep",
       eraseAll: false,
       compress: true,
       reportProgress: (fileIndex, written, total) => {

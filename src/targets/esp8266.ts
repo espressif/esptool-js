@@ -1,5 +1,5 @@
 import { ESPLoader } from "../esploader.js";
-import { ROM } from "./rom.js";
+import { MemoryMapEntry, ROM } from "./rom.js";
 
 export class ESP8266ROM extends ROM {
   public CHIP_NAME = "ESP8266";
@@ -15,6 +15,9 @@ export class ESP8266ROM extends ROM {
   public BOOTLOADER_FLASH_OFFSET = 0;
   public UART_DATE_REG_ADDR = 0;
 
+  static IROM_MAP_START = 0x40200000;
+  static IROM_MAP_END = 0x40300000;
+
   public FLASH_SIZES = {
     "512KB": 0x00,
     "256KB": 0x10,
@@ -26,6 +29,20 @@ export class ESP8266ROM extends ROM {
     "8MB": 0x80,
     "16MB": 0x90,
   };
+
+  public FLASH_FREQUENCY = {
+    "80m": 0xf,
+    "40m": 0x0,
+    "26m": 0x1,
+    "20m": 0x2,
+  };
+
+  public MEMORY_MAP: MemoryMapEntry[] = [
+    [0x3ff00000, 0x3ff00010, "DPORT"],
+    [0x3ffe8000, 0x40000000, "DRAM"],
+    [0x40100000, 0x40108000, "IRAM"],
+    [0x40201010, 0x402e1010, "IROM"],
+  ];
 
   public SPI_REG_BASE = 0x60000200;
   public SPI_USR_OFFS = 0x1c;
