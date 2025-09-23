@@ -692,10 +692,7 @@ export class ESPLoader {
     try {
       this.info("Detecting chip type... ");
       const chipID = await this.getChipId();
-      const filteredROMList = ROM_LIST.filter(
-        (n) => n.CHIP_NAME !== "ESP8266" && n.CHIP_NAME !== "ESP32" && n.CHIP_NAME !== "ESP32-S2",
-      );
-      for (const cls of filteredROMList) {
+      for (const cls of ROM_LIST) {
         if (chipID === cls.IMAGE_CHIP_ID) {
           this.chip = cls;
           break;
