@@ -50,7 +50,6 @@ export class ESP8266ROM extends ROM {
   public SPI_USR2_OFFS = 0x24;
   public SPI_MOSI_DLEN_OFFS = 0; // not in esp8266
   public SPI_MISO_DLEN_OFFS = 0; // not in esp8266
-  public IMAGE_CHIP_ID = 9999; // not in esp8266
   public SPI_W0_OFFS = 0x40;
 
   public async readEfuse(loader: ESPLoader, offset: number): Promise<number> {
