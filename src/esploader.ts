@@ -1673,7 +1673,7 @@ export class ESPLoader {
       case "custom_reset":
         if (!sequenceString) {
           this.info("Custom reset sequence not provided, doing nothing.");
-        } 
+        }
         if (!this.resetConstructors.customReset) {
           this.info("Custom reset constructor not available, doing nothing.");
         }
