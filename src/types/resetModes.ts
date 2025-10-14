@@ -6,4 +6,4 @@ export type Before = "default_reset" | "usb_reset" | "no_reset" | "no_reset_no_s
 /**
  * Reset modes that can be used after operation is finished.
  */
-export type After = "hard_reset" | "soft_reset" | "no_reset" | "no_reset_stub";
+export type After = "hard_reset" | "soft_reset" | "no_reset" | "no_reset_stub" | "custom_reset";
