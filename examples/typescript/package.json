@@ -5,12 +5,14 @@
   "source": "src/index.html",
   "scripts": {
     "build": "npm-run-all clean genDocs parcel:build",
+    "build:custom-base": "npm-run-all clean genDocs parcel:build:custom",
     "clean": "shx rm -rf dist .parcel-cache",
     "dev": "npm-run-all clean genDocs parcel:dev",
     "genDocs": "npm run genDocs:root && shx mkdir -p dist && shx cp -r ../../docs dist",
     "genDocs:root": "cd ../.. && npm run genDocs",
     "parcel:dev": "cross-env PARCEL_WORKERS=0 parcel src/index.html",
     "parcel:build": "cross-env PARCEL_WORKERS=0 parcel build src/index.html --no-optimize --public-url ./",
+    "parcel:build:custom": "cross-env PARCEL_WORKERS=0 parcel build src/index.html --no-optimize",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "parcelIgnore": [
