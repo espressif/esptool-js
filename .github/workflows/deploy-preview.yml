@@ -1,0 +1,191 @@
+name: Deploy Preview to GitHub Pages
+
+on:
+  push:
+    branches:
+      - '**'  # All branches
+      - '!main'  # Exclude main branch (handled by pages.yml)
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+permissions:
+  contents: write
+  pull-requests: write
+  pages: read
+
+jobs:
+  deploy-preview:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Determine deployment path
+        id: deployment-path
+        run: |
+          # Get the GitHub Pages base URL
+          GH_PAGES_URL=$(gh api repos/${{ github.repository }}/pages --jq '.html_url' 2>/dev/null || echo "")
+          
+          if [ -z "$GH_PAGES_URL" ]; then
+            echo "GitHub Pages not configured, using repository name as base"
+            REPO_NAME=$(echo "${{ github.repository }}" | cut -d'/' -f2)
+            GH_PAGES_URL="https://${{ github.repository_owner }}.github.io/${REPO_NAME}"
+          fi
+          
+          # Remove trailing slash from base URL
+          GH_PAGES_URL=${GH_PAGES_URL%/}
+          
+          # Determine if this is a PR or branch push
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            PR_NUMBER="${{ github.event.pull_request.number }}"
+            REF="${{ github.event.pull_request.head.sha }}"
+            SHORT_REF=${REF:0:7}
+            DEPLOY_DIR="pr/${PR_NUMBER}-${SHORT_REF}"
+            BASE_HREF="${GH_PAGES_URL}/pr/${PR_NUMBER}-${SHORT_REF}/"
+          else
+            BRANCH_NAME="${{ github.ref_name }}"
+            # Sanitize branch name for use in paths
+            SAFE_BRANCH=$(echo "$BRANCH_NAME" | sed 's/[^a-zA-Z0-9-]/_/g')
+            REF="${{ github.sha }}"
+            SHORT_REF=${REF:0:7}
+            DEPLOY_DIR="branch/${SAFE_BRANCH}-${SHORT_REF}"
+            BASE_HREF="${GH_PAGES_URL}/branch/${SAFE_BRANCH}-${SHORT_REF}/"
+          fi
+          
+          echo "deploy_dir=${DEPLOY_DIR}" >> $GITHUB_OUTPUT
+          echo "base_href=${BASE_HREF}" >> $GITHUB_OUTPUT
+          echo "gh_pages_url=${GH_PAGES_URL}" >> $GITHUB_OUTPUT
+          
+          echo "Deployment directory: ${DEPLOY_DIR}"
+          echo "Base HREF: ${BASE_HREF}"
+        env:
+          GH_TOKEN: ${{ github.token }}
+
+      - name: Install root dependencies
+        run: npm install
+
+      - name: Build library
+        run: npm run build
+
+      - name: Install example dependencies
+        run: |
+          cd examples/typescript
+          npm install
+
+      - name: Build example with base href
+        run: |
+          cd examples/typescript
+          # Clean and generate docs first
+          npm run clean
+          npm run genDocs
+          # Build with the dynamic base href using custom script
+          npm run parcel:build:custom -- --public-url "${{ steps.deployment-path.outputs.base_href }}"
+
+      - name: Checkout gh-pages branch
+        id: checkout-gh-pages
+        run: |
+          # Try to checkout gh-pages branch
+          if git ls-remote --heads origin gh-pages | grep -q gh-pages; then
+            echo "gh-pages branch exists"
+            echo "exists=true" >> $GITHUB_OUTPUT
+          else
+            echo "gh-pages branch does not exist"
+            echo "exists=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Setup gh-pages branch
+        if: steps.checkout-gh-pages.outputs.exists == 'false'
+        run: |
+          # Create a temporary directory for gh-pages initialization
+          TEMP_DIR="${{ runner.temp }}/gh-pages-init"
+          mkdir -p "$TEMP_DIR"
+          cd "$TEMP_DIR"
+          git init
+          git checkout -b gh-pages
+          echo "# GitHub Pages - Preview Deployments" > README.md
+          echo "" >> README.md
+          echo "This branch contains preview deployments for pull requests and branches." >> README.md
+          git add README.md
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git commit -m "Initialize gh-pages branch"
+          git remote add origin https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}.git
+          git push -u origin gh-pages
+
+      - name: Checkout existing gh-pages
+        if: steps.checkout-gh-pages.outputs.exists == 'true'
+        uses: actions/checkout@v4
+        with:
+          ref: gh-pages
+          path: gh-pages-repo
+
+      - name: Setup deployment directory
+        run: |
+          if [ "${{ steps.checkout-gh-pages.outputs.exists }}" = "false" ]; then
+            # Clone the newly created gh-pages branch
+            git clone --single-branch --branch gh-pages https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}.git gh-pages-repo
+          fi
+
+      - name: Deploy to gh-pages
+        run: |
+          DEPLOY_DIR="${{ steps.deployment-path.outputs.deploy_dir }}"
+          
+          # Create deployment directory structure
+          mkdir -p "gh-pages-repo/${DEPLOY_DIR}"
+          
+          # Copy built files to deployment directory
+          cp -r examples/typescript/dist/* "gh-pages-repo/${DEPLOY_DIR}/"
+          
+          # Configure git
+          cd gh-pages-repo
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          
+          # Commit and push
+          git add .
+          if git diff --staged --quiet; then
+            echo "No changes to deploy"
+          else
+            git commit -m "Deploy preview: ${{ steps.deployment-path.outputs.deploy_dir }}"
+            git push origin gh-pages
+          fi
+
+      - name: Comment on PR with preview URL
+        if: github.event_name == 'pull_request'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const deployUrl = '${{ steps.deployment-path.outputs.base_href }}';
+            const deployDir = '${{ steps.deployment-path.outputs.deploy_dir }}';
+            const comment = `### 🚀 Preview Deployment Ready!
+            
+            Your changes have been deployed to GitHub Pages:
+            
+            **Preview URL:** [${deployUrl}](${deployUrl})
+            
+            **Deployment Path:** \`${deployDir}\`
+            
+            This preview will be updated with each new commit to this PR.`;
+            
+            github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body: comment
+            });
+
+      - name: Output deployment summary
+        run: |
+          echo "## Deployment Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Deployment URL:** [${{ steps.deployment-path.outputs.base_href }}](${{ steps.deployment-path.outputs.base_href }})" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Deployment Directory:** \`${{ steps.deployment-path.outputs.deploy_dir }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Event Type:** ${{ github.event_name }}" >> $GITHUB_STEP_SUMMARY
+
