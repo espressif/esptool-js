@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - '**'  # All branches
+      - '!main'  # Exclude main branch (handled by pages.yml)
   pull_request:
     types: [opened, synchronize, reopened]
 
@@ -100,16 +101,20 @@ jobs:
       - name: Setup gh-pages branch
         if: steps.checkout-gh-pages.outputs.exists == 'false'
         run: |
-          # Create orphan gh-pages branch
-          git checkout --orphan gh-pages
-          git rm -rf .
-          echo "# GitHub Pages" > README.md
+          # Create a temporary directory for gh-pages initialization
+          mkdir -p /tmp/gh-pages-init
+          cd /tmp/gh-pages-init
+          git init
+          git checkout -b gh-pages
+          echo "# GitHub Pages - Preview Deployments" > README.md
+          echo "" >> README.md
+          echo "This branch contains preview deployments for pull requests and branches." >> README.md
           git add README.md
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git commit -m "Initialize gh-pages branch"
-          git push origin gh-pages
-          cd ..
+          git remote add origin https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}.git
+          git push -u origin gh-pages
 
       - name: Checkout existing gh-pages
         if: steps.checkout-gh-pages.outputs.exists == 'true'
@@ -155,13 +160,16 @@ jobs:
         with:
           script: |
             const deployUrl = '${{ steps.deployment-path.outputs.base_href }}';
+            const deployDir = '${{ steps.deployment-path.outputs.deploy_dir }}';
             const comment = `### 🚀 Preview Deployment Ready!
             
             Your changes have been deployed to GitHub Pages:
             
-            **Preview URL:** ${deployUrl}
+            **Preview URL:** [${deployUrl}](${deployUrl})
             
-            This preview will be available until the PR is closed or new commits are pushed.`;
+            **Deployment Path:** \`${deployDir}\`
+            
+            This preview will be updated with each new commit to this PR.`;
             
             github.rest.issues.createComment({
               owner: context.repo.owner,
@@ -169,3 +177,14 @@ jobs:
               issue_number: context.issue.number,
               body: comment
             });
+
+      - name: Output deployment summary
+        run: |
+          echo "## Deployment Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Deployment URL:** [${{ steps.deployment-path.outputs.base_href }}](${{ steps.deployment-path.outputs.base_href }})" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Deployment Directory:** \`${{ steps.deployment-path.outputs.deploy_dir }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Event Type:** ${{ github.event_name }}" >> $GITHUB_STEP_SUMMARY
+
