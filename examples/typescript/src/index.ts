@@ -37,7 +37,7 @@ const debugLogging = document.getElementById("debugLogging") as HTMLInputElement
 // To optimize use a CDN hosted version like
 // https://unpkg.com/esptool-js@0.5.0/bundle.js
 import { ESPLoader, FlashOptions, LoaderOptions, Transport,
-  Partitions, PartitionDefinition, PARTITION_TYPES, PARTITION_SUBTYPES } from "../../../lib";
+  Partitions, PartitionDefinition, PARTITION_TYPES, PARTITION_SUBTYPES, FlashSizeValues } from "../../../lib";
 import { serial } from "web-serial-polyfill";
 
 const serialLib = !navigator.serial && navigator.usb ? serial : navigator.serial;
@@ -264,7 +264,7 @@ readFlashData.onclick = async () => {
   }
   const offset = parseInt(hexOffset, 16);
   const readAll = readFlashAllInput.checked;
-  const flashSize = ((await esploader.getFlashSize()) || 0) * 1024;
+  const flashSize = esploader.flashSizeBytes((await esploader.detectFlashSize("detect")) as FlashSizeValues);
   const size = readAll ? flashSize - offset : parseInt(readFlashSizeInput.value, 16) || 0;
   if (size <= 0) {
     term.writeln("Invalid size received (" + size + "), impossible to read flash of 0bytes");
