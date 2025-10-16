@@ -1,5 +1,7 @@
 const baudrates = document.getElementById("baudrates") as HTMLSelectElement;
 const consoleBaudrates = document.getElementById("consoleBaudrates") as HTMLSelectElement;
+const reconnectDelay = document.getElementById("reconnectDelay") as HTMLInputElement;
+const maxRetriesInput = document.getElementById("maxRetries") as HTMLInputElement;
 const connectButton = document.getElementById("connectButton") as HTMLButtonElement;
 const traceButton = document.getElementById("copyTraceButton") as HTMLButtonElement;
 const disconnectButton = document.getElementById("disconnectButton") as HTMLButtonElement;
@@ -250,30 +252,51 @@ consoleStartButton.onclick = async () => {
     // Set up device lost callback
     transport.setDeviceLostCallback(async () => {
       if (!isConsoleClosed && !isReconnecting) {
-        term.writeln("\n[DEVICE LOST] Device disconnected. Click 'Reconnect' to restore connection...");
-        await sleep(1000);
+        term.writeln("\n[DEVICE LOST] Device disconnected. Trying to reconnect...");
+        await sleep(parseInt(reconnectDelay.value));
         isReconnecting = true;
-        term.writeln("\n[RECONNECT] Attempting to reconnect...");
-        if (serialLib && serialLib.getPorts) {
-          const ports = await serialLib.getPorts();
-          if (ports.length > 0) {
-            const newDevice = ports.find(
-              (port) =>
-                port.getInfo().usbVendorId === deviceInfo.usbVendorId &&
-                port.getInfo().usbProductId === deviceInfo.usbProductId,
-            );
-            device = newDevice;
-            transport.updateDevice(device);
-            term.writeln("[RECONNECT] Found previously authorized device, connecting...");
-            await transport.connect(parseInt(consoleBaudrates.value));
-            term.writeln("[RECONNECT] Successfully reconnected!");
-            consoleStopButton.style.display = "initial";
-            resetButton.style.display = "initial";
-            isReconnecting = false;
 
-            startConsoleReading();
-            return;
+        const maxRetries = parseInt(maxRetriesInput.value);
+        let retryCount = 0;
+
+        while (retryCount < maxRetries && !isConsoleClosed) {
+          retryCount++;
+          term.writeln(`\n[RECONNECT] Attempt ${retryCount}/${maxRetries}...`);
+
+          if (serialLib && serialLib.getPorts) {
+            const ports = await serialLib.getPorts();
+            if (ports.length > 0) {
+              const newDevice = ports.find(
+                (port) =>
+                  port.getInfo().usbVendorId === deviceInfo.usbVendorId &&
+                  port.getInfo().usbProductId === deviceInfo.usbProductId,
+              );
+
+              if (newDevice) {
+                device = newDevice;
+                transport.updateDevice(device);
+                term.writeln("[RECONNECT] Found previously authorized device, connecting...");
+                await transport.connect(parseInt(consoleBaudrates.value));
+                term.writeln("[RECONNECT] Successfully reconnected!");
+                consoleStopButton.style.display = "initial";
+                resetButton.style.display = "initial";
+                isReconnecting = false;
+
+                startConsoleReading();
+                return;
+              }
+            }
           }
+
+          if (retryCount < maxRetries) {
+            term.writeln(`[RECONNECT] Device not found, retrying in ${parseInt(reconnectDelay.value)}ms...`);
+            await sleep(parseInt(reconnectDelay.value));
+          }
+        }
+
+        if (retryCount >= maxRetries) {
+          term.writeln("\n[RECONNECT] Failed to reconnect after 5 attempts. Please manually reconnect.");
+          isReconnecting = false;
         }
       }
     });
