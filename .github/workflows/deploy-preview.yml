@@ -1,12 +1,9 @@
 name: Deploy Preview to GitHub Pages
 
 on:
-  push:
-    branches:
-      - '**'  # All branches
-      - '!main'  # Exclude main branch (handled by pages.yml)
   pull_request:
     types: [opened, synchronize, reopened]
+  workflow_dispatch:
 
 permissions:
   contents: write
