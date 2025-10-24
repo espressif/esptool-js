@@ -1595,6 +1595,85 @@ export class ESPLoader {
   }
 
   /**
+   * Flash the device and then start monitoring the console output.
+   * @param {FlashOptions} flashOptions - Flash options for writing to flash
+   * @param {After} afterMode - Reset mode after flashing
+   * @param {boolean} usingUsbOtg - Whether using USB-OTG for hard reset
+   * @param {number} monitorBaudrate - Baudrate for console monitoring (default: 115200)
+   * @param {Function} onData - Optional callback function to handle received data
+   * @returns {Promise<void>}
+   */
+  async flashAndMonitor(
+    flashOptions: FlashOptions,
+    afterMode: After = "hard_reset",
+    usingUsbOtg?: boolean,
+    monitorBaudrate = 115200,
+    onData?: (data: Uint8Array) => void,
+  ): Promise<void> {
+    // First perform the flash operation
+    this.info("Starting flashing...");
+    await this.writeFlash(flashOptions);
+    this.info("Flashing completed. Starting reset...");
+    await this.after(afterMode, usingUsbOtg);
+
+    // Start monitoring after a brief delay to allow the device to boot
+    await this._sleep(1000);
+
+    this.info("Starting console monitoring...");
+    this.startConsoleMonitoring(monitorBaudrate, onData); // Don't await this to allow continuous monitoring
+  }
+
+  /**
+   * Start monitoring the console output from the device.
+   * @param {number} baudrate - Baudrate for console monitoring
+   * @param {Function} onData - Optional callback function to handle received data
+   * @returns {Promise<void>}
+   */
+  async startConsoleMonitoring(baudrate = 115200, onData?: (data: Uint8Array) => void): Promise<void> {
+    try {
+      await this.transport.disconnect();
+      await this.transport.connect(baudrate, this.serialOptions);
+
+      this.info(`Console monitoring started at ${baudrate} baud`);
+
+      let isMonitoring = true;
+      while (isMonitoring) {
+        const readLoop = this.transport.rawRead();
+        const { value, done } = await readLoop.next();
+
+        if (done || !value) {
+          isMonitoring = false;
+        } else {
+          if (this.terminal) {
+            // Write raw Uint8Array to terminal to preserve ANSI escape codes
+            this.terminal.write(this.ui8ToBstr(value));
+          }
+          if (onData) {
+            onData(value);
+          }
+        }
+      }
+    } catch (error) {
+      this.error(`Console monitoring error: ${error}`);
+      throw error;
+    }
+  }
+
+  /**
+   * Stop console monitoring and disconnect.
+   * @returns {Promise<void>}
+   */
+  async stopConsoleMonitoring(): Promise<void> {
+    try {
+      await this.transport.disconnect();
+      await this.transport.waitForUnlock(1500);
+      this.info("Console monitoring stopped");
+    } catch (error) {
+      this.error(`Error stopping console monitoring: ${error}`);
+    }
+  }
+
+  /**
    * Read SPI flash manufacturer and device id.
    */
   async flashId() {

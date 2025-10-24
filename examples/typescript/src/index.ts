@@ -9,6 +9,7 @@ const consoleStopButton = document.getElementById("consoleStopButton") as HTMLBu
 const eraseButton = document.getElementById("eraseButton") as HTMLButtonElement;
 const addFileButton = document.getElementById("addFile") as HTMLButtonElement;
 const programButton = document.getElementById("programButton");
+const flashAndMonitorButton = document.getElementById("flashAndMonitorButton") as HTMLButtonElement;
 const filesDiv = document.getElementById("files");
 const terminal = document.getElementById("terminal");
 const programDiv = document.getElementById("program");
@@ -46,6 +47,7 @@ traceButton.style.display = "none";
 eraseButton.style.display = "none";
 consoleStopButton.style.display = "none";
 resetButton.style.display = "none";
+flashAndMonitorButton.style.display = "none";
 filesDiv.style.display = "none";
 
 /**
@@ -106,11 +108,13 @@ connectButton.onclick = async () => {
     console.log("Settings done for :" + chip);
     lblBaudrate.style.display = "none";
     lblConnTo.innerHTML = "Connected to device: " + chip;
+    lblConsoleFor.innerHTML = "Connected to device: " + chip;
     lblConnTo.style.display = "block";
     baudrates.style.display = "none";
     connectButton.style.display = "none";
     disconnectButton.style.display = "initial";
     eraseButton.style.display = "initial";
+    flashAndMonitorButton.style.display = "initial";
     filesDiv.style.display = "initial";
     consoleDiv.style.display = "none";
   } catch (e) {
@@ -211,6 +215,7 @@ function cleanUp() {
   device = null;
   transport = null;
   chip = null;
+  esploader = null;
 }
 
 disconnectButton.onclick = async () => {
@@ -224,6 +229,7 @@ disconnectButton.onclick = async () => {
   disconnectButton.style.display = "none";
   traceButton.style.display = "none";
   eraseButton.style.display = "none";
+  flashAndMonitorButton.style.display = "none";
   lblConnTo.style.display = "none";
   filesDiv.style.display = "none";
   alertDiv.style.display = "none";
@@ -238,6 +244,13 @@ consoleStartButton.onclick = async () => {
     transport = new Transport(device, true);
   }
   lblConsoleFor.style.display = "block";
+  if (device) {
+    const deviceINFO = await device.getInfo();
+    const info = `WebSerial VendorID 0x${deviceINFO.usbVendorId.toString(
+      16,
+    )} ProductID 0x${deviceINFO.usbProductId.toString(16)}`;
+    lblConsoleFor.innerHTML = "Connected to device: " + info;
+  }
   lblConsoleBaudrate.style.display = "none";
   consoleBaudrates.style.display = "none";
   consoleStartButton.style.display = "none";
@@ -262,10 +275,18 @@ consoleStartButton.onclick = async () => {
 
 consoleStopButton.onclick = async () => {
   isConsoleClosed = true;
-  if (transport) {
-    await transport.disconnect();
-    await transport.waitForUnlock(1500);
+  try {
+    if (esploader) {
+      await esploader.stopConsoleMonitoring();
+    } else if (transport) {
+      await transport.disconnect();
+      await transport.waitForUnlock(1500);
+    }
+  } catch (e) {
+    console.error(e);
+    term.writeln(`Error: ${e.message}`);
   }
+
   term.reset();
   lblConsoleBaudrate.style.display = "initial";
   consoleBaudrates.style.display = "initial";
@@ -274,6 +295,17 @@ consoleStopButton.onclick = async () => {
   resetButton.style.display = "none";
   lblConsoleFor.style.display = "none";
   programDiv.style.display = "initial";
+  if (esploader) {
+    connectButton.style.display = "initial";
+    disconnectButton.style.display = "none";
+    traceButton.style.display = "none";
+    eraseButton.style.display = "none";
+    flashAndMonitorButton.style.display = "none";
+    lblConnTo.style.display = "none";
+    filesDiv.style.display = "none";
+    alertDiv.style.display = "none";
+    consoleDiv.style.display = "initial";
+  }
   cleanUp();
 };
 
@@ -318,8 +350,6 @@ programButton.onclick = async () => {
     alertDiv.style.display = "block";
     return;
   }
-
-  // Hide error message
   alertDiv.style.display = "none";
 
   const fileArray = [];
@@ -359,7 +389,6 @@ programButton.onclick = async () => {
     console.error(e);
     term.writeln(`Error: ${e.message}`);
   } finally {
-    // Hide progress bars and show erase buttons
     for (let index = 1; index < table.rows.length; index++) {
       table.rows[index].cells[2].style.display = "none";
       table.rows[index].cells[3].style.display = "initial";
@@ -368,3 +397,69 @@ programButton.onclick = async () => {
 };
 
 addFileButton.onclick(this);
+
+// Flash and Monitor button handler
+flashAndMonitorButton.onclick = async () => {
+  const alertMsg = document.getElementById("alertmsg");
+  const err = validateProgramInputs();
+
+  if (err != "success") {
+    alertMsg.innerHTML = "<strong>" + err + "</strong>";
+    alertDiv.style.display = "block";
+    return;
+  }
+
+  alertDiv.style.display = "none";
+
+  const fileArray = [];
+  const progressBars = [];
+
+  for (let index = 1; index < table.rows.length; index++) {
+    const row = table.rows[index];
+
+    const offSetObj = row.cells[0].childNodes[0] as HTMLInputElement;
+    const offset = parseInt(offSetObj.value);
+
+    const fileObj = row.cells[1].childNodes[0] as ChildNode & { data: string };
+    const progressBar = row.cells[2].childNodes[0];
+
+    progressBar.textContent = "0";
+    progressBars.push(progressBar);
+
+    row.cells[2].style.display = "initial";
+    row.cells[3].style.display = "none";
+
+    fileArray.push({ data: fileObj.data, address: offset });
+  }
+
+  try {
+    const flashOptions: FlashOptions = {
+      fileArray: fileArray,
+      eraseAll: false,
+      compress: true,
+      reportProgress: (fileIndex, written, total) => {
+        progressBars[fileIndex].value = (written / total) * 100;
+      },
+      calculateMD5Hash: (image) => CryptoJS.MD5(CryptoJS.enc.Latin1.parse(image)),
+    } as FlashOptions;
+
+    await esploader.flashAndMonitor(flashOptions, "hard_reset", false, parseInt(consoleBaudrates.value));
+
+    programDiv.style.display = "none";
+    consoleDiv.style.display = "initial";
+    lblConsoleFor.style.display = "block";
+    lblConsoleBaudrate.style.display = "none";
+    consoleBaudrates.style.display = "none";
+    consoleStartButton.style.display = "none";
+    consoleStopButton.style.display = "initial";
+    resetButton.style.display = "initial";
+  } catch (e) {
+    console.error(e);
+    term.writeln(`Error: ${e.message}`);
+  } finally {
+    for (let index = 1; index < table.rows.length; index++) {
+      table.rows[index].cells[2].style.display = "none";
+      table.rows[index].cells[3].style.display = "initial";
+    }
+  }
+};
