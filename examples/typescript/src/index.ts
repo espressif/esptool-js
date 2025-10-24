@@ -245,8 +245,10 @@ consoleStartButton.onclick = async () => {
   }
   lblConsoleFor.style.display = "block";
   if (device) {
-    let deviceINFO = await device.getInfo();
-    let info = `WebSerial VendorID 0x${deviceINFO.usbVendorId.toString(16)} ProductID 0x${deviceINFO.usbProductId.toString(16)}`
+    const deviceINFO = await device.getInfo();
+    const info = `WebSerial VendorID 0x${deviceINFO.usbVendorId.toString(
+      16,
+    )} ProductID 0x${deviceINFO.usbProductId.toString(16)}`;
     lblConsoleFor.innerHTML = "Connected to device: " + info;
   }
   lblConsoleBaudrate.style.display = "none";
