@@ -1,5 +1,7 @@
 const baudrates = document.getElementById("baudrates") as HTMLSelectElement;
 const consoleBaudrates = document.getElementById("consoleBaudrates") as HTMLSelectElement;
+const reconnectDelay = document.getElementById("reconnectDelay") as HTMLInputElement;
+const maxRetriesInput = document.getElementById("maxRetries") as HTMLInputElement;
 const connectButton = document.getElementById("connectButton") as HTMLButtonElement;
 const traceButton = document.getElementById("copyTraceButton") as HTMLButtonElement;
 const disconnectButton = document.getElementById("disconnectButton") as HTMLButtonElement;
@@ -37,6 +39,7 @@ const term = new Terminal({ cols: 120, rows: 40 });
 term.open(terminal);
 
 let device = null;
+let deviceInfo = null;
 let transport: Transport;
 let chip: string = null;
 let esploader: ESPLoader;
@@ -88,6 +91,7 @@ connectButton.onclick = async () => {
   try {
     if (device === null) {
       device = await serialLib.requestPort({});
+      deviceInfo = device.getInfo();
       transport = new Transport(device, true);
     }
     const flashOptions = {
@@ -209,6 +213,7 @@ function removeRow(row: HTMLTableRowElement) {
  */
 function cleanUp() {
   device = null;
+  deviceInfo = null;
   transport = null;
   chip = null;
 }
@@ -232,11 +237,71 @@ disconnectButton.onclick = async () => {
 };
 
 let isConsoleClosed = false;
+let isReconnecting = false;
+
+const sleep = async (ms: number) => {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+};
+
 consoleStartButton.onclick = async () => {
   if (device === null) {
     device = await serialLib.requestPort({});
     transport = new Transport(device, true);
+    deviceInfo = device.getInfo();
+
+    // Set up device lost callback
+    transport.setDeviceLostCallback(async () => {
+      if (!isConsoleClosed && !isReconnecting) {
+        term.writeln("\n[DEVICE LOST] Device disconnected. Trying to reconnect...");
+        await sleep(parseInt(reconnectDelay.value));
+        isReconnecting = true;
+
+        const maxRetries = parseInt(maxRetriesInput.value);
+        let retryCount = 0;
+
+        while (retryCount < maxRetries && !isConsoleClosed) {
+          retryCount++;
+          term.writeln(`\n[RECONNECT] Attempt ${retryCount}/${maxRetries}...`);
+
+          if (serialLib && serialLib.getPorts) {
+            const ports = await serialLib.getPorts();
+            if (ports.length > 0) {
+              const newDevice = ports.find(
+                (port) =>
+                  port.getInfo().usbVendorId === deviceInfo.usbVendorId &&
+                  port.getInfo().usbProductId === deviceInfo.usbProductId,
+              );
+
+              if (newDevice) {
+                device = newDevice;
+                transport.updateDevice(device);
+                term.writeln("[RECONNECT] Found previously authorized device, connecting...");
+                await transport.connect(parseInt(consoleBaudrates.value));
+                term.writeln("[RECONNECT] Successfully reconnected!");
+                consoleStopButton.style.display = "initial";
+                resetButton.style.display = "initial";
+                isReconnecting = false;
+
+                startConsoleReading();
+                return;
+              }
+            }
+          }
+
+          if (retryCount < maxRetries) {
+            term.writeln(`[RECONNECT] Device not found, retrying in ${parseInt(reconnectDelay.value)}ms...`);
+            await sleep(parseInt(reconnectDelay.value));
+          }
+        }
+
+        if (retryCount >= maxRetries) {
+          term.writeln("\n[RECONNECT] Failed to reconnect after 5 attempts. Please manually reconnect.");
+          isReconnecting = false;
+        }
+      }
+    });
   }
+
   lblConsoleFor.style.display = "block";
   lblConsoleBaudrate.style.display = "none";
   consoleBaudrates.style.display = "none";
@@ -247,21 +312,45 @@ consoleStartButton.onclick = async () => {
 
   await transport.connect(parseInt(consoleBaudrates.value));
   isConsoleClosed = false;
+  isReconnecting = false;
 
-  while (true && !isConsoleClosed) {
-    const readLoop = transport.rawRead();
-    const { value, done } = await readLoop.next();
-
-    if (done || !value) {
-      break;
-    }
-    term.write(value);
-  }
-  console.log("quitting console");
+  startConsoleReading();
 };
+
+/**
+ * Start the console reading loop
+ */
+async function startConsoleReading() {
+  if (isConsoleClosed || !transport) return;
+
+  try {
+    const readLoop = transport.rawRead();
+
+    while (true && !isConsoleClosed) {
+      const { value, done } = await readLoop.next();
+
+      if (done || !value) {
+        break;
+      }
+
+      if (value) {
+        term.write(value);
+      }
+    }
+  } catch (error) {
+    if (!isConsoleClosed) {
+      term.writeln(`\n[CONSOLE ERROR] ${error instanceof Error ? error.message : String(error)}`);
+    }
+  }
+
+  if (!isConsoleClosed) {
+    term.writeln("\n[CONSOLE] Connection lost, waiting for reconnection...");
+  }
+}
 
 consoleStopButton.onclick = async () => {
   isConsoleClosed = true;
+  isReconnecting = false;
   if (transport) {
     await transport.disconnect();
     await transport.waitForUnlock(1500);

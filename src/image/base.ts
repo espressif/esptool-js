@@ -5,11 +5,23 @@ import { checksum, ESP_CHECKSUM_MAGIC, padTo } from "../util";
 
 export const ESP_IMAGE_MAGIC = 0xe9;
 
+/**
+ * Return position aligned to size
+ * @param {number} position Position to align
+ * @param {number} size Alignment size
+ * @returns {number} Aligned position
+ */
 export function alignFilePosition(position: number, size: number): number {
   const align = size - 1 - (position % size);
   return position + align;
 }
 
+/**
+ * Read a UINT32 from a byte array (little-endian)
+ * @param {Uint8Array} data Data to read a UINT32
+ * @param {number} offset data start offset
+ * @returns {number} The read UINT32 value
+ */
 function readUInt32LE(data: Uint8Array, offset: number): number {
   return data[offset] | (data[offset + 1] << 8) | (data[offset + 2] << 16) | (data[offset + 3] << 24);
 }
@@ -233,8 +245,8 @@ export class BaseFirmwareImage {
 
   /**
    * Return ESPLoader checksum from end of just-read image
-   * @param data image to read checksum from
-   * @param offset Current offset in image
+   * @param {Uint8Array} data image to read checksum from
+   * @param {number} offset Current offset in image
    * @returns {number} checksum value
    */
   readChecksum(data: Uint8Array, offset: number): number {
