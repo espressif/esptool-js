@@ -185,7 +185,6 @@ class Transport {
     if (this.device.writable) {
       const writer = this.device.writable.getWriter();
       if (this.tracing) {
-        console.log("Write bytes");
         this.trace(`Write ${outData.length} bytes: ${this.hexConvert(outData)}`);
       }
       await writer.write(outData);
@@ -340,11 +339,15 @@ class Transport {
               ? "Serial data stream stopped: Possible serial noise or corruption."
               : "No serial data received."
             : `Packet content transfer stopped`;
-        this.trace(msg);
+        if (this.tracing) {
+          this.trace(msg);
+        }
         throw new Error(msg);
       }
 
-      this.trace(`Read ${readBytes.length} bytes: ${this.hexConvert(readBytes)}`);
+      if (this.tracing) {
+        this.trace(`Read ${readBytes.length} bytes: ${this.hexConvert(readBytes)}`);
+      }
 
       let i = 0; // Track position in readBytes
       while (i < readBytes.length) {
@@ -353,9 +356,13 @@ class Transport {
           if (byte === this.SLIP_END) {
             partialPacket = new Uint8Array(0); // Start of a new packet
           } else {
-            this.trace(`Read invalid data: ${this.hexConvert(readBytes)}`);
+            if (this.tracing) {
+              this.trace(`Read invalid data: ${this.hexConvert(readBytes)}`);
+            }
             const remainingData = await this.newRead(this.inWaiting(), timeout);
-            this.trace(`Remaining data in serial buffer: ${this.hexConvert(remainingData)}`);
+            if (this.tracing) {
+              this.trace(`Remaining data in serial buffer: ${this.hexConvert(remainingData)}`);
+            }
             this.detectPanicHandler(new Uint8Array([...readBytes, ...(remainingData || [])]));
             throw new Error(`Invalid head of packet (0x${byte.toString(16)}): Possible serial noise or corruption.`);
           }
@@ -366,16 +373,22 @@ class Transport {
           } else if (byte === this.SLIP_ESC_ESC) {
             partialPacket = this.appendArray(partialPacket, new Uint8Array([this.SLIP_ESC]));
           } else {
-            this.trace(`Read invalid data: ${this.hexConvert(readBytes)}`);
+            if (this.tracing) {
+              this.trace(`Read invalid data: ${this.hexConvert(readBytes)}`);
+            }
             const remainingData = await this.newRead(this.inWaiting(), timeout);
-            this.trace(`Remaining data in serial buffer: ${this.hexConvert(remainingData)}`);
+            if (this.tracing) {
+              this.trace(`Remaining data in serial buffer: ${this.hexConvert(remainingData)}`);
+            }
             this.detectPanicHandler(new Uint8Array([...readBytes, ...(remainingData || [])]));
             throw new Error(`Invalid SLIP escape (0xdb, 0x${byte.toString(16)})`);
           }
         } else if (byte === this.SLIP_ESC) {
           isEscaping = true;
         } else if (byte === this.SLIP_END) {
-          this.trace(`Received full packet: ${this.hexConvert(partialPacket)}`);
+          if (this.tracing) {
+            this.trace(`Received full packet: ${this.hexConvert(partialPacket)}`);
+          }
           this.buffer = this.appendArray(this.buffer, readBytes.slice(i));
           yield partialPacket;
           partialPacket = null;
@@ -399,7 +412,6 @@ class Transport {
         const { value, done } = await this.reader.read();
         if (done || !value) break;
         if (this.tracing) {
-          console.log("Raw Read bytes");
           this.trace(`Read ${value.length} bytes: ${this.hexConvert(value)}`);
         }
         yield value; // Yield each data chunk
