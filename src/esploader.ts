@@ -1652,8 +1652,9 @@ export class ESPLoader {
    * Execute this function to execute after operation reset functions.
    * @param {After} mode After operation mode. Default is 'hard_reset'.
    * @param { boolean } usingUsbOtg For 'hard_reset' to specify if using USB-OTG
+   * @param {string} sequenceString For 'custom_reset' to specify the custom reset sequence string
    */
-  async after(mode: After = "hard_reset", usingUsbOtg?: boolean) {
+  async after(mode: After = "hard_reset", usingUsbOtg?: boolean, sequenceString?: string) {
     switch (mode) {
       case "hard_reset":
         if (this.resetConstructors.hardReset) {
@@ -1668,6 +1669,19 @@ export class ESPLoader {
         break;
       case "no_reset_stub":
         this.info("Staying in flasher stub.");
+        break;
+      case "custom_reset":
+        if (!sequenceString) {
+          this.info("Custom reset sequence not provided, doing nothing.");
+        }
+        if (!this.resetConstructors.customReset) {
+          this.info("Custom reset constructor not available, doing nothing.");
+        }
+        if (this.resetConstructors.customReset && sequenceString) {
+          this.info("Custom resetting using sequence " + sequenceString);
+          const customReset = this.resetConstructors.customReset(this.transport, sequenceString);
+          await customReset.reset();
+        }
         break;
       default:
         this.info("Staying in bootloader.");
