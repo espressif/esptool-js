@@ -7,9 +7,9 @@ import { FlashFreqValues, FlashModeValues } from "./arguments";
 export interface FlashOptions {
   /**
    * An array of file objects representing the data to be flashed.
-   * @type {Array<{ data: string; address: number }>}
+   * @type {Array<{ data: Uint8Array; address: number }>}
    */
-  fileArray: { data: string; address: number }[];
+  fileArray: { data: Uint8Array; address: number }[];
 
   /**
    * The flash mode to be used (e.g., QIO, QOUT, DIO, DOUT).
@@ -43,7 +43,7 @@ export interface FlashOptions {
 
   /**
    * A function to calculate the MD5 hash of the firmware image (optional).
-   * @type {(image: string) => string}
+   * @type {(image: Uint8Array) => string}
    */
-  calculateMD5Hash?: (image: string) => string;
+  calculateMD5Hash?: (image: Uint8Array) => string;
 }

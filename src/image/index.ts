@@ -17,14 +17,14 @@ import {
 } from "./others";
 
 /**
- * Function to load a firmware image from a string (from FileReader)
+ * Function to load a firmware image from a Uint8Array or string
  * @param {ROM} rom - The ROM object representing the target device
- * @param {string} imageData Image data as a string
+ * @param {Uint8Array | string} imageData Image data as a Uint8Array or string
  * @returns {Promise<BaseFirmwareImage>} - A promise that resolves to the loaded firmware image
  */
-export async function loadFirmwareImage(rom: ROM, imageData: string): Promise<BaseFirmwareImage> {
-  // Convert the string data to a Uint8Array
-  const binaryData = bstrToUi8(imageData);
+export async function loadFirmwareImage(rom: ROM, imageData: Uint8Array | string): Promise<BaseFirmwareImage> {
+  // Convert the string data to a Uint8Array if needed
+  const binaryData = imageData instanceof Uint8Array ? imageData : bstrToUi8(imageData);
 
   // Select the appropriate image class based on the chip
   const chipName = rom.CHIP_NAME.toLowerCase().replace(/[-()]/g, "");
@@ -79,6 +79,18 @@ export async function loadFirmwareImage(rom: ROM, imageData: string): Promise<Ba
 
   // Create an instance of the selected image class
   const image = new firmwareImageClass(rom);
+
+  // Load the image data - pass Uint8Array directly
+  interface ImageWithLoadFromFile {
+    loadFromFile?: (fileData: Uint8Array | string) => void | Promise<void>;
+  }
+  const imageWithLoad = image as ImageWithLoadFromFile;
+  if (typeof imageWithLoad.loadFromFile === "function") {
+    const loadResult = imageWithLoad.loadFromFile(binaryData);
+    if (loadResult instanceof Promise) {
+      await loadResult;
+    }
+  }
 
   return image;
 }

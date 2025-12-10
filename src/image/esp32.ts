@@ -40,7 +40,7 @@ export class ESP32FirmwareImage extends BaseFirmwareImage {
 
   ROM_LOADER: ESP32ROM;
 
-  constructor(rom: ROM, loadFile: string | null = null, appendDigest = true, ramOnlyHeader = false) {
+  constructor(rom: ROM, loadFile: Uint8Array | string | null = null, appendDigest = true, ramOnlyHeader = false) {
     super(rom);
     this.ROM_LOADER = rom as ESP32ROM;
     this.appendDigest = appendDigest;
@@ -51,9 +51,9 @@ export class ESP32FirmwareImage extends BaseFirmwareImage {
     }
   }
 
-  async loadFromFile(loadFile: string): Promise<void> {
+  async loadFromFile(loadFile: Uint8Array | string): Promise<void> {
     const start = 0;
-    const binaryData = bstrToUi8(loadFile);
+    const binaryData = loadFile instanceof Uint8Array ? loadFile : bstrToUi8(loadFile);
     let offset = 0;
 
     const segments = this.loadCommonHeader(binaryData, offset, ESP_IMAGE_MAGIC);

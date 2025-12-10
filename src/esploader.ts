@@ -1339,18 +1339,18 @@ export class ESPLoader {
 
   /**
    * Update the image flash parameters with given arguments.
-   * @param {string} image binary image as string
+   * @param {Uint8Array} image binary image as Uint8Array
    * @param {number} address flash address number
    * @param {FlashModeValues} flashMode Flash mode string
    * @param {FlashFreqValues} flashFreq Flash frequency string
-   * @returns {string} modified image string
+   * @returns {Uint8Array} modified image Uint8Array
    */
   async _updateImageFlashParams(
-    image: string,
+    image: Uint8Array,
     address: number,
     flashMode: FlashModeValues = "keep",
     flashFreq: FlashFreqValues = "keep",
-  ) {
+  ): Promise<Uint8Array> {
     this.debug(`_update_image_flash_params ${this.flashSize} ${flashMode} ${flashFreq}`);
     if (image.length < 8) {
       return image;
@@ -1363,9 +1363,9 @@ export class ESPLoader {
       return image;
     }
 
-    const magic = parseInt(image[0]);
-    let aFlashMode = parseInt(image[2]);
-    const flashSizeFreq = parseInt(image[3]);
+    const magic = image[0];
+    let aFlashMode = image[2];
+    const flashSizeFreq = image[3];
     if (magic !== this.ESP_IMAGE_MAGIC) {
       this.info(
         "Warning: Image file at 0x" +
@@ -1380,7 +1380,7 @@ export class ESPLoader {
       const imageObject = await loadFirmwareImage(this.chip, image);
       imageObject.verify();
     } catch (error) {
-      console.log(
+      this.debug(
         `Warning: Image file at 0x${address.toString(16)} is not a valid ${
           this.chip.CHIP_NAME
         } image, so not changing any flash settings.`,
@@ -1388,7 +1388,7 @@ export class ESPLoader {
       return image;
     }
 
-    const shaAppended = this.chip.CHIP_NAME !== "ESP8266" && image[8 + 15] === "1";
+    const shaAppended = this.chip.CHIP_NAME !== "ESP8266" && image[8 + 15] === 0x31; // '1' character code
 
     if (flashMode !== "keep") {
       const flashModes: { [key: string]: number } = { qio: 0, qout: 1, dio: 2, dout: 3 };
@@ -1406,53 +1406,62 @@ export class ESPLoader {
 
     const flashParams = (aFlashMode << 8) | (aFlashFreq + aFlashSize);
     this.info("Flash params set to " + flashParams.toString(16));
-    if (parseInt(image[2]) !== aFlashMode << 8) {
-      image = image.substring(0, 2) + (aFlashMode << 8).toString() + image.substring(2 + 1);
+
+    // Create a copy of the image to modify
+    const updatedImage = new Uint8Array(image);
+
+    // Flash mode is stored as a single byte at offset 2
+    if (image[2] !== aFlashMode) {
+      updatedImage[2] = aFlashMode;
     }
-    if (parseInt(image[3]) !== aFlashFreq + aFlashSize) {
-      image = image.substring(0, 3) + (aFlashFreq + aFlashSize).toString() + image.substring(3 + 1);
+    // Flash size and frequency are combined in a single byte at offset 3
+    if (image[3] !== aFlashFreq + aFlashSize) {
+      updatedImage[3] = aFlashFreq + aFlashSize;
     }
 
     // Recalculate SHA digest if needed
     if (shaAppended) {
       // Create image object to get data length
-      const imageObject = await loadFirmwareImage(this.chip, image);
+      const imageObject = await loadFirmwareImage(this.chip, updatedImage);
 
       // Get the image data before SHA digest
-      const imageDataBeforeSha = image.slice(0, imageObject.datalength);
+      const imageDataBeforeSha = updatedImage.slice(0, imageObject.datalength);
 
       // Get the image data after SHA digest
-      const imageDataAfterSha = image.slice(imageObject.datalength + imageObject.SHA256_DIGEST_LEN);
+      const imageDataAfterSha = updatedImage.slice(imageObject.datalength + imageObject.SHA256_DIGEST_LEN);
 
       // Calculate new SHA digest
-      const shaDigestCalculated = await crypto.subtle.digest("SHA-256", this.bstrToUi8(imageDataAfterSha));
+      const shaDigestCalculated = await crypto.subtle.digest("SHA-256", imageDataAfterSha);
       const shaDigestCalculatedUintArray = new Uint8Array(shaDigestCalculated);
 
       // Combine all parts
-      const updatedImage = imageDataBeforeSha + shaDigestCalculated + imageDataAfterSha;
+      const finalImage = new Uint8Array(
+        imageDataBeforeSha.length + shaDigestCalculatedUintArray.length + imageDataAfterSha.length,
+      );
+      finalImage.set(imageDataBeforeSha, 0);
+      finalImage.set(shaDigestCalculatedUintArray, imageDataBeforeSha.length);
+      finalImage.set(imageDataAfterSha, imageDataBeforeSha.length + shaDigestCalculatedUintArray.length);
 
       // Get the SHA digest stored in the image
-      const imageStoredSha = updatedImage.slice(
+      const imageStoredSha = finalImage.slice(
         imageObject.datalength,
         imageObject.datalength + imageObject.SHA256_DIGEST_LEN,
       );
 
       // Compare calculated and stored SHA digests
-      if (
-        this.transport.hexify(shaDigestCalculatedUintArray) === this.transport.hexify(this.bstrToUi8(imageStoredSha))
-      ) {
+      if (this.transport.hexify(shaDigestCalculatedUintArray) === this.transport.hexify(imageStoredSha)) {
         this.info("SHA digest in image updated");
       } else {
         this.info(
           "WARNING: SHA recalculation for binary failed!\n" +
             `\tExpected calculated SHA: ${this.transport.hexify(shaDigestCalculatedUintArray)}\n` +
-            `\tSHA stored in binary:    ${this.transport.hexify(this.bstrToUi8(imageStoredSha))}`,
+            `\tSHA stored in binary:    ${this.transport.hexify(imageStoredSha)}`,
         );
       }
 
-      return updatedImage;
+      return finalImage;
     }
-    return image;
+    return updatedImage;
   }
 
   /**
@@ -1473,7 +1482,7 @@ export class ESPLoader {
     if (this.IS_STUB === true && options.eraseAll === true) {
       await this.eraseFlash();
     }
-    let image: string, address: number;
+    let image: Uint8Array, address: number;
     for (let i = 0; i < options.fileArray.length; i++) {
       this.debug("Data Length " + options.fileArray[i].data.length);
       image = options.fileArray[i].data;
@@ -1482,7 +1491,7 @@ export class ESPLoader {
         this.debug("Warning: File is empty");
         continue;
       }
-      image = this.ui8ToBstr(padTo(this.bstrToUi8(image), 4));
+      image = padTo(image, 4);
 
       address = options.fileArray[i].address;
 
@@ -1495,8 +1504,9 @@ export class ESPLoader {
       const uncsize = image.length;
       let blocks: number;
       if (options.compress) {
-        const uncimage = this.bstrToUi8(image);
-        image = this.ui8ToBstr(deflate(uncimage, { level: 9 }));
+        const compressedImage = deflate(image, { level: 9 });
+        // deflate returns Uint8Array, use it directly
+        image = compressedImage;
         blocks = await this.flashDeflBegin(uncsize, image.length, address);
       } else {
         blocks = await this.flashBegin(uncsize, address);
@@ -1517,7 +1527,8 @@ export class ESPLoader {
       inflate.onData = function (chunk: Data): void {
         totalLenUncompressed += chunk.byteLength;
       };
-      while (image.length > 0) {
+      let imageOffset = 0;
+      while (imageOffset < image.length) {
         this.debug("Write loop " + address + " " + seq + " " + blocks);
         this.info(
           "Writing at 0x" +
@@ -1526,11 +1537,13 @@ export class ESPLoader {
             Math.floor((100 * (seq + 1)) / blocks) +
             "%)",
         );
-        const block = this.bstrToUi8(image.slice(0, this.FLASH_WRITE_SIZE));
+        const blockSize = Math.min(this.FLASH_WRITE_SIZE, image.length - imageOffset);
+        const block = image.slice(imageOffset, imageOffset + blockSize);
+        const isLastBlock = imageOffset + blockSize >= image.length;
 
         if (options.compress) {
           const lenUncompressedPrevious = totalLenUncompressed;
-          inflate.push(block, false);
+          inflate.push(block, isLastBlock);
           const blockUncompressed = totalLenUncompressed - lenUncompressedPrevious;
           let blockTimeout = 3000;
           if (this.timeoutPerMb(this.ERASE_WRITE_TIMEOUT_PER_MB, blockUncompressed) > 3000) {
@@ -1549,7 +1562,7 @@ export class ESPLoader {
           throw new ESPError("Yet to handle Non Compressed writes");
         }
         bytesSent += block.length;
-        image = image.slice(this.FLASH_WRITE_SIZE, image.length);
+        imageOffset += blockSize;
         seq++;
         if (options.reportProgress) options.reportProgress(i, bytesSent, totalBytes);
       }

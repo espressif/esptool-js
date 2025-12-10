@@ -7,7 +7,7 @@ export class ESP8266ROMFirmwareImage extends BaseFirmwareImage {
 
   ROM_LOADER: ESP8266ROM;
 
-  constructor(rom: ESP8266ROM, loadFile: string | null = null) {
+  constructor(rom: ESP8266ROM, loadFile: Uint8Array | string | null = null) {
     super(rom);
     this.ROM_LOADER = rom;
     this.flashMode = 0;
@@ -18,8 +18,8 @@ export class ESP8266ROMFirmwareImage extends BaseFirmwareImage {
     }
   }
 
-  loadFromFile(file: string): void {
-    const binaryData = bstrToUi8(file);
+  loadFromFile(file: Uint8Array | string): void {
+    const binaryData = file instanceof Uint8Array ? file : bstrToUi8(file);
     let offset = 0;
 
     const segments = this.loadCommonHeader(binaryData, offset, ESP_IMAGE_MAGIC);
@@ -48,7 +48,7 @@ export class ESP8266V2FirmwareImage extends BaseFirmwareImage {
 
   ROM_LOADER: ESP8266ROM;
 
-  constructor(rom: ESP8266ROM, loadFile: string | null = null) {
+  constructor(rom: ESP8266ROM, loadFile: Uint8Array | string | null = null) {
     super(rom);
     this.ROM_LOADER = rom;
     this.flashMode = 0;
@@ -59,8 +59,8 @@ export class ESP8266V2FirmwareImage extends BaseFirmwareImage {
     }
   }
 
-  async loadFromFile(fileStr: string): Promise<void> {
-    const binaryData = bstrToUi8(fileStr);
+  async loadFromFile(fileStr: Uint8Array | string): Promise<void> {
+    const binaryData = fileStr instanceof Uint8Array ? fileStr : bstrToUi8(fileStr);
     let offset = 0;
 
     // Load first header

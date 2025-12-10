@@ -69,10 +69,14 @@ function handleFileSelect(evt) {
   const reader = new FileReader();
 
   reader.onload = (ev: ProgressEvent<FileReader>) => {
-    evt.target.data = ev.target.result;
+    if (ev.target.result instanceof ArrayBuffer) {
+      evt.target.data = new Uint8Array(ev.target.result);
+    } else {
+      evt.target.data = ev.target.result;
+    }
   };
 
-  reader.readAsBinaryString(file);
+  reader.readAsArrayBuffer(file);
 }
 
 const espLoaderTerminal = {
@@ -107,6 +111,7 @@ connectButton.onclick = async () => {
 
     // Temporarily broken
     // await esploader.flashId();
+    // eslint-disable-next-line no-console
     console.log("Settings done for :" + chip);
     lblBaudrate.style.display = "none";
     lblConnTo.innerHTML = "Connected to device: " + chip;
@@ -118,6 +123,7 @@ connectButton.onclick = async () => {
     filesDiv.style.display = "initial";
     consoleDiv.style.display = "none";
   } catch (e) {
+    // eslint-disable-next-line no-console
     console.error(e);
     term.writeln(`Error: ${e.message}`);
   }
@@ -142,6 +148,7 @@ eraseButton.onclick = async () => {
   try {
     await esploader.eraseFlash();
   } catch (e) {
+    // eslint-disable-next-line no-console
     console.error(e);
     term.writeln(`Error: ${e.message}`);
   } finally {
@@ -420,7 +427,7 @@ programButton.onclick = async () => {
     const offSetObj = row.cells[0].childNodes[0] as HTMLInputElement;
     const offset = parseInt(offSetObj.value);
 
-    const fileObj = row.cells[1].childNodes[0] as ChildNode & { data: string };
+    const fileObj = row.cells[1].childNodes[0] as ChildNode & { data: Uint8Array };
     const progressBar = row.cells[2].childNodes[0];
 
     progressBar.textContent = "0";
@@ -437,14 +444,20 @@ programButton.onclick = async () => {
       fileArray: fileArray,
       eraseAll: false,
       compress: true,
+      flashMode: "keep",
+      flashFreq: "keep",
       reportProgress: (fileIndex, written, total) => {
         progressBars[fileIndex].value = (written / total) * 100;
       },
-      calculateMD5Hash: (image) => CryptoJS.MD5(CryptoJS.enc.Latin1.parse(image)),
-    } as FlashOptions;
+      calculateMD5Hash: (image: Uint8Array) => {
+        const latin1String = Array.from(image, (byte) => String.fromCharCode(byte)).join("");
+        return CryptoJS.MD5(CryptoJS.enc.Latin1.parse(latin1String)).toString();
+      },
+    };
     await esploader.writeFlash(flashOptions);
     await esploader.after();
   } catch (e) {
+    // eslint-disable-next-line no-console
     console.error(e);
     term.writeln(`Error: ${e.message}`);
   } finally {

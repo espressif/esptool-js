@@ -12,7 +12,12 @@ import { ESP32FirmwareImage } from "./esp32";
 export class ESP32S2FirmwareImage extends ESP32FirmwareImage {
   ROM_LOADER: ESP32S2ROM;
 
-  constructor(rom: ESP32S2ROM, loadFile: string | null = null, appendDigest = true, ramOnlyHeader = false) {
+  constructor(
+    rom: ESP32S2ROM,
+    loadFile: Uint8Array | string | null = null,
+    appendDigest = true,
+    ramOnlyHeader = false,
+  ) {
     super(rom, loadFile, appendDigest, ramOnlyHeader);
     this.ROM_LOADER = rom as ESP32S2ROM;
   }
@@ -21,7 +26,12 @@ export class ESP32S2FirmwareImage extends ESP32FirmwareImage {
 export class ESP32S3FirmwareImage extends ESP32FirmwareImage {
   ROM_LOADER: ESP32S3ROM;
 
-  constructor(rom: ESP32S3ROM, loadFile: string | null = null, appendDigest = true, ramOnlyHeader = false) {
+  constructor(
+    rom: ESP32S3ROM,
+    loadFile: Uint8Array | string | null = null,
+    appendDigest = true,
+    ramOnlyHeader = false,
+  ) {
     super(rom, loadFile, appendDigest, ramOnlyHeader);
     this.ROM_LOADER = rom as ESP32S3ROM;
   }
@@ -30,7 +40,12 @@ export class ESP32S3FirmwareImage extends ESP32FirmwareImage {
 export class ESP32C3FirmwareImage extends ESP32FirmwareImage {
   ROM_LOADER: ESP32C3ROM;
 
-  constructor(rom: ESP32C3ROM, loadFile: string | null = null, appendDigest = true, ramOnlyHeader = false) {
+  constructor(
+    rom: ESP32C3ROM,
+    loadFile: Uint8Array | string | null = null,
+    appendDigest = true,
+    ramOnlyHeader = false,
+  ) {
     super(rom, loadFile, appendDigest, ramOnlyHeader);
     this.ROM_LOADER = rom as ESP32C3ROM;
   }
@@ -39,7 +54,12 @@ export class ESP32C3FirmwareImage extends ESP32FirmwareImage {
 export class ESP32C2FirmwareImage extends ESP32FirmwareImage {
   ROM_LOADER: ESP32C2ROM;
 
-  constructor(rom: ESP32C2ROM, loadFile: string | null = null, appendDigest = true, ramOnlyHeader = false) {
+  constructor(
+    rom: ESP32C2ROM,
+    loadFile: Uint8Array | string | null = null,
+    appendDigest = true,
+    ramOnlyHeader = false,
+  ) {
     super(rom, loadFile, appendDigest, ramOnlyHeader);
     this.ROM_LOADER = rom as ESP32C2ROM;
   }
@@ -50,7 +70,12 @@ export class ESP32C2FirmwareImage extends ESP32FirmwareImage {
 export class ESP32C6FirmwareImage extends ESP32FirmwareImage {
   ROM_LOADER: ESP32C6ROM;
 
-  constructor(rom: ESP32C6ROM, loadFile: string | null = null, appendDigest = true, ramOnlyHeader = false) {
+  constructor(
+    rom: ESP32C6ROM,
+    loadFile: Uint8Array | string | null = null,
+    appendDigest = true,
+    ramOnlyHeader = false,
+  ) {
     super(rom, loadFile, appendDigest, ramOnlyHeader);
     this.ROM_LOADER = rom as ESP32C6ROM;
   }
@@ -61,7 +86,12 @@ export class ESP32C6FirmwareImage extends ESP32FirmwareImage {
 export class ESP32C61FirmwareImage extends ESP32C6FirmwareImage {
   ROM_LOADER: ESP32C61ROM;
 
-  constructor(rom: ESP32C61ROM, loadFile: string | null = null, appendDigest = true, ramOnlyHeader = false) {
+  constructor(
+    rom: ESP32C61ROM,
+    loadFile: Uint8Array | string | null = null,
+    appendDigest = true,
+    ramOnlyHeader = false,
+  ) {
     super(rom, loadFile, appendDigest, ramOnlyHeader);
     this.ROM_LOADER = rom as ESP32C61ROM;
   }
@@ -70,7 +100,12 @@ export class ESP32C61FirmwareImage extends ESP32C6FirmwareImage {
 export class ESP32C5FirmwareImage extends ESP32FirmwareImage {
   ROM_LOADER: ESP32C5ROM;
 
-  constructor(rom: ESP32C5ROM, loadFile: string | null = null, appendDigest = true, ramOnlyHeader = false) {
+  constructor(
+    rom: ESP32C5ROM,
+    loadFile: Uint8Array | string | null = null,
+    appendDigest = true,
+    ramOnlyHeader = false,
+  ) {
     super(rom, loadFile, appendDigest, ramOnlyHeader);
     this.ROM_LOADER = rom as ESP32C5ROM;
   }
@@ -79,7 +114,12 @@ export class ESP32C5FirmwareImage extends ESP32FirmwareImage {
 export class ESP32P4FirmwareImage extends ESP32FirmwareImage {
   ROM_LOADER: ESP32P4ROM;
 
-  constructor(rom: ESP32P4ROM, loadFile: string | null = null, appendDigest = true, ramOnlyHeader = false) {
+  constructor(
+    rom: ESP32P4ROM,
+    loadFile: Uint8Array | string | null = null,
+    appendDigest = true,
+    ramOnlyHeader = false,
+  ) {
     super(rom, loadFile, appendDigest, ramOnlyHeader);
     this.ROM_LOADER = rom as ESP32P4ROM;
   }
@@ -88,7 +128,12 @@ export class ESP32P4FirmwareImage extends ESP32FirmwareImage {
 export class ESP32H2FirmwareImage extends ESP32C6FirmwareImage {
   ROM_LOADER: ESP32H2ROM;
 
-  constructor(rom: ESP32H2ROM, loadFile: string | null = null, appendDigest = true, ramOnlyHeader = false) {
+  constructor(
+    rom: ESP32H2ROM,
+    loadFile: Uint8Array | string | null = null,
+    appendDigest = true,
+    ramOnlyHeader = false,
+  ) {
     super(rom, loadFile, appendDigest, ramOnlyHeader);
     this.ROM_LOADER = rom as ESP32H2ROM;
   }
