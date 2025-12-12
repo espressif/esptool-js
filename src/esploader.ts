@@ -4,7 +4,7 @@ import { Transport, SerialOptions } from "./webserial.js";
 import { ROM } from "./targets/rom.js";
 import { ClassicReset, CustomReset, HardReset, ResetConstructors, ResetStrategy, UsbJtagSerialReset } from "./reset.js";
 import { getStubJsonByChipName } from "./stubFlasher.js";
-import { padTo } from "./util.js";
+import { padTo, sleep } from "./util.js";
 import { IEspLoaderTerminal } from "./types/loaderTerminal.js";
 import { LoaderOptions } from "./types/loaderOptions.js";
 import { FlashOptions } from "./types/flashOptions.js";
@@ -231,10 +231,6 @@ export class ESPLoader {
     this.info("Serial port " + this.transport.getInfo());
   }
 
-  _sleep(ms: number) {
-    return new Promise((resolve) => setTimeout(resolve, ms));
-  }
-
   /**
    * Write to ESP Loader constructor's terminal with or without new line.
    * @param {string} str - String to write.
@@ -394,7 +390,7 @@ export class ESPLoader {
   async readPacket(op: number | null = null, timeout = this.DEFAULT_TIMEOUT): Promise<[number, Uint8Array]> {
     // Check up-to next 100 packets for valid response packet
     for (let i = 0; i < 100; i++) {
-      const { value: p } = await this.transport.read(timeout).next();
+      const p = await this.transport.read(timeout);
       if (!p || p.length < 8) {
         continue;
       }
@@ -473,8 +469,10 @@ export class ESPLoader {
    * @returns {number} - Command number value
    */
   async readReg(addr: number, timeout = this.DEFAULT_TIMEOUT) {
+    this.debug(`Read Register:${this.toHex(addr)}`);
     const pkt = this._intToByteArray(addr);
     const val = await this.command(this.ESP_READ_REG, pkt, undefined, undefined, timeout);
+    this.debug(`Read Register Value:${val[0]}`);
     return val[0];
   }
 
@@ -525,7 +523,7 @@ export class ESPLoader {
       this.syncStubDetected = resp[0] === 0;
 
       for (let i = 0; i < 7; i++) {
-        resp = await this.command();
+        resp = await this.readPacket(0x08, 100);
         this.syncStubDetected = this.syncStubDetected && resp[0] === 0;
       }
       return resp;
@@ -546,11 +544,10 @@ export class ESPLoader {
     if (resetStrategy) {
       await resetStrategy.reset();
     }
-    const waitingBytes = this.transport.inWaiting();
-    const readBytes = await this.transport.newRead(waitingBytes > 0 ? waitingBytes : 1, this.DEFAULT_TIMEOUT);
+    const readBytes = this.transport.peek();
 
     const binaryString = Array.from(readBytes, (byte) => String.fromCharCode(byte)).join("");
-    const regex = /boot:(0x[0-9a-fA-F]+)(.*waiting for download)?/;
+    const regex = /boot:(0x[0-9a-fA-F]+)([\s\S]*?waiting for download)?/;
     const match = binaryString.match(regex);
 
     let bootLogDetected = false,
@@ -561,11 +558,13 @@ export class ESPLoader {
       bootMode = match[1];
       downloadMode = !!match[2];
     }
+    this.debug(`bootMode:${bootMode} downloadMode:${downloadMode}`);
     let lastError = "";
 
     for (let i = 0; i < 5; i++) {
       try {
         this.debug(`Sync connect attempt ${i}`);
+        this.transport.flushInput();
         const resp = await this.sync();
         this.debug(resp[0].toString());
         return "success";
@@ -1175,7 +1174,7 @@ export class ESPLoader {
 
     let resp = new Uint8Array(0);
     while (resp.length < size) {
-      const { value: packet } = await this.transport.read(this.FLASH_READ_TIMEOUT).next();
+      const packet = await this.transport.read(this.FLASH_READ_TIMEOUT);
 
       if (packet instanceof Uint8Array) {
         if (packet.length > 0) {
@@ -1230,7 +1229,7 @@ export class ESPLoader {
     this.info("Running stub...");
     await this.memFinish(stubFlasher.entry);
 
-    const { value: packetResult } = await this.transport.read(this.DEFAULT_TIMEOUT).next();
+    const packetResult = await this.transport.read(this.DEFAULT_TIMEOUT);
     const packetStr = String.fromCharCode(...packetResult);
 
     if (packetStr !== "OHAI") {
@@ -1252,11 +1251,11 @@ export class ESPLoader {
     await this.command(this.ESP_CHANGE_BAUDRATE, pkt);
     this.info("Changed");
     this.info("If the chip does not respond to any further commands, consider using a lower baud rate.");
-    await this._sleep(50);
+    await sleep(50);
     await this.transport.disconnect();
-    await this._sleep(50);
+    await sleep(50);
     await this.transport.connect(this.baudrate, this.serialOptions);
-    await this._sleep(50);
+    await sleep(50);
   }
 
   /**
