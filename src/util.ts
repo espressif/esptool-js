@@ -44,3 +44,12 @@ export function bstrToUi8(bStr: string) {
   }
   return u8Array;
 }
+
+/**
+ * Sleep for a given number of milliseconds
+ * @param {number} ms - Number of milliseconds to sleep
+ * @returns {Promise<void>} Promise that resolves after the sleep
+ */
+export function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
