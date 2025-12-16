@@ -21,13 +21,27 @@ const lblConsoleFor = document.getElementById("lblConsoleFor");
 const lblConnTo = document.getElementById("lblConnTo");
 const table = document.getElementById("fileTable") as HTMLTableElement;
 const alertDiv = document.getElementById("alertDiv");
+const flashMode = document.getElementById("flashMode") as HTMLSelectElement;
+const flashFreq = document.getElementById("flashFreq") as HTMLSelectElement;
+const flashSize = document.getElementById("flashSize") as HTMLSelectElement;
+const lblFlashMode = document.getElementById("lblFlashMode");
+const lblFlashFreq = document.getElementById("lblFlashFreq");
+const lblFlashSize = document.getElementById("lblFlashSize");
 
 const debugLogging = document.getElementById("debugLogging") as HTMLInputElement;
 
 // This is a frontend example of Esptool-JS using local bundle file
 // To optimize use a CDN hosted version like
 // https://unpkg.com/esptool-js@0.5.0/bundle.js
-import { ESPLoader, FlashOptions, LoaderOptions, Transport } from "../../../lib";
+import {
+  ESPLoader,
+  FlashOptions,
+  FlashModeValues,
+  FlashFreqValues,
+  FlashSizeValues,
+  LoaderOptions,
+  Transport,
+} from "../../../lib";
 import { serial } from "web-serial-polyfill";
 
 const serialLib = !navigator.serial && navigator.usb ? serial : navigator.serial;
@@ -50,6 +64,12 @@ eraseButton.style.display = "none";
 consoleStopButton.style.display = "none";
 resetButton.style.display = "none";
 filesDiv.style.display = "none";
+flashMode.style.display = "none";
+flashFreq.style.display = "none";
+flashSize.style.display = "none";
+lblFlashMode.style.display = "none";
+lblFlashFreq.style.display = "none";
+lblFlashSize.style.display = "none";
 
 /**
  * The built in Event object.
@@ -91,6 +111,66 @@ const espLoaderTerminal = {
   },
 };
 
+/**
+ * Populate flash size and frequency dropdowns based on chip's supported values
+ */
+function populateFlashDropdowns() {
+  if (!esploader || !esploader.chip) {
+    return;
+  }
+
+  // Populate Flash Frequency dropdown
+  flashFreq.innerHTML = '<option value="keep">keep</option>';
+  const flashFreqKeys = Object.keys(esploader.chip.FLASH_FREQUENCY).sort((a, b) => {
+    const freqOrder = ["80m", "60m", "48m", "40m", "30m", "26m", "24m", "20m", "16m", "15m", "12m"];
+    const indexA = freqOrder.indexOf(a);
+    const indexB = freqOrder.indexOf(b);
+    if (indexA !== -1 && indexB !== -1) return indexA - indexB;
+    if (indexA !== -1) return -1;
+    if (indexB !== -1) return 1;
+    return a.localeCompare(b);
+  });
+  flashFreqKeys.forEach((freq) => {
+    const option = document.createElement("option");
+    option.value = freq;
+    option.textContent = freq;
+    flashFreq.appendChild(option);
+  });
+  flashFreq.options[0].selected = true;
+
+  // Populate Flash Size dropdown
+  flashSize.innerHTML = '<option value="detect">detect</option><option value="keep">keep</option>';
+  const flashSizeKeys = Object.keys(esploader.chip.FLASH_SIZES).sort((a, b) => {
+    const sizeOrder = [
+      "256KB",
+      "512KB",
+      "1MB",
+      "2MB",
+      "2MB-c1",
+      "4MB",
+      "4MB-c1",
+      "8MB",
+      "16MB",
+      "32MB",
+      "64MB",
+      "128MB",
+    ];
+    const indexA = sizeOrder.indexOf(a);
+    const indexB = sizeOrder.indexOf(b);
+    if (indexA !== -1 && indexB !== -1) return indexA - indexB;
+    if (indexA !== -1) return -1;
+    if (indexB !== -1) return 1;
+    return a.localeCompare(b);
+  });
+  flashSizeKeys.forEach((size) => {
+    const option = document.createElement("option");
+    option.value = size;
+    option.textContent = size;
+    flashSize.appendChild(option);
+  });
+  flashSize.options[1].selected = true;
+}
+
 connectButton.onclick = async () => {
   try {
     if (device === null) {
@@ -109,6 +189,9 @@ connectButton.onclick = async () => {
     traceButton.style.display = "initial";
     chip = await esploader.main();
 
+    // Populate flash dropdowns based on chip's supported values
+    populateFlashDropdowns();
+
     // Temporarily broken
     // await esploader.flashId();
     // eslint-disable-next-line no-console
@@ -121,6 +204,12 @@ connectButton.onclick = async () => {
     disconnectButton.style.display = "initial";
     eraseButton.style.display = "initial";
     filesDiv.style.display = "initial";
+    flashMode.style.display = "initial";
+    flashFreq.style.display = "initial";
+    flashSize.style.display = "initial";
+    lblFlashMode.style.display = "initial";
+    lblFlashFreq.style.display = "initial";
+    lblFlashSize.style.display = "initial";
     consoleDiv.style.display = "none";
   } catch (e) {
     // eslint-disable-next-line no-console
@@ -238,6 +327,12 @@ disconnectButton.onclick = async () => {
   eraseButton.style.display = "none";
   lblConnTo.style.display = "none";
   filesDiv.style.display = "none";
+  flashMode.style.display = "none";
+  flashFreq.style.display = "none";
+  flashSize.style.display = "none";
+  lblFlashMode.style.display = "none";
+  lblFlashFreq.style.display = "none";
+  lblFlashSize.style.display = "none";
   alertDiv.style.display = "none";
   consoleDiv.style.display = "initial";
   cleanUp();
@@ -444,8 +539,9 @@ programButton.onclick = async () => {
       fileArray: fileArray,
       eraseAll: false,
       compress: true,
-      flashMode: "keep",
-      flashFreq: "keep",
+      flashMode: flashMode.value as FlashModeValues,
+      flashFreq: flashFreq.value as FlashFreqValues,
+      flashSize: flashSize.value as FlashSizeValues,
       reportProgress: (fileIndex, written, total) => {
         progressBars[fileIndex].value = (written / total) * 100;
       },

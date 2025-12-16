@@ -170,7 +170,6 @@ export class ESPLoader {
   private debugLogging = false;
   private syncStubDetected = false;
   private resetConstructors: ResetConstructors;
-  private flashSize: FlashSizeValues = "detect";
 
   /**
    * Create a new ESPLoader to perform serial communication
@@ -204,10 +203,6 @@ export class ESPLoader {
     }
     if (options.port) {
       this.transport = new Transport(options.port);
-    }
-
-    if (options.flashSize) {
-      this.flashSize = options.flashSize;
     }
 
     if (typeof options.enableTracing !== "undefined") {
@@ -1296,13 +1291,6 @@ export class ESPLoader {
     } catch (error) {
       throw new ESPError("Unable to verify flash chip connection " + error);
     }
-    if (this.flashSize === "keep" || this.flashSize == "detect") {
-      this.info("Configuring flash size...");
-      // update this to match given flash size command
-      const flashSize = await this.detectFlashSize(this.flashSize);
-      this.info("Detected flash size set to " + flashSize);
-      this.flashSize = flashSize as FlashSizeValues;
-    }
     return chip;
   }
 
@@ -1343,6 +1331,7 @@ export class ESPLoader {
    * @param {number} address flash address number
    * @param {FlashModeValues} flashMode Flash mode string
    * @param {FlashFreqValues} flashFreq Flash frequency string
+   * @param {FlashSizeValues} flashSize Flash size string
    * @returns {Uint8Array} modified image Uint8Array
    */
   async _updateImageFlashParams(
@@ -1350,15 +1339,16 @@ export class ESPLoader {
     address: number,
     flashMode: FlashModeValues = "keep",
     flashFreq: FlashFreqValues = "keep",
+    flashSize: FlashSizeValues = "keep",
   ): Promise<Uint8Array> {
-    this.debug(`_update_image_flash_params ${this.flashSize} ${flashMode} ${flashFreq}`);
+    this.debug(`_update_image_flash_params ${flashSize} ${flashMode} ${flashFreq}`);
     if (image.length < 8) {
       return image;
     }
     if (address != this.chip.BOOTLOADER_FLASH_OFFSET) {
       return image;
     }
-    if (this.flashSize === "keep" && flashMode === "keep" && flashFreq === "keep") {
+    if (flashSize === "keep" && flashMode === "keep" && flashFreq === "keep") {
       this.info("Not changing the image");
       return image;
     }
@@ -1400,8 +1390,15 @@ export class ESPLoader {
       aFlashFreq = flashFreqs[flashFreq];
     }
     let aFlashSize = flashSizeFreq & 0xf0;
-    if (this.flashSize !== "keep") {
-      aFlashSize = this.parseFlashSizeArg(this.flashSize);
+    if (flashSize !== "keep") {
+      if (flashSize === "detect") {
+        this.info("Configuring flash size...");
+        const detectedFlashSize = await this.detectFlashSize();
+        this.info("Detected flash size set to " + detectedFlashSize);
+        aFlashSize = this.parseFlashSizeArg(detectedFlashSize as FlashSizeValues);
+      } else {
+        aFlashSize = this.parseFlashSizeArg(flashSize);
+      }
     }
 
     const flashParams = (aFlashMode << 8) | (aFlashFreq + aFlashSize);
@@ -1470,8 +1467,8 @@ export class ESPLoader {
    */
   async writeFlash(options: FlashOptions) {
     this.debug("EspLoader program");
-    if (this.flashSize !== "keep") {
-      const flashEnd = this.flashSizeBytes(this.flashSize);
+    if (options.flashSize !== "keep") {
+      const flashEnd = this.flashSizeBytes(options.flashSize);
       for (let i = 0; i < options.fileArray.length; i++) {
         if (options.fileArray[i].data.length + options.fileArray[i].address > flashEnd) {
           throw new ESPError(`File ${i + 1} doesn't fit in the available flash`);
@@ -1495,7 +1492,13 @@ export class ESPLoader {
 
       address = options.fileArray[i].address;
 
-      image = await this._updateImageFlashParams(image, address, options.flashMode, options.flashFreq);
+      image = await this._updateImageFlashParams(
+        image,
+        address,
+        options.flashMode,
+        options.flashFreq,
+        options.flashSize,
+      );
       let calcmd5: string | null = null;
       if (options.calculateMD5Hash) {
         calcmd5 = options.calculateMD5Hash(image);
@@ -1619,14 +1622,14 @@ export class ESPLoader {
     this.info("Detected flash size: " + this.DETECTED_FLASH_SIZES[flidLowbyte]);
   }
 
-  async detectFlashSize(flashSize: FlashSizeValues) {
+  async detectFlashSize() {
     this.debug("detectFlashSize");
     const flashid = await this.readFlashId();
     const sizeId = (flashid >> 16) & 0xff;
     let flashSizeStr = this.DETECTED_FLASH_SIZES[sizeId];
     if (!flashSizeStr) {
       flashSizeStr = "4MB";
-      this.info("Could not auto-detect Flash size. defaulting " + flashSize);
+      this.info("Could not auto-detect Flash size. defaulting to 4MB");
     } else {
       this.info("Auto-detected Flash size: " + flashSizeStr);
     }

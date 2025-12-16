@@ -1,4 +1,4 @@
-import { FlashFreqValues, FlashModeValues } from "./arguments";
+import { FlashFreqValues, FlashModeValues, FlashSizeValues } from "./arguments";
 
 /**
  * Options for flashing a device with firmware.
@@ -22,6 +22,12 @@ export interface FlashOptions {
    * @type {FlashFreqValues}
    */
   flashFreq: FlashFreqValues;
+
+  /**
+   * The flash size to be used (e.g., detect, keep,256KB, 512KB, 1MB, 2MB, 4MB, 8MB, 16MB, 32MB, 64MB, 128MB).
+   * @type {FlashSizeValues}
+   */
+  flashSize: FlashSizeValues;
 
   /**
    * Flag indicating whether to erase all existing data in the flash memory before flashing.

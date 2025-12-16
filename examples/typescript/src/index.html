@@ -67,6 +67,27 @@
                         </tbody>
                     </table>
                     <input class="btn btn-info btn-sm" type="button" id="addFile" value="Add File" />
+                    <br><br>
+                    <label for="flashMode" id="lblFlashMode">Flash Mode:</label>
+                    <select name="flashMode" id="flashMode">
+                        <option value="keep" selected>keep</option>
+                        <option value="dio">dio</option>
+                        <option value="qio">qio</option>
+                        <option value="dout">dout</option>
+                        <option value="qout">qout</option>
+                    </select>
+                    <br><br>
+                    <label for="flashFreq" id="lblFlashFreq">Flash Frequency:</label>
+                    <select name="flashFreq" id="flashFreq">
+                        <option value="keep">keep</option>
+                    </select>
+                    <br><br>
+                    <label for="flashSize" id="lblFlashSize">Flash Size:</label>
+                    <select name="flashSize" id="flashSize">
+                        <option value="detect">detect</option>
+                        <option value="keep">keep</option>
+                    </select>
+                    <br><br>
                     <input class="btn btn-info btn-sm" type="button" id="programButton" value="Program" />
                 </div>
                 <output id="list"></output>
