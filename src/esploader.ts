@@ -366,17 +366,6 @@ export class ESPLoader {
   }
 
   /**
-   * Flush the serial input by raw read with 200 ms timeout.
-   */
-  async flushInput() {
-    try {
-      await this.transport.flushInput();
-    } catch (e) {
-      this.error((e as Error).message);
-    }
-  }
-
-  /**
    * Use the device serial port read function with given timeout to create a valid packet.
    * @param {number} op Operation number
    * @param {number} timeout timeout number in milliseconds
@@ -400,7 +389,7 @@ export class ESPLoader {
         if (op == null || opRet == op) {
           return [val, data];
         } else if (data[0] != 0 && data[1] == this.ROM_INVALID_RECV_MSG) {
-          await this.flushInput();
+          this.transport.flushInput();
           throw new ESPError("unsupported command error");
         }
       }

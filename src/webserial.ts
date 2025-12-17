@@ -379,20 +379,14 @@ class Transport {
 
   /**
    * Read from serial device without slip formatting using the buffer populated by readLoop.
-   * @returns {Promise<Uint8Array>} Data from the serial buffer. Returns empty array if reader has stopped.
+   * @returns {Promise<Uint8Array>} Data from the serial buffer. Returns empty array if reader has stopped and buffer is empty.
    */
   async rawRead(): Promise<Uint8Array> {
     try {
-      // Wait for data to be available in the buffer
-      while (this.buffer.length === 0) {
-        // If reader is undefined, reading has stopped - return empty array
-        if (!this.reader) {
-          return new Uint8Array(0);
-        }
-        await sleep(1);
+      if (!this.reader || this.buffer.length === 0) {
+        return new Uint8Array(0);
       }
 
-      // Read available data from buffer
       const data = this.buffer;
       this.buffer = new Uint8Array(0);
 
