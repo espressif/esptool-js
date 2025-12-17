@@ -378,23 +378,31 @@ class Transport {
   }
 
   /**
-   * Read from serial device without slip formatting.
-   * @yields {Uint8Array} The next number in the Fibonacci sequence.
+   * Read from serial device without slip formatting using the buffer populated by readLoop.
+   * @returns {Promise<Uint8Array>} Data from the serial buffer. Returns empty array if reader has stopped.
    */
-  async *rawRead(): AsyncGenerator<Uint8Array> {
-    if (!this.reader) return;
-
+  async rawRead(): Promise<Uint8Array> {
     try {
-      while (true) {
-        const { value, done } = await this.reader.read();
-        if (done || !value) break;
-        if (this.tracing) {
-          this.trace(`Read ${value.length} bytes: ${this.hexConvert(value)}`);
+      // Wait for data to be available in the buffer
+      while (this.buffer.length === 0) {
+        // If reader is undefined, reading has stopped - return empty array
+        if (!this.reader) {
+          return new Uint8Array(0);
         }
-        yield value; // Yield each data chunk
+        await sleep(1);
       }
+
+      // Read available data from buffer
+      const data = this.buffer;
+      this.buffer = new Uint8Array(0);
+
+      if (this.tracing) {
+        this.trace(`Read ${data.length} bytes: ${this.hexConvert(data)}`);
+      }
+
+      return data;
     } catch (error) {
-      console.error("Error reading from serial port:", error);
+      this.trace(`Error reading from serial port: ${error}`);
 
       // Check if it's a NetworkError indicating device loss
       if (error instanceof Error && error.name === "NetworkError" && error.message.includes("device has been lost")) {
@@ -403,8 +411,8 @@ class Transport {
           this.onDeviceLostCallback();
         }
       }
-    } finally {
-      this.buffer = new Uint8Array(0);
+      // Return empty array on error to allow graceful exit
+      return new Uint8Array(0);
     }
   }
 

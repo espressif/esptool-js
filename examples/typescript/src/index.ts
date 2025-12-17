@@ -426,18 +426,14 @@ async function startConsoleReading() {
   if (isConsoleClosed || !transport) return;
 
   try {
-    const readLoop = transport.rawRead();
-
     while (true && !isConsoleClosed) {
-      const { value, done } = await readLoop.next();
+      const value = await transport.rawRead();
 
-      if (done || !value) {
+      if (!value || value.length === 0) {
         break;
       }
 
-      if (value) {
-        term.write(value);
-      }
+      term.write(value);
     }
   } catch (error) {
     if (!isConsoleClosed) {
