@@ -227,12 +227,7 @@ class Transport {
       } catch (error) {
         if (error instanceof Error) {
           // Read retry is possible for the following errors
-          const nonFatal = [
-            "BufferOverrunError",
-            "FramingError",
-            "BreakError",
-            "ParityError"
-          ];
+          const nonFatal = ["BufferOverrunError", "FramingError", "BreakError", "ParityError"];
           if (nonFatal.includes(error.name)) {
             this.trace(`Recoverable serial port error: ${error.message}`);
             continue;
