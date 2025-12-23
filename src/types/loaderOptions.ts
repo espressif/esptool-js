@@ -1,5 +1,5 @@
 import { ResetConstructors } from "../reset";
-import { Transport } from "../webserial";
+import { Transport, SerialOptions } from "../webserial";
 import { IEspLoaderTerminal } from "./loaderTerminal";
 
 /* global SerialPort */
