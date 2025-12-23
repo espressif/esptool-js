@@ -22,13 +22,13 @@ export interface SerialOptions {
    * The number of data bits per frame. Either 7 or 8.
    * @type {number | undefined}
    */
-  dataBits?: number | undefined;
+  dataBits?: 7 | 8 | undefined;
 
   /**
    * The number of stop bits at the end of a frame. Either 1 or 2.
    * @type {number | undefined}
    */
-  stopBits?: number | undefined;
+  stopBits?: 1 | 2 | undefined;
 
   /**
    * The parity mode: none, even or odd
@@ -210,30 +210,55 @@ class Transport {
    * Read from serial device and append to buffer
    */
   async readLoop() {
-    this.reader = this.device.readable?.getReader();
-    if (!this.reader) {
-      throw new Error("Reader not found");
-    }
-    try {
-      let stillReading = true;
-      while (stillReading) {
+    while (this.device.readable) {
+      this.reader = this.device.readable?.getReader();
+      try {
         const { value, done } = await this.reader.read();
         if (done) {
-          this.reader.releaseLock();
-          stillReading = false;
+          this.trace(`Serial port done`);
           break;
         }
-        if (!value || value.length === 0) {
-          continue;
+        // The following test is purely precautionary because .read()
+        // is not supposed to return empty data when done is false
+        if (value && value.length) {
+          const newValue = Uint8Array.from(value);
+          this.buffer = this.appendArray(this.buffer, newValue);
         }
-        const newValue = Uint8Array.from(value);
-        this.buffer = this.appendArray(this.buffer, newValue);
+      } catch (error) {
+        if (error instanceof Error) {
+          // Read retry is possible for the following errors
+          const nonFatal = [
+            "BufferOverrunError",
+            "FramingError",
+            "BreakError",
+            "ParityError"
+          ];
+          if (nonFatal.includes(error.name)) {
+            this.trace(`Recoverable serial port error: ${error.message}`);
+            continue;
+          }
+          // Otherwise the read loop cannot continue
+          this.trace(`Unrecoverable serial port error: ${error.message}`);
+          break;
+        }
+        if (error instanceof DOMException) {
+          // The read loop cannot continue after a DOMException error
+          if (this.onDeviceLostCallback) {
+            this.onDeviceLostCallback();
+          } else {
+            this.trace(`Unrecoverable serial port error: ${error.message}`);
+          }
+          break;
+        }
+        // The read loop cannot continue after an error whose class is unknown
+        this.trace(`Unrecoverable serial port error: ${error}`);
+        break;
+      } finally {
+        this.reader.releaseLock();
       }
-    } catch (error) {
-      this.trace(`Error reading from serial port: ${error}`);
-    } finally {
-      this.reader = undefined;
     }
+    // Fatal error or serial port stream ended
+    this.trace(`readLoop exited`);
   }
 
   flushInput() {
