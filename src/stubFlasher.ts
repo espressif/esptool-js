@@ -14,9 +14,10 @@ export interface Stub {
 /**
  * Import flash stub json for the given chip name.
  * @param {string} chipName Name of chip to obtain flasher stub
+ * @param {number} chipRevision Chip revision number
  * @returns {Stub} Stub information and decoded text and data
  */
-export async function getStubJsonByChipName(chipName: string) {
+export async function getStubJsonByChipName(chipName: string, chipRevision?: number) {
   let jsonStub;
   switch (chipName) {
     case "ESP32":
@@ -41,7 +42,11 @@ export async function getStubJsonByChipName(chipName: string) {
       jsonStub = await import("./targets/stub_flasher/stub_flasher_32h2.json");
       break;
     case "ESP32-P4":
-      jsonStub = await import("./targets/stub_flasher/stub_flasher_32p4.json");
+      if (chipRevision && chipRevision < 300) {
+        jsonStub = await import("./targets/stub_flasher/stub_flasher_32p4rc1.json");
+      } else {
+        jsonStub = await import("./targets/stub_flasher/stub_flasher_32p4.json");
+      }
       break;
     case "ESP32-S2":
       jsonStub = await import("./targets/stub_flasher/stub_flasher_32s2.json");

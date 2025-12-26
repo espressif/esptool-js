@@ -26,7 +26,7 @@ export abstract class ROM {
    * @param {ESPLoader} loader - Loader class to communicate with chip.
    * @returns {number} The chip revision number.
    */
-  protected getChipRevision?(loader: ESPLoader): Promise<number>;
+  getChipRevision?(loader: ESPLoader): Promise<number>;
 
   /**
    * Get the chip description.

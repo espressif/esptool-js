@@ -676,6 +676,7 @@ export class ESPLoader {
    * @param {number} op Command operation number
    * @param {Uint8Array} data Command value
    * @param {number} chk Checksum to use
+   * @param {number} responseDataLength Length of the response data to expect
    * @param {number} timeout TImeout number in milliseconds (ms)
    * @returns {number} Command result
    */
@@ -684,12 +685,31 @@ export class ESPLoader {
     op: number | null = null,
     data: Uint8Array = new Uint8Array(0),
     chk = 0,
+    responseDataLength = 0,
     timeout = this.DEFAULT_TIMEOUT,
   ) {
     this.debug("check_command " + opDescription);
+    const STATUS_BYTES_LENGTH = 2;
+
     const resp = await this.command(op, data, chk, undefined, timeout);
-    if (resp[1].length > 4) {
-      return resp[1];
+
+    if (resp && resp[1] && resp[1].length < responseDataLength + STATUS_BYTES_LENGTH) {
+      const statusBytes = resp[1].slice(0, 2);
+      if (statusBytes[0] !== 0) {
+        throw new ESPError(`Failed to ${opDescription} failed with status ${statusBytes}`);
+      } else {
+        throw new ESPError(`Failed to ${opDescription}.\n Only got ${resp[1].length} bytes of data.`);
+      }
+    }
+
+    const statusBytes = resp[1].slice(responseDataLength, responseDataLength + STATUS_BYTES_LENGTH);
+
+    if (statusBytes[0] !== 0) {
+      throw new ESPError(`Failed to ${opDescription} failed with status ${statusBytes}`);
+    }
+
+    if (responseDataLength > 0) {
+      return resp[1].slice(0, responseDataLength);
     } else {
       return resp[0];
     }
@@ -707,7 +727,8 @@ export class ESPLoader {
     if (this.IS_STUB) {
       const loadStart = offset;
       const loadEnd = offset + size;
-      const stub = await getStubJsonByChipName(this.chip.CHIP_NAME);
+      const chipRevision = this.chip.getChipRevision ? await this.chip.getChipRevision(this) : undefined;
+      const stub = await getStubJsonByChipName(this.chip.CHIP_NAME, chipRevision);
       if (stub) {
         const areasToCheck = [
           [stub.bss_start || stub.data_start, stub.data_start + stub.decodedData.length],
@@ -769,7 +790,7 @@ export class ESPLoader {
   async memFinish(entrypoint: number) {
     const isEntry = entrypoint === 0 ? 1 : 0;
     const pkt = this._appendArray(this._intToByteArray(isEntry), this._intToByteArray(entrypoint));
-    await this.checkCommand("leave RAM download mode", this.ESP_MEM_END, pkt, undefined, 200); // XXX: handle non-stub with diff timeout
+    await this.checkCommand("leave RAM download mode", this.ESP_MEM_END, pkt, undefined, undefined, 200); // XXX: handle non-stub with diff timeout
   }
 
   /**
@@ -822,7 +843,7 @@ export class ESPLoader {
       pkt = this._appendArray(pkt, this._intToByteArray(0)); // XXX: Support encrypted
     }
 
-    await this.checkCommand("enter Flash download mode", this.ESP_FLASH_BEGIN, pkt, undefined, timeout);
+    await this.checkCommand("enter Flash download mode", this.ESP_FLASH_BEGIN, pkt, undefined, undefined, timeout);
 
     const t2 = d.getTime();
     if (size != 0 && this.IS_STUB == false) {
@@ -868,7 +889,14 @@ export class ESPLoader {
     ) {
       pkt = this._appendArray(pkt, this._intToByteArray(0));
     }
-    await this.checkCommand("enter compressed flash mode", this.ESP_FLASH_DEFL_BEGIN, pkt, undefined, timeout);
+    await this.checkCommand(
+      "enter compressed flash mode",
+      this.ESP_FLASH_DEFL_BEGIN,
+      pkt,
+      undefined,
+      undefined,
+      timeout,
+    );
     const t2 = d.getTime();
     if (size != 0 && this.IS_STUB === false) {
       this.info("Took " + (t2 - t1) / 1000 + "." + ((t2 - t1) % 1000) + "s to erase flash block");
@@ -881,6 +909,7 @@ export class ESPLoader {
    * @param {Uint8Array} data Unsigned 8-bit array data.
    * @param {number} seq Sequence number
    * @param {number} timeout Timeout in milliseconds (ms)
+   * @returns {Promise<void>} Promise that resolves when the block is written.
    */
   async flashBlock(data: Uint8Array, seq: number, timeout: number) {
     let pkt = this._appendArray(this._intToByteArray(data.length), this._intToByteArray(seq));
@@ -890,7 +919,14 @@ export class ESPLoader {
 
     const checksum = this.checksum(data);
 
-    await this.checkCommand("write to target Flash after seq " + seq, this.ESP_FLASH_DATA, pkt, checksum, timeout);
+    await this.checkCommand(
+      "write to target Flash after seq " + seq,
+      this.ESP_FLASH_DATA,
+      pkt,
+      checksum,
+      undefined,
+      timeout,
+    );
   }
 
   /**
@@ -913,6 +949,7 @@ export class ESPLoader {
       this.ESP_FLASH_DEFL_DATA,
       pkt,
       checksum,
+      undefined,
       timeout,
     );
   }
@@ -920,23 +957,27 @@ export class ESPLoader {
   /**
    * Leave flash mode and run/reboot
    * @param {boolean} reboot Reboot after leaving flash mode ?
+   * @param {number} timeout Timeout in milliseconds (ms)
+   * @returns {Promise<void>} Promise that resolves when the flash mode is left.
    */
-  async flashFinish(reboot = false) {
+  async flashFinish(reboot = false, timeout = this.DEFAULT_TIMEOUT) {
     const val = reboot ? 0 : 1;
     const pkt = this._intToByteArray(val);
 
-    await this.checkCommand("leave Flash mode", this.ESP_FLASH_END, pkt);
+    await this.checkCommand("leave Flash mode", this.ESP_FLASH_END, pkt, undefined, undefined, timeout);
   }
 
   /**
    * Leave compressed flash mode and run/reboot
    * @param {boolean} reboot Reboot after leaving flash mode ?
+   * @param {number} timeout Timeout in milliseconds (ms)
+   * @returns {Promise<void>} Promise that resolves when the compressed flash mode is left.
    */
-  async flashDeflFinish(reboot = false) {
+  async flashDeflFinish(reboot = false, timeout = this.DEFAULT_TIMEOUT) {
     const val = reboot ? 0 : 1;
     const pkt = this._intToByteArray(val);
 
-    await this.checkCommand("leave compressed flash mode", this.ESP_FLASH_DEFL_END, pkt);
+    await this.checkCommand("leave compressed flash mode", this.ESP_FLASH_DEFL_END, pkt, undefined, undefined, timeout);
   }
 
   /**
@@ -1113,6 +1154,7 @@ export class ESPLoader {
       this.ESP_ERASE_FLASH,
       undefined,
       undefined,
+      undefined,
       this.CHIP_ERASE_TIMEOUT,
     );
     d = new Date();
@@ -1142,10 +1184,18 @@ export class ESPLoader {
     pkt = this._appendArray(pkt, this._intToByteArray(0));
     pkt = this._appendArray(pkt, this._intToByteArray(0));
 
-    let res = await this.checkCommand("calculate md5sum", this.ESP_SPI_FLASH_MD5, pkt, undefined, timeout);
-    if (res instanceof Uint8Array && res.length > 16) {
-      res = res.slice(0, 16);
-    }
+    const RESP_DATA_LEN = 32;
+    const RESP_DATA_LEN_STUB = 16;
+    const RESP_DATA_LEN_TO_USE = this.IS_STUB ? RESP_DATA_LEN_STUB : RESP_DATA_LEN;
+    const res = await this.checkCommand(
+      "calculate md5sum",
+      this.ESP_SPI_FLASH_MD5,
+      pkt,
+      undefined,
+      RESP_DATA_LEN_TO_USE,
+      timeout,
+    );
+
     const strmd5 = this.toHex(res);
     return strmd5;
   }
@@ -1200,7 +1250,8 @@ export class ESPLoader {
     }
 
     this.info("Uploading stub...");
-    const stubFlasher = await getStubJsonByChipName(this.chip.CHIP_NAME);
+    const chipRevision = this.chip.getChipRevision ? await this.chip.getChipRevision(this) : undefined;
+    const stubFlasher = await getStubJsonByChipName(this.chip.CHIP_NAME, chipRevision);
     if (stubFlasher === undefined) {
       this.debug("Error loading Stub json");
       throw new Error("Error loading Stub json");
@@ -1263,6 +1314,10 @@ export class ESPLoader {
     await this.detectChip(mode);
 
     const chip = await this.chip.getChipDescription(this);
+    if (this.chip.getChipRevision) {
+      const chipRevision = await this.chip.getChipRevision(this);
+      this.info("Chip Revision: " + chipRevision);
+    }
     this.info("Chip is " + chip);
     this.info("Features: " + (await this.chip.getChipFeatures(this)));
     this.info("Crystal is " + (await this.chip.getCrystalFreq(this)) + "MHz");
@@ -1570,7 +1625,11 @@ export class ESPLoader {
         if (options.reportProgress) options.reportProgress(i, bytesSent, totalBytes);
       }
       if (this.IS_STUB) {
-        await this.readReg(this.CHIP_DETECT_MAGIC_REG_ADDR, timeout);
+        if (options.compress) {
+          await this.flashDeflFinish(false, timeout);
+        } else {
+          await this.flashFinish(false, timeout);
+        }
       }
       d = new Date();
       const t = d.getTime() - t1;
@@ -1588,10 +1647,10 @@ export class ESPLoader {
         );
       }
       if (calcmd5) {
+        this.info("File  md5: " + calcmd5);
         const res = await this.flashMd5sum(address, uncsize);
+        this.info("Flash md5: " + res);
         if (new String(res).valueOf() != new String(calcmd5).valueOf()) {
-          this.info("File  md5: " + calcmd5);
-          this.info("Flash md5: " + res);
           throw new ESPError("MD5 of file does not match data in flash!");
         } else {
           this.info("Hash of data verified.");
@@ -1599,15 +1658,6 @@ export class ESPLoader {
       }
     }
     this.info("Leaving...");
-
-    if (this.IS_STUB) {
-      await this.flashBegin(0, 0);
-      if (options.compress) {
-        await this.flashDeflFinish();
-      } else {
-        await this.flashFinish();
-      }
-    }
   }
 
   /**
