@@ -127,13 +127,7 @@ export class ESP32C5ROM extends ESP32C6ROM {
   }
 
   public async getChipFeatures(loader: ESPLoader): Promise<string[]> {
-    return [
-      "Wi-Fi 6 (dual-band)",
-      "BT 5 (LE)",
-      "IEEE802.15.4",
-      "Single Core + LP Core",
-      "240MHz",
-    ];
+    return ["Wi-Fi 6 (dual-band)", "BT 5 (LE)", "IEEE802.15.4", "Single Core + LP Core", "240MHz"];
   }
 
   public async getCrystalFreq(loader: ESPLoader): Promise<number> {
@@ -194,9 +188,7 @@ export class ESP32C5ROM extends ESP32C6ROM {
 
     const registerValue = await loader.readReg(this.EFUSE_FORCE_USE_KEY_MANAGER_KEY_REG);
     return (
-      ((registerValue >> this.EFUSE_FORCE_USE_KEY_MANAGER_KEY_SHIFT) &
-        this.FORCE_USE_KEY_MANAGER_VAL_XTS_AES_KEY) !==
-      0
+      ((registerValue >> this.EFUSE_FORCE_USE_KEY_MANAGER_KEY_SHIFT) & this.FORCE_USE_KEY_MANAGER_VAL_XTS_AES_KEY) !== 0
     );
   }
 
@@ -239,9 +231,7 @@ export class ESP32C5ROM extends ESP32C6ROM {
     if (!loader.IS_STUB) {
       const crystalFreqRomExpect = await this.getCrystalFreqRomExpect(loader);
       const crystalFreqDetect = await this.getCrystalFreq(loader);
-      loader.info(
-        `ROM expects crystal freq: ${crystalFreqRomExpect} MHz, ` + `detected ${crystalFreqDetect} MHz.`,
-      );
+      loader.info(`ROM expects crystal freq: ${crystalFreqRomExpect} MHz, ` + `detected ${crystalFreqDetect} MHz.`);
       // If detect the XTAL is 48MHz, but the ROM code expects it to be 40MHz
       if (crystalFreqDetect === 48 && crystalFreqRomExpect === 40) {
         loader.info(
