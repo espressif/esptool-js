@@ -618,6 +618,7 @@ export class ESPLoader {
     let resp;
     this.info("Connecting...", false);
     await this.transport.connect(this.romBaudrate, this.serialOptions);
+    this.transport.readLoop();
     const resetSequences = this.constructResetSequence(mode);
     for (let i = 0; i < attempts; i++) {
       const resetSequence = resetSequences.length > 0 ? resetSequences[i % resetSequences.length] : null;
@@ -1291,6 +1292,7 @@ export class ESPLoader {
     await sleep(50);
     await this.transport.connect(this.baudrate, this.serialOptions);
     await sleep(50);
+    this.transport.readLoop();
   }
 
   /**

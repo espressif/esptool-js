@@ -398,35 +398,36 @@ class Transport {
   }
 
   /**
-   * Read from serial device without slip formatting using the buffer populated by readLoop.
-   * @returns {Promise<Uint8Array>} Data from the serial buffer. Returns empty array if reader has stopped and buffer is empty.
+   * Read from serial device without SLIP formatting. Calls onData for each chunk.
+   * Stops when isClosed() returns true or the stream ends/errors.
+   * @param {Function} onData Callback for each chunk of data read
+   * @param {Function} isClosed Function that returns true when reading should stop (e.g. when console is closed)
    */
-  async rawRead(): Promise<Uint8Array> {
+  async rawRead(onData: (data: Uint8Array) => void, isClosed: () => boolean): Promise<void> {
+    let reader: ReadableStreamDefaultReader<Uint8Array> | undefined;
     try {
-      if (!this.reader || this.buffer.length === 0) {
-        return new Uint8Array(0);
+      if (!this.device.readable) {
+        return;
       }
-
-      const data = this.buffer;
-      this.buffer = new Uint8Array(0);
-
-      if (this.tracing) {
-        this.trace(`Read ${data.length} bytes: ${this.hexConvert(data)}`);
+      reader = this.device.readable.getReader();
+      while (!isClosed()) {
+        const { value, done } = await reader.read();
+        if (done || !value) break;
+        if (this.tracing) {
+          this.trace(`Read ${value.length} bytes: ${this.hexConvert(value)}`);
+        }
+        onData(value);
       }
-
-      return data;
     } catch (error) {
       this.trace(`Error reading from serial port: ${error}`);
-
-      // Check if it's a NetworkError indicating device loss
       if (error instanceof Error && error.name === "NetworkError" && error.message.includes("device has been lost")) {
         this.trace("Device lost detected (NetworkError)");
         if (this.onDeviceLostCallback) {
           this.onDeviceLostCallback();
         }
       }
-      // Return empty array on error to allow graceful exit
-      return new Uint8Array(0);
+    } finally {
+      reader?.releaseLock();
     }
   }
 
@@ -470,7 +471,6 @@ class Transport {
       flowControl: serialOptions?.flowControl,
     });
     this.baudrate = baud;
-    this.readLoop();
   }
 
   /**

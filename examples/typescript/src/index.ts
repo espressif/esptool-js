@@ -420,20 +420,54 @@ consoleStartButton.onclick = async () => {
 };
 
 /**
- * Start the console reading loop
+ * IDF Monitor–style auto-coloring: inject ANSI codes by log level (E/W/I) so colors
+ * work without CONFIG_LOG_COLORS on the device. Same regex as esp-idf-monitor.
+ */
+const IDF_LOG_LEVEL_REGEX = /^(I|W|E) \([\d.: -]+\)/;
+const ANSI = {
+  RED: "\x1b[1;31m",
+  GREEN: "\x1b[0;32m",
+  YELLOW: "\x1b[0;33m",
+  NORMAL: "\x1b[0m",
+};
+
+/**
+ * Use IDF Monitor style log level prefixes to inject ANSI color codes for better readability. Lines that don't match the pattern are returned unmodified.
+ * @param {string} line Console line to colorize
+ * @returns {string} Colorized console line
+ */
+function colorizeIdfLine(line: string): string {
+  const match = IDF_LOG_LEVEL_REGEX.exec(line);
+  if (!match) return line;
+  const color = match[1] === "E" ? ANSI.RED : match[1] === "W" ? ANSI.YELLOW : ANSI.GREEN;
+  return color + line + ANSI.NORMAL;
+}
+
+/**
+ * Continuously read from the console until it's closed, applying colorization to IDF log lines. If the connection is lost, it will wait for reconnection and resume reading. Errors are caught and displayed in the terminal without breaking the reading loop.
  */
 async function startConsoleReading() {
   if (isConsoleClosed || !transport) return;
 
+  const decoder = new TextDecoder("utf-8");
+  let lineBuffer = "";
   try {
-    while (true && !isConsoleClosed) {
-      const value = await transport.rawRead();
-
-      if (!value || value.length === 0) {
-        break;
-      }
-
-      term.write(value);
+    await transport.rawRead(
+      (value) => {
+        lineBuffer += decoder.decode(value);
+        let idx: number;
+        while ((idx = lineBuffer.indexOf("\n")) !== -1) {
+          const lineWithEol = lineBuffer.slice(0, idx + 1);
+          lineBuffer = lineBuffer.slice(idx + 1);
+          const lineStripped = lineWithEol.replace(/\r?\n$/, "");
+          const eol = lineWithEol.slice(lineStripped.length);
+          term.write(colorizeIdfLine(lineStripped) + eol);
+        }
+      },
+      () => isConsoleClosed,
+    );
+    if (lineBuffer.length > 0) {
+      term.write(colorizeIdfLine(lineBuffer));
     }
   } catch (error) {
     if (!isConsoleClosed) {
