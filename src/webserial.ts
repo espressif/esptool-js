@@ -457,6 +457,20 @@ class Transport {
   }
 
   /**
+   * Set the device signals to given states
+   * # True for IO0=LOW, chip in reset and False IO0=HIGH
+   * @param {boolean} dtr dataTerminalReady (DTS) signal boolean state
+   * @param {boolean} rts requestToSend (RTS) signal boolean state
+   * @param {boolean} breakSignal break signal boolean state
+   */
+  async setSignals(dtr?: boolean, rts?: boolean, breakSignal?: boolean) {
+    if (dtr) {
+      this._DTR_state = dtr;
+    }
+    await this.device.setSignals({ dataTerminalReady: dtr, requestToSend: rts, break: breakSignal });
+  }
+
+  /**
    * Connect to serial device using the Webserial open method.
    * @param {number} baud Number baud rate for serial connection. Default is 115200.
    * @param {typeof import("w3c-web-serial").SerialOptions} serialOptions Serial Options for WebUSB SerialPort class.
