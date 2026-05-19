@@ -126,6 +126,8 @@ export class ESPLoader {
   FLASH_READ_TIMEOUT = 100000;
   MAX_TIMEOUT = this.CHIP_ERASE_TIMEOUT * 2;
 
+  WRITE_BLOCK_ATTEMPTS = 3;
+
   SPI_ADDR_REG_MSB = true;
 
   CHIP_DETECT_MAGIC_REG_ADDR = 0x40001000;
@@ -894,7 +896,7 @@ export class ESPLoader {
   }
 
   /**
-   * Write block to flash, retry if fail
+   * Write block to flash, retry up to WRITE_BLOCK_ATTEMPTS times on failure.
    * @param {Uint8Array} data Unsigned 8-bit array data.
    * @param {number} seq Sequence number
    * @param {number} timeout Timeout in milliseconds (ms)
@@ -908,18 +910,28 @@ export class ESPLoader {
 
     const checksum = this.checksum(data);
 
-    await this.checkCommand(
-      "write to target Flash after seq " + seq,
-      this.ESP_FLASH_DATA,
-      pkt,
-      checksum,
-      undefined,
-      timeout,
-    );
+    for (let attemptsLeft = this.WRITE_BLOCK_ATTEMPTS - 1; attemptsLeft >= 0; attemptsLeft--) {
+      try {
+        await this.checkCommand(
+          "write to target Flash after seq " + seq,
+          this.ESP_FLASH_DATA,
+          pkt,
+          checksum,
+          undefined,
+          timeout,
+        );
+        return;
+      } catch (e) {
+        if (attemptsLeft === 0) {
+          throw e;
+        }
+        this.debug(`Block ${seq} write failed (${e}), retrying with ${attemptsLeft} attempts left...`);
+      }
+    }
   }
 
   /**
-   * Write block to flash, send compressed, retry if fail
+   * Write compressed block to flash, retry up to WRITE_BLOCK_ATTEMPTS times on failure.
    * @param {Uint8Array} data Unsigned int 8-bit array data to write
    * @param {number} seq Sequence number
    * @param {number} timeout Timeout in milliseconds (ms)
@@ -933,14 +945,24 @@ export class ESPLoader {
     const checksum = this.checksum(data);
     this.debug("flash_defl_block " + data[0].toString(16) + " " + data[1].toString(16));
 
-    await this.checkCommand(
-      "write compressed data to flash after seq " + seq,
-      this.ESP_FLASH_DEFL_DATA,
-      pkt,
-      checksum,
-      undefined,
-      timeout,
-    );
+    for (let attemptsLeft = this.WRITE_BLOCK_ATTEMPTS - 1; attemptsLeft >= 0; attemptsLeft--) {
+      try {
+        await this.checkCommand(
+          "write compressed data to flash after seq " + seq,
+          this.ESP_FLASH_DEFL_DATA,
+          pkt,
+          checksum,
+          undefined,
+          timeout,
+        );
+        return;
+      } catch (e) {
+        if (attemptsLeft === 0) {
+          throw e;
+        }
+        this.debug(`Compressed block ${seq} write failed (${e}), retrying with ${attemptsLeft} attempts left...`);
+      }
+    }
   }
 
   /**
