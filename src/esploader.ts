@@ -127,6 +127,7 @@ export class ESPLoader {
   MAX_TIMEOUT = this.CHIP_ERASE_TIMEOUT * 2;
 
   WRITE_BLOCK_ATTEMPTS = 3;
+  WRITE_BLOCK_RETRY_DELAY_MS = 150;
 
   SPI_ADDR_REG_MSB = true;
 
@@ -926,6 +927,7 @@ export class ESPLoader {
           throw e;
         }
         this.debug(`Block ${seq} write failed (${e}), retrying with ${attemptsLeft} attempts left...`);
+        await sleep(this.WRITE_BLOCK_RETRY_DELAY_MS);
       }
     }
   }
@@ -961,6 +963,7 @@ export class ESPLoader {
           throw e;
         }
         this.debug(`Compressed block ${seq} write failed (${e}), retrying with ${attemptsLeft} attempts left...`);
+        await sleep(this.WRITE_BLOCK_RETRY_DELAY_MS);
       }
     }
   }
