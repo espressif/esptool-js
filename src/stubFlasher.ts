@@ -54,6 +54,9 @@ export async function getStubJsonByChipName(chipName: string, chipRevision?: num
     case "ESP32-S3":
       jsonStub = await import("./targets/stub_flasher/stub_flasher_32s3.json");
       break;
+    case "ESP32-S31":
+      jsonStub = await import("./targets/stub_flasher/stub_flasher_32s31.json");
+      break;
     case "ESP8266":
       jsonStub = await import("./targets/stub_flasher/stub_flasher_8266.json");
       break;

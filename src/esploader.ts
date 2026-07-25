@@ -21,6 +21,54 @@ import { loadFirmwareImage } from "./image/index.js";
 export type FlashReadCallback = ((packet: Uint8Array, progress: number, totalSize: number) => void) | null;
 
 /**
+ * Return the chip ROM based on the given chip ID from GET_SECURITY_INFO command.
+ * @param {number} chipId - chip ID number to select ROM.
+ * @returns {ROM} The chip ROM class related to given chip ID.
+ */
+async function chipId2Chip(chipId: number): Promise<ROM | null> {
+  switch (chipId) {
+    case 5: {
+      const { ESP32C3ROM } = await import("./targets/esp32c3.js");
+      return new ESP32C3ROM();
+    }
+    case 9: {
+      const { ESP32S3ROM } = await import("./targets/esp32s3.js");
+      return new ESP32S3ROM();
+    }
+    case 12: {
+      const { ESP32C2ROM } = await import("./targets/esp32c2.js");
+      return new ESP32C2ROM();
+    }
+    case 13: {
+      const { ESP32C6ROM } = await import("./targets/esp32c6.js");
+      return new ESP32C6ROM();
+    }
+    case 16: {
+      const { ESP32H2ROM } = await import("./targets/esp32h2.js");
+      return new ESP32H2ROM();
+    }
+    case 18: {
+      const { ESP32P4ROM } = await import("./targets/esp32p4.js");
+      return new ESP32P4ROM();
+    }
+    case 20: {
+      const { ESP32C61ROM } = await import("./targets/esp32c61.js");
+      return new ESP32C61ROM();
+    }
+    case 23: {
+      const { ESP32C5ROM } = await import("./targets/esp32c5.js");
+      return new ESP32C5ROM();
+    }
+    case 32: {
+      const { ESP32S31ROM } = await import("./targets/esp32s31.js");
+      return new ESP32S31ROM();
+    }
+    default:
+      return null;
+  }
+}
+
+/**
  * Return the chip ROM based on the given magic number
  * @param {number} magic - magic hex number to select ROM.
  * @returns {ROM} The chip ROM class related to given magic hex number.
@@ -105,6 +153,7 @@ export class ESPLoader {
   ESP_FLASH_DEFL_DATA = 0x11;
   ESP_FLASH_DEFL_END = 0x12;
   ESP_SPI_FLASH_MD5 = 0x13;
+  ESP_GET_SECURITY_INFO = 0x14;
 
   // Only Stub supported commands
   ESP_ERASE_FLASH = 0xd0;
@@ -461,6 +510,29 @@ export class ESPLoader {
   }
 
   /**
+   * Get chip ID via GET_SECURITY_INFO command.
+   * Returns the chip_id for ESP32-S3 and later chips, or null for older chips.
+   * @returns {Promise<number | null>} Chip ID or null if not supported
+   */
+  async getChipId(): Promise<number | null> {
+    const resp = await this.checkCommand(
+      "get security info",
+      this.ESP_GET_SECURITY_INFO,
+      new Uint8Array(0),
+      0,
+      20,
+    );
+    // Response format: 4 bytes flags + 1 byte flash_crypt_cnt + 7 bytes key_purposes + 4 bytes chip_id + 4 bytes api_version
+    // chip_id is at offset 12 (bytes 12-15) as uint32 LE
+    const data = resp as Uint8Array;
+    if (data.length >= 16) {
+      const chipId = data[12] | (data[13] << 8) | (data[14] << 16) | (data[15] << 24);
+      return chipId >>> 0;
+    }
+    return null;
+  }
+
+  /**
    * Write a number value to register address in chip.
    * @param {number} addr - Register address number
    * @param {number} value - Number value to write in register
@@ -634,13 +706,30 @@ export class ESPLoader {
     this.info("\n\r", false);
 
     if (detecting) {
-      const chipMagicValue = (await this.readReg(this.CHIP_DETECT_MAGIC_REG_ADDR)) >>> 0;
-      this.debug("Chip Magic " + chipMagicValue.toString(16));
-      const chip = await magic2Chip(chipMagicValue);
-      if (typeof this.chip === null) {
-        throw new ESPError(`Unexpected CHIP magic value ${chipMagicValue}. Failed to autodetect chip type.`);
+      // Try chip_id detection first (for ESP32-S3 and later chips)
+      let chip: ROM | null = null;
+      try {
+        const chipId = await this.getChipId();
+        if (chipId !== null) {
+          this.debug("Chip ID " + chipId);
+          chip = await chipId2Chip(chipId);
+        }
+      } catch (e) {
+        // GET_SECURITY_INFO not supported, fall back to magic value
+        this.debug("GET_SECURITY_INFO not supported, falling back to magic value");
+      }
+
+      // Fall back to magic value detection (for ESP8266, ESP32, ESP32-S2)
+      if (chip === null) {
+        const chipMagicValue = (await this.readReg(this.CHIP_DETECT_MAGIC_REG_ADDR)) >>> 0;
+        this.debug("Chip Magic " + chipMagicValue.toString(16));
+        chip = await magic2Chip(chipMagicValue);
+      }
+
+      if (chip === null) {
+        throw new ESPError(`Failed to autodetect chip type.`);
       } else {
-        this.chip = chip as ROM;
+        this.chip = chip;
       }
     }
   }

@@ -14,6 +14,7 @@ import {
   ESP32P4FirmwareImage,
   ESP32S2FirmwareImage,
   ESP32S3FirmwareImage,
+  ESP32S31FirmwareImage,
 } from "./others";
 
 /**
@@ -62,6 +63,9 @@ export async function loadFirmwareImage(rom: ROM, imageData: Uint8Array | string
         break;
       case "esp32p4":
         firmwareImageClass = ESP32P4FirmwareImage;
+        break;
+      case "esp32s31":
+        firmwareImageClass = ESP32S31FirmwareImage;
         break;
       default:
         throw new ESPError(`Unsupported chip name: ${chipName}`);
