@@ -19,7 +19,7 @@ target_include_directories(esp_flasher PRIVATE
 target_link_libraries(esp_flasher PRIVATE flasher)
 
 set(EXPORTED_FUNCTIONS
-  ["_flasher_connect","_flasher_change_baudrate","_flasher_flash_detect_size","_flasher_flash_start","_flasher_flash_write","_flasher_flash_finish","_malloc","_free"]
+  ["_flasher_connect","_flasher_connect_rom","_flasher_connect_secure_download","_flasher_deinit","_flasher_get_target","_flasher_change_baudrate","_flasher_flash_detect_size","_flasher_flash_start","_flasher_flash_write","_flasher_flash_finish","_flasher_flash_deflate_start","_flasher_flash_deflate_write","_flasher_flash_deflate_finish","_flasher_flash_erase","_flasher_flash_erase_region","_flasher_flash_read","_flasher_flash_verify_known_md5","_flasher_mem_start","_flasher_mem_write","_flasher_mem_finish","_flasher_read_mac","_flasher_write_register","_flasher_read_register","_flasher_get_security_info","_flasher_reset_target","_malloc","_free"]
 )
 
 set(EXPORTED_RUNTIME_METHODS

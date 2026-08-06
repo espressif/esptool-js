@@ -4,24 +4,33 @@ import { bindTransport, loadWasmModule, LoadWasmOptions } from "../wasm/loader.j
 
 export interface ConnectEspOptions extends LoadWasmOptions {
   transport: Transport;
-  /** Target baud after stub connect (default: keep 115200). */
+  /** Target baud after connect (default: keep 115200). */
   baudrate?: number;
   /**
    * Open the transport at 115200 if the port is not already open.
    * Default true.
    */
   openTransport?: boolean;
+  /**
+   * Upload and run the flasher stub after connect. Default true.
+   * Ignored when secureDownloadMode is set.
+   */
+  stub?: boolean;
+  /**
+   * Connect in secure download mode with the given flash size (bytes).
+   * Mutually exclusive with stub ROM connect paths.
+   */
+  secureDownloadMode?: { flashSize: number };
   log?: LogFn;
 }
 
 /**
- * Connect to an ESP device: open serial (if needed), upload stub via WASM,
- * optionally raise baud rate. Mirrors esptool.cmds.connect_esp + run_stub for
- * the phase-1 WASM surface.
+ * Connect to an ESP device over Web Serial via WASM esp-serial-flasher.
+ * Mirrors esptool.cmds.connect_esp (+ optional stub / SDM).
  * @param options
  */
 export async function connectEsp(options: ConnectEspOptions): Promise<EspDevice> {
-  const { transport, baudrate, openTransport = true, log } = options;
+  const { transport, baudrate, openTransport = true, stub = true, secureDownloadMode, log } = options;
 
   const module = await loadWasmModule({
     wasmUrl: options.wasmUrl,
@@ -38,7 +47,16 @@ export async function connectEsp(options: ConnectEspOptions): Promise<EspDevice>
   module.serialBuffer = new Uint8Array(0);
   const bindings: FlasherBindings = createBindings(module);
 
-  checkResult(await bindings.connect(), "connectEsp / flasher_connect");
+  if (secureDownloadMode) {
+    checkResult(
+      await bindings.connectSecureDownload(secureDownloadMode.flashSize),
+      "connectEsp / flasher_connect_secure_download",
+    );
+  } else if (stub) {
+    checkResult(await bindings.connect(), "connectEsp / flasher_connect");
+  } else {
+    checkResult(await bindings.connectRom(), "connectEsp / flasher_connect_rom");
+  }
 
   const esp: EspDevice = { transport, module, bindings };
 

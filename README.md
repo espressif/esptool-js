@@ -7,10 +7,11 @@ and the [Web Serial API](https://wicg.github.io/serial/). It works in Google Chr
 (and Chrome on Android via [web-serial-polyfill](https://github.com/google/web-serial-polyfill)).
 
 The public API follows the style of [esptool’s Python module API](https://docs.espressif.com/projects/esptool/en/latest/esp32/esptool/scripting.html)
-(`connectEsp`, `writeFlash`, `detectFlashSize`, …).
+(`connectEsp`, `writeFlash`, `eraseFlash`, `readFlash`, `loadRam`, …).
 
-**NOTE:** Phase 1 covers connect-with-stub, baud change, flash size detect, and uncompressed flash write.
-Erase, read, compressed write, and image tooling will be added later.
+The WASM layer exposes the full UART-relevant [`esp_loader_*`](https://github.com/espressif/esp-serial-flasher)
+surface (flash erase/read/deflate, RAM download, MAC, registers, security info, reset, connect variants).
+Image tooling (`elf2image`, `mergeBin`) remains out of scope for now.
 
 ## Installation
 
@@ -99,14 +100,21 @@ Open http://localhost:1234 in Chrome or Edge (Web Serial requires HTTPS or local
 | Stale WASM in the browser | Rebuild with `npm run build:wasm` and hard-refresh |
 | Web Serial denied | Use Chrome/Edge on `localhost` or HTTPS |
 
-## API overview (phase 1)
+## API overview
 
 | Export | Role |
 |---|---|
 | `Transport` | Web Serial open/close, RX buffer, baud reconfigure |
-| `connectEsp` | Connect + stub upload (+ optional baud raise) |
+| `connectEsp` | Connect (stub / ROM / secure download) + optional baud raise |
 | `detectFlashSize` | SPI flash size in bytes |
-| `writeFlash` | Uncompressed multi-image flash write |
+| `writeFlash` | Multi-image flash write (optional `compress` / `skipVerify`) |
+| `eraseFlash` / `eraseRegion` | Chip / region erase |
+| `readFlash` | Read flash into `Uint8Array` |
+| `readMac` / `getTarget` / `getSecurityInfo` | Chip identity |
+| `readRegister` / `writeRegister` | Register access |
+| `loadRam` | RAM download + jump to entrypoint |
+| `resetChip` | Hard reset target |
+| `verifyFlash` | Verify region against known MD5 |
 | `flasherConnect` / `flasherFlashStart` / … | Thin 1:1 WASM wrappers |
 
 ## License

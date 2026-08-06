@@ -2,6 +2,8 @@ const baudrates = document.getElementById("baudrates") as HTMLSelectElement;
 const connectButton = document.getElementById("connectButton") as HTMLButtonElement;
 const disconnectButton = document.getElementById("disconnectButton") as HTMLButtonElement;
 const detectFlashButton = document.getElementById("detectFlashButton") as HTMLButtonElement;
+const readMacButton = document.getElementById("readMacButton") as HTMLButtonElement;
+const eraseButton = document.getElementById("eraseButton") as HTMLButtonElement;
 const addFileButton = document.getElementById("addFile") as HTMLButtonElement;
 const programButton = document.getElementById("programButton") as HTMLButtonElement;
 const filesDiv = document.getElementById("files") as HTMLDivElement;
@@ -16,8 +18,12 @@ import {
   connectEsp,
   writeFlash,
   detectFlashSize,
+  eraseFlash,
+  readMac,
+  getTarget,
   EspDevice,
   FlasherError,
+  TargetChip,
 } from "../../../lib";
 import createEspFlasherModule from "../../../wasm/esp_flasher.js";
 import { serial } from "web-serial-polyfill";
@@ -42,6 +48,8 @@ let esp: EspDevice | undefined;
 
 disconnectButton.style.display = "none";
 detectFlashButton.style.display = "none";
+readMacButton.style.display = "none";
+eraseButton.style.display = "none";
 filesDiv.style.display = "none";
 
 function handleFileSelect(evt: Event) {
@@ -69,6 +77,12 @@ function showAlert(message: string) {
   }
   alertDiv.style.display = "block";
   term.writeln(`Error: ${message}`);
+}
+
+function formatMac(mac: Uint8Array): string {
+  return Array.from(mac)
+    .map((b) => b.toString(16).padStart(2, "0"))
+    .join(":");
 }
 
 /**
@@ -100,6 +114,18 @@ addFileRow(0x0);
 addFileRow(0x8000);
 addFileRow(0x10000);
 
+function setConnectedUi(connected: boolean) {
+  connectButton.style.display = connected ? "none" : "initial";
+  disconnectButton.style.display = connected ? "initial" : "none";
+  detectFlashButton.style.display = connected ? "initial" : "none";
+  readMacButton.style.display = connected ? "initial" : "none";
+  eraseButton.style.display = connected ? "initial" : "none";
+  filesDiv.style.display = connected ? "initial" : "none";
+  lblBaudrate.style.display = connected ? "none" : "initial";
+  baudrates.style.display = connected ? "none" : "initial";
+  lblConnTo.style.display = connected ? "block" : "none";
+}
+
 connectButton.onclick = async () => {
   try {
     if (!serialLib) {
@@ -120,15 +146,14 @@ connectButton.onclick = async () => {
       log: logLine,
     });
 
-    logLine(`Connected (stub uploaded${baudrate !== 115200 ? `, baud ${baudrate}` : ""})`);
-    lblBaudrate.style.display = "none";
-    lblConnTo.style.display = "block";
+    const chip = await getTarget(esp);
+    logLine(
+      `Connected chip=${TargetChip[chip] ?? chip} (stub uploaded${
+        baudrate !== 115200 ? `, baud ${baudrate}` : ""
+      })`,
+    );
     lblConnTo.innerHTML = `Connected to device: ${transport.getInfo() || "serial port"}`;
-    connectButton.style.display = "none";
-    disconnectButton.style.display = "initial";
-    detectFlashButton.style.display = "initial";
-    filesDiv.style.display = "initial";
-    baudrates.style.display = "none";
+    setConnectedUi(true);
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);
     showAlert(msg);
@@ -155,6 +180,35 @@ detectFlashButton.onclick = async () => {
   }
 };
 
+readMacButton.onclick = async () => {
+  if (!esp) return;
+  try {
+    const mac = await readMac(esp);
+    logLine(`MAC: ${formatMac(mac)}`);
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e);
+    showAlert(msg);
+  }
+};
+
+eraseButton.onclick = async () => {
+  if (!esp) return;
+  if (!confirm("Erase the entire flash chip?")) {
+    return;
+  }
+  try {
+    eraseButton.disabled = true;
+    logLine("Erasing flash...");
+    await eraseFlash(esp);
+    logLine("Erase complete.");
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e);
+    showAlert(msg);
+  } finally {
+    eraseButton.disabled = false;
+  }
+};
+
 disconnectButton.onclick = async () => {
   if (transport) {
     await transport.close();
@@ -162,13 +216,7 @@ disconnectButton.onclick = async () => {
   transport = undefined;
   esp = undefined;
   term.reset();
-  connectButton.style.display = "initial";
-  disconnectButton.style.display = "none";
-  detectFlashButton.style.display = "none";
-  filesDiv.style.display = "none";
-  lblBaudrate.style.display = "initial";
-  baudrates.style.display = "initial";
-  lblConnTo.style.display = "none";
+  setConnectedUi(false);
 };
 
 addFileButton.onclick = () => addFileRow();

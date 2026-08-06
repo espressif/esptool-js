@@ -34,8 +34,6 @@ typedef struct {
 static wasm_port_t g_port = {
   ._baud_rate = 115200,
 };
-static esp_loader_t g_loader;
-static esp_loader_flash_cfg_t g_flash_cfg;
 
 EM_JS(void, js_init_serial_buffer, (), {
   if (typeof Module.serialBuffer === "undefined") {
@@ -294,19 +292,89 @@ static const esp_loader_port_ops_t wasm_ops = {
   .sdio_card_init = NULL,
 };
 
-int flasher_connect(void)
+static esp_loader_t g_loader;
+static esp_loader_flash_cfg_t g_flash_cfg;
+static esp_loader_flash_deflate_cfg_t g_deflate_cfg;
+static esp_loader_mem_cfg_t g_mem_cfg;
+static bool g_loader_initialized = false;
+
+/**
+ * Packed security-info layout written by flasher_get_security_info (little-endian):
+ *   u32 target_chip
+ *   u32 eco_version
+ *   u8  secure_boot_enabled
+ *   u8  secure_boot_aggressive_revoke_enabled
+ *   u8  secure_download_mode_enabled
+ *   u8  secure_boot_revoked_keys[3]
+ *   u8  jtag_software_disabled
+ *   u8  jtag_hardware_disabled
+ *   u8  usb_disabled
+ *   u8  flash_encryption_enabled
+ *   u8  dcache_in_uart_download_disabled
+ *   u8  icache_in_uart_download_disabled
+ * Total: 4+4+12 = 20 bytes
+ */
+#define FLASHER_SECURITY_INFO_SIZE 20
+
+static esp_loader_error_t flasher_prepare_port(void)
 {
   if (g_port._baud_rate != 115200) {
     js_change_baud_rate(115200);
   }
   g_port.port.ops = &wasm_ops;
   g_port._baud_rate = 115200;
+  if (g_loader_initialized) {
+    esp_loader_deinit(&g_loader);
+    g_loader_initialized = false;
+  }
   esp_loader_error_t err = esp_loader_init_serial(&g_loader, &g_port.port);
+  if (err == ESP_LOADER_SUCCESS) {
+    g_loader_initialized = true;
+  }
+  return err;
+}
+
+int flasher_connect(void)
+{
+  esp_loader_error_t err = flasher_prepare_port();
   if (err != ESP_LOADER_SUCCESS) {
     return (int)err;
   }
   esp_loader_connect_args_t connect_args = ESP_LOADER_CONNECT_DEFAULT();
   return (int)esp_loader_connect_with_stub(&g_loader, &connect_args);
+}
+
+int flasher_connect_rom(void)
+{
+  esp_loader_error_t err = flasher_prepare_port();
+  if (err != ESP_LOADER_SUCCESS) {
+    return (int)err;
+  }
+  esp_loader_connect_args_t connect_args = ESP_LOADER_CONNECT_DEFAULT();
+  return (int)esp_loader_connect(&g_loader, &connect_args);
+}
+
+int flasher_connect_secure_download(uint32_t flash_size)
+{
+  esp_loader_error_t err = flasher_prepare_port();
+  if (err != ESP_LOADER_SUCCESS) {
+    return (int)err;
+  }
+  esp_loader_connect_args_t connect_args = ESP_LOADER_CONNECT_DEFAULT();
+  return (int)esp_loader_connect_secure_download_mode(&g_loader, &connect_args, flash_size);
+}
+
+void flasher_deinit(void)
+{
+  if (g_loader_initialized) {
+    esp_loader_deinit(&g_loader);
+    g_loader_initialized = false;
+  }
+}
+
+int flasher_get_target(void)
+{
+  return (int)esp_loader_get_target(&g_loader);
 }
 
 int flasher_change_baudrate(uint32_t new_baud)
@@ -319,13 +387,13 @@ int flasher_flash_detect_size(uint32_t *flash_size)
   return (int)esp_loader_flash_detect_size(&g_loader, flash_size);
 }
 
-int flasher_flash_start(uint32_t offset, uint32_t image_size, uint32_t block_size)
+int flasher_flash_start(uint32_t offset, uint32_t image_size, uint32_t block_size, int skip_verify)
 {
   memset(&g_flash_cfg, 0, sizeof(g_flash_cfg));
   g_flash_cfg.offset = offset;
   g_flash_cfg.image_size = image_size;
   g_flash_cfg.block_size = block_size;
-  g_flash_cfg.skip_verify = false;
+  g_flash_cfg.skip_verify = skip_verify != 0;
   return (int)esp_loader_flash_start(&g_loader, &g_flash_cfg);
 }
 
@@ -337,4 +405,109 @@ int flasher_flash_write(void *payload, uint32_t size)
 int flasher_flash_finish(void)
 {
   return (int)esp_loader_flash_finish(&g_loader, &g_flash_cfg);
+}
+
+int flasher_flash_deflate_start(uint32_t offset, uint32_t image_size, uint32_t compressed_size,
+                                uint32_t block_size)
+{
+  memset(&g_deflate_cfg, 0, sizeof(g_deflate_cfg));
+  g_deflate_cfg.offset = offset;
+  g_deflate_cfg.image_size = image_size;
+  g_deflate_cfg.compressed_size = compressed_size;
+  g_deflate_cfg.block_size = block_size;
+  return (int)esp_loader_flash_deflate_start(&g_loader, &g_deflate_cfg);
+}
+
+int flasher_flash_deflate_write(void *payload, uint32_t size)
+{
+  return (int)esp_loader_flash_deflate_write(&g_loader, &g_deflate_cfg, payload, size);
+}
+
+int flasher_flash_deflate_finish(void)
+{
+  return (int)esp_loader_flash_deflate_finish(&g_loader, &g_deflate_cfg);
+}
+
+int flasher_flash_erase(void)
+{
+  return (int)esp_loader_flash_erase(&g_loader);
+}
+
+int flasher_flash_erase_region(uint32_t offset, uint32_t size)
+{
+  return (int)esp_loader_flash_erase_region(&g_loader, offset, size);
+}
+
+int flasher_flash_read(uint8_t *buf, uint32_t address, uint32_t length)
+{
+  return (int)esp_loader_flash_read(&g_loader, buf, address, length);
+}
+
+int flasher_flash_verify_known_md5(uint32_t address, uint32_t size, const uint8_t *expected_md5)
+{
+  return (int)esp_loader_flash_verify_known_md5(&g_loader, address, size, expected_md5);
+}
+
+int flasher_mem_start(uint32_t offset, uint32_t size, uint32_t block_size)
+{
+  memset(&g_mem_cfg, 0, sizeof(g_mem_cfg));
+  g_mem_cfg.offset = offset;
+  g_mem_cfg.size = size;
+  g_mem_cfg.block_size = block_size;
+  return (int)esp_loader_mem_start(&g_loader, &g_mem_cfg);
+}
+
+int flasher_mem_write(void *payload, uint32_t size)
+{
+  return (int)esp_loader_mem_write(&g_loader, &g_mem_cfg, payload, size);
+}
+
+int flasher_mem_finish(uint32_t entrypoint)
+{
+  return (int)esp_loader_mem_finish(&g_loader, &g_mem_cfg, entrypoint);
+}
+
+int flasher_read_mac(uint8_t *mac)
+{
+  return (int)esp_loader_read_mac(&g_loader, mac);
+}
+
+int flasher_write_register(uint32_t address, uint32_t reg_value)
+{
+  return (int)esp_loader_write_register(&g_loader, address, reg_value);
+}
+
+int flasher_read_register(uint32_t address, uint32_t *reg_value)
+{
+  return (int)esp_loader_read_register(&g_loader, address, reg_value);
+}
+
+int flasher_get_security_info(uint8_t *out)
+{
+  esp_loader_target_security_info_t info;
+  esp_loader_error_t err = esp_loader_get_security_info(&g_loader, &info);
+  if (err != ESP_LOADER_SUCCESS) {
+    return (int)err;
+  }
+  memset(out, 0, FLASHER_SECURITY_INFO_SIZE);
+  memcpy(out + 0, &info.target_chip, 4);
+  memcpy(out + 4, &info.eco_version, 4);
+  out[8] = info.secure_boot_enabled ? 1 : 0;
+  out[9] = info.secure_boot_aggressive_revoke_enabled ? 1 : 0;
+  out[10] = info.secure_download_mode_enabled ? 1 : 0;
+  out[11] = info.secure_boot_revoked_keys[0] ? 1 : 0;
+  out[12] = info.secure_boot_revoked_keys[1] ? 1 : 0;
+  out[13] = info.secure_boot_revoked_keys[2] ? 1 : 0;
+  out[14] = info.jtag_software_disabled ? 1 : 0;
+  out[15] = info.jtag_hardware_disabled ? 1 : 0;
+  out[16] = info.usb_disabled ? 1 : 0;
+  out[17] = info.flash_encryption_enabled ? 1 : 0;
+  out[18] = info.dcache_in_uart_download_disabled ? 1 : 0;
+  out[19] = info.icache_in_uart_download_disabled ? 1 : 0;
+  return (int)ESP_LOADER_SUCCESS;
+}
+
+void flasher_reset_target(void)
+{
+  esp_loader_reset_target(&g_loader);
 }

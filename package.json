@@ -32,6 +32,7 @@
     "url": "https://github.com/espressif/esptool-js/issues"
   },
   "dependencies": {
+    "pako": "^2.2.0",
     "tslib": "^2.4.1"
   },
   "devDependencies": {
@@ -40,6 +41,7 @@
     "@rollup/plugin-json": "^6.0.0",
     "@rollup/plugin-node-resolve": "^15.0.1",
     "@rollup/plugin-terser": "^0.1.0",
+    "@types/pako": "^2.0.4",
     "@types/w3c-web-serial": "^1.0.3",
     "@typescript-eslint/eslint-plugin": "^5.43.0",
     "@typescript-eslint/parser": "^5.43.0",

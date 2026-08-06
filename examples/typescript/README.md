@@ -31,6 +31,7 @@ Open http://localhost:1234 in Chrome or Edge. Use **View the API Documentation**
 ## Flow
 
 1. **Connect** — request a serial port, open at 115200, upload stub, optionally raise baud.
-2. **Detect Flash Size** (optional) — call `detectFlashSize`.
-3. **Add files** — select `.bin` images and flash addresses.
-4. **Program** — `writeFlash` writes each image and verifies MD5 via the C library.
+2. **Detect Flash Size** / **Read MAC** (optional).
+3. **Erase Flash** (optional) — full chip erase.
+4. **Add files** — select `.bin` images and flash addresses.
+5. **Program** — `writeFlash` writes each image and verifies MD5 via the C library.

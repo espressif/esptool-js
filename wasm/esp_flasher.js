@@ -2100,8 +2100,8 @@ function checkIncomingModuleAPI() {
   ignoredModuleProp('wasmBinary');
 }
 var ASM_CONSTS = {
-  165504: ($0) => { Module._timerEnd = Date.now() + $0; },  
- 165544: () => { if (typeof Module._timerEnd === "undefined") return 0; const r = Module._timerEnd - Date.now(); return r > 0 ? r : 0; }
+  165600: ($0) => { Module._timerEnd = Date.now() + $0; },  
+ 165640: () => { if (typeof Module._timerEnd === "undefined") return 0; const r = Module._timerEnd - Date.now(); return r > 0 ? r : 0; }
 };
 function js_init_serial_buffer() { if (typeof Module.serialBuffer === "undefined") { Module.serialBuffer = new Uint8Array(0); } }
 function __asyncjs__js_serial_write(data,size) { return Asyncify.handleAsync(async () => { const transport = Module.__transport; if (!transport || typeof transport.write !== "function") { console.error("[ERROR] Transport not registered on Module.__transport"); return -1; } try { const dataArray = new Uint8Array(size); dataArray.set(HEAPU8.subarray(data, data + size)); await transport.write(dataArray); return 0; } catch (error) { console.error("[ERROR] Serial write failed:", error); return -1; } }); }
@@ -2114,11 +2114,30 @@ function __asyncjs__js_change_baud_rate(new_baud) { return Asyncify.handleAsync(
 
 // Imports from the Wasm binary.
 var _flasher_connect = Module['_flasher_connect'] = makeInvalidEarlyAccess('_flasher_connect');
+var _flasher_connect_rom = Module['_flasher_connect_rom'] = makeInvalidEarlyAccess('_flasher_connect_rom');
+var _flasher_connect_secure_download = Module['_flasher_connect_secure_download'] = makeInvalidEarlyAccess('_flasher_connect_secure_download');
+var _flasher_deinit = Module['_flasher_deinit'] = makeInvalidEarlyAccess('_flasher_deinit');
+var _flasher_get_target = Module['_flasher_get_target'] = makeInvalidEarlyAccess('_flasher_get_target');
 var _flasher_change_baudrate = Module['_flasher_change_baudrate'] = makeInvalidEarlyAccess('_flasher_change_baudrate');
 var _flasher_flash_detect_size = Module['_flasher_flash_detect_size'] = makeInvalidEarlyAccess('_flasher_flash_detect_size');
 var _flasher_flash_start = Module['_flasher_flash_start'] = makeInvalidEarlyAccess('_flasher_flash_start');
 var _flasher_flash_write = Module['_flasher_flash_write'] = makeInvalidEarlyAccess('_flasher_flash_write');
 var _flasher_flash_finish = Module['_flasher_flash_finish'] = makeInvalidEarlyAccess('_flasher_flash_finish');
+var _flasher_flash_deflate_start = Module['_flasher_flash_deflate_start'] = makeInvalidEarlyAccess('_flasher_flash_deflate_start');
+var _flasher_flash_deflate_write = Module['_flasher_flash_deflate_write'] = makeInvalidEarlyAccess('_flasher_flash_deflate_write');
+var _flasher_flash_deflate_finish = Module['_flasher_flash_deflate_finish'] = makeInvalidEarlyAccess('_flasher_flash_deflate_finish');
+var _flasher_flash_erase = Module['_flasher_flash_erase'] = makeInvalidEarlyAccess('_flasher_flash_erase');
+var _flasher_flash_erase_region = Module['_flasher_flash_erase_region'] = makeInvalidEarlyAccess('_flasher_flash_erase_region');
+var _flasher_flash_read = Module['_flasher_flash_read'] = makeInvalidEarlyAccess('_flasher_flash_read');
+var _flasher_flash_verify_known_md5 = Module['_flasher_flash_verify_known_md5'] = makeInvalidEarlyAccess('_flasher_flash_verify_known_md5');
+var _flasher_mem_start = Module['_flasher_mem_start'] = makeInvalidEarlyAccess('_flasher_mem_start');
+var _flasher_mem_write = Module['_flasher_mem_write'] = makeInvalidEarlyAccess('_flasher_mem_write');
+var _flasher_mem_finish = Module['_flasher_mem_finish'] = makeInvalidEarlyAccess('_flasher_mem_finish');
+var _flasher_read_mac = Module['_flasher_read_mac'] = makeInvalidEarlyAccess('_flasher_read_mac');
+var _flasher_write_register = Module['_flasher_write_register'] = makeInvalidEarlyAccess('_flasher_write_register');
+var _flasher_read_register = Module['_flasher_read_register'] = makeInvalidEarlyAccess('_flasher_read_register');
+var _flasher_get_security_info = Module['_flasher_get_security_info'] = makeInvalidEarlyAccess('_flasher_get_security_info');
+var _flasher_reset_target = Module['_flasher_reset_target'] = makeInvalidEarlyAccess('_flasher_reset_target');
 var _fflush = makeInvalidEarlyAccess('_fflush');
 var _strerror = makeInvalidEarlyAccess('_strerror');
 var _emscripten_stack_get_end = makeInvalidEarlyAccess('_emscripten_stack_get_end');
@@ -2151,11 +2170,30 @@ var wasmMemory = makeInvalidEarlyAccess('wasmMemory');
 
 function assignWasmExports(wasmExports) {
   assert(typeof wasmExports['flasher_connect'] != 'undefined', 'missing Wasm export: flasher_connect');
+  assert(typeof wasmExports['flasher_connect_rom'] != 'undefined', 'missing Wasm export: flasher_connect_rom');
+  assert(typeof wasmExports['flasher_connect_secure_download'] != 'undefined', 'missing Wasm export: flasher_connect_secure_download');
+  assert(typeof wasmExports['flasher_deinit'] != 'undefined', 'missing Wasm export: flasher_deinit');
+  assert(typeof wasmExports['flasher_get_target'] != 'undefined', 'missing Wasm export: flasher_get_target');
   assert(typeof wasmExports['flasher_change_baudrate'] != 'undefined', 'missing Wasm export: flasher_change_baudrate');
   assert(typeof wasmExports['flasher_flash_detect_size'] != 'undefined', 'missing Wasm export: flasher_flash_detect_size');
   assert(typeof wasmExports['flasher_flash_start'] != 'undefined', 'missing Wasm export: flasher_flash_start');
   assert(typeof wasmExports['flasher_flash_write'] != 'undefined', 'missing Wasm export: flasher_flash_write');
   assert(typeof wasmExports['flasher_flash_finish'] != 'undefined', 'missing Wasm export: flasher_flash_finish');
+  assert(typeof wasmExports['flasher_flash_deflate_start'] != 'undefined', 'missing Wasm export: flasher_flash_deflate_start');
+  assert(typeof wasmExports['flasher_flash_deflate_write'] != 'undefined', 'missing Wasm export: flasher_flash_deflate_write');
+  assert(typeof wasmExports['flasher_flash_deflate_finish'] != 'undefined', 'missing Wasm export: flasher_flash_deflate_finish');
+  assert(typeof wasmExports['flasher_flash_erase'] != 'undefined', 'missing Wasm export: flasher_flash_erase');
+  assert(typeof wasmExports['flasher_flash_erase_region'] != 'undefined', 'missing Wasm export: flasher_flash_erase_region');
+  assert(typeof wasmExports['flasher_flash_read'] != 'undefined', 'missing Wasm export: flasher_flash_read');
+  assert(typeof wasmExports['flasher_flash_verify_known_md5'] != 'undefined', 'missing Wasm export: flasher_flash_verify_known_md5');
+  assert(typeof wasmExports['flasher_mem_start'] != 'undefined', 'missing Wasm export: flasher_mem_start');
+  assert(typeof wasmExports['flasher_mem_write'] != 'undefined', 'missing Wasm export: flasher_mem_write');
+  assert(typeof wasmExports['flasher_mem_finish'] != 'undefined', 'missing Wasm export: flasher_mem_finish');
+  assert(typeof wasmExports['flasher_read_mac'] != 'undefined', 'missing Wasm export: flasher_read_mac');
+  assert(typeof wasmExports['flasher_write_register'] != 'undefined', 'missing Wasm export: flasher_write_register');
+  assert(typeof wasmExports['flasher_read_register'] != 'undefined', 'missing Wasm export: flasher_read_register');
+  assert(typeof wasmExports['flasher_get_security_info'] != 'undefined', 'missing Wasm export: flasher_get_security_info');
+  assert(typeof wasmExports['flasher_reset_target'] != 'undefined', 'missing Wasm export: flasher_reset_target');
   assert(typeof wasmExports['fflush'] != 'undefined', 'missing Wasm export: fflush');
   assert(typeof wasmExports['strerror'] != 'undefined', 'missing Wasm export: strerror');
   assert(typeof wasmExports['emscripten_stack_get_end'] != 'undefined', 'missing Wasm export: emscripten_stack_get_end');
@@ -2185,11 +2223,30 @@ function assignWasmExports(wasmExports) {
   assert(typeof wasmExports['memory'] != 'undefined', 'missing Wasm export: memory');
   assert(typeof wasmExports['__indirect_function_table'] != 'undefined', 'missing Wasm export: __indirect_function_table');
   _flasher_connect = Module['_flasher_connect'] = createExportWrapper('flasher_connect', wasmExports['flasher_connect'], 0);
+  _flasher_connect_rom = Module['_flasher_connect_rom'] = createExportWrapper('flasher_connect_rom', wasmExports['flasher_connect_rom'], 0);
+  _flasher_connect_secure_download = Module['_flasher_connect_secure_download'] = createExportWrapper('flasher_connect_secure_download', wasmExports['flasher_connect_secure_download'], 1);
+  _flasher_deinit = Module['_flasher_deinit'] = createExportWrapper('flasher_deinit', wasmExports['flasher_deinit'], 0);
+  _flasher_get_target = Module['_flasher_get_target'] = createExportWrapper('flasher_get_target', wasmExports['flasher_get_target'], 0);
   _flasher_change_baudrate = Module['_flasher_change_baudrate'] = createExportWrapper('flasher_change_baudrate', wasmExports['flasher_change_baudrate'], 1);
   _flasher_flash_detect_size = Module['_flasher_flash_detect_size'] = createExportWrapper('flasher_flash_detect_size', wasmExports['flasher_flash_detect_size'], 1);
-  _flasher_flash_start = Module['_flasher_flash_start'] = createExportWrapper('flasher_flash_start', wasmExports['flasher_flash_start'], 3);
+  _flasher_flash_start = Module['_flasher_flash_start'] = createExportWrapper('flasher_flash_start', wasmExports['flasher_flash_start'], 4);
   _flasher_flash_write = Module['_flasher_flash_write'] = createExportWrapper('flasher_flash_write', wasmExports['flasher_flash_write'], 2);
   _flasher_flash_finish = Module['_flasher_flash_finish'] = createExportWrapper('flasher_flash_finish', wasmExports['flasher_flash_finish'], 0);
+  _flasher_flash_deflate_start = Module['_flasher_flash_deflate_start'] = createExportWrapper('flasher_flash_deflate_start', wasmExports['flasher_flash_deflate_start'], 4);
+  _flasher_flash_deflate_write = Module['_flasher_flash_deflate_write'] = createExportWrapper('flasher_flash_deflate_write', wasmExports['flasher_flash_deflate_write'], 2);
+  _flasher_flash_deflate_finish = Module['_flasher_flash_deflate_finish'] = createExportWrapper('flasher_flash_deflate_finish', wasmExports['flasher_flash_deflate_finish'], 0);
+  _flasher_flash_erase = Module['_flasher_flash_erase'] = createExportWrapper('flasher_flash_erase', wasmExports['flasher_flash_erase'], 0);
+  _flasher_flash_erase_region = Module['_flasher_flash_erase_region'] = createExportWrapper('flasher_flash_erase_region', wasmExports['flasher_flash_erase_region'], 2);
+  _flasher_flash_read = Module['_flasher_flash_read'] = createExportWrapper('flasher_flash_read', wasmExports['flasher_flash_read'], 3);
+  _flasher_flash_verify_known_md5 = Module['_flasher_flash_verify_known_md5'] = createExportWrapper('flasher_flash_verify_known_md5', wasmExports['flasher_flash_verify_known_md5'], 3);
+  _flasher_mem_start = Module['_flasher_mem_start'] = createExportWrapper('flasher_mem_start', wasmExports['flasher_mem_start'], 3);
+  _flasher_mem_write = Module['_flasher_mem_write'] = createExportWrapper('flasher_mem_write', wasmExports['flasher_mem_write'], 2);
+  _flasher_mem_finish = Module['_flasher_mem_finish'] = createExportWrapper('flasher_mem_finish', wasmExports['flasher_mem_finish'], 1);
+  _flasher_read_mac = Module['_flasher_read_mac'] = createExportWrapper('flasher_read_mac', wasmExports['flasher_read_mac'], 1);
+  _flasher_write_register = Module['_flasher_write_register'] = createExportWrapper('flasher_write_register', wasmExports['flasher_write_register'], 2);
+  _flasher_read_register = Module['_flasher_read_register'] = createExportWrapper('flasher_read_register', wasmExports['flasher_read_register'], 2);
+  _flasher_get_security_info = Module['_flasher_get_security_info'] = createExportWrapper('flasher_get_security_info', wasmExports['flasher_get_security_info'], 1);
+  _flasher_reset_target = Module['_flasher_reset_target'] = createExportWrapper('flasher_reset_target', wasmExports['flasher_reset_target'], 0);
   _fflush = createExportWrapper('fflush', wasmExports['fflush'], 1);
   _strerror = createExportWrapper('strerror', wasmExports['strerror'], 1);
   _emscripten_stack_get_end = wasmExports['emscripten_stack_get_end'];
