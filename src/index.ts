@@ -18,4 +18,11 @@ export {
   flasherFlashFinish,
   LogFn,
 } from "./wasm/bindings.js";
-export { loadWasmModule, bindTransport, defaultWasmUrl, LoadWasmOptions, resetWasmModuleCache } from "./wasm/loader.js";
+export {
+  loadWasmModule,
+  bindTransport,
+  defaultWasmUrl,
+  LoadWasmOptions,
+  CreateEspFlasherModule,
+  resetWasmModuleCache,
+} from "./wasm/loader.js";

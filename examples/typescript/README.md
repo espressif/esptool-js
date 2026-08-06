@@ -2,6 +2,8 @@
 
 Example of flashing Espressif chips from the browser using `esptool-js` (WASM + Web Serial).
 
+The example is also published on GitHub Pages. **View the API Documentation** opens TypeDoc generated from the package source (`npm run genDocs` at the repo root), copied into `dist/docs` so it ships next to the live flasher.
+
 ## Prerequisites
 
 Build the parent package first (needs Emscripten for WASM):
@@ -19,10 +21,12 @@ npm run build:js
 
 ```bash
 npm install
-npm run parcel:dev
+npm run dev
 ```
 
-Open http://localhost:1234 in Chrome or Edge.
+`npm run dev` / `npm run build` regenerate TypeDoc into `dist/docs`, then start or bundle the example with Parcel.
+
+Open http://localhost:1234 in Chrome or Edge. Use **View the API Documentation** to open `./docs/index.html`.
 
 ## Flow
 
