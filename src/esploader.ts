@@ -1583,7 +1583,7 @@ export class ESPLoader {
         this.debug("Write loop " + address + " " + seq + " " + blocks);
         this.info(
           "Writing at 0x" +
-            (address + totalLenUncompressed).toString(16) +
+            (address + (options.compress ? totalLenUncompressed : bytesSent)).toString(16) +
             "... (" +
             Math.floor((100 * (seq + 1)) / blocks) +
             "%)",
@@ -1610,7 +1610,23 @@ export class ESPLoader {
             timeout = blockTimeout;
           }
         } else {
-          throw new ESPError("Yet to handle Non Compressed writes");
+          // Last block is padded to FLASH_WRITE_SIZE with 0xFF, matching esptool.py.
+          let dataToSend = block;
+          if (block.length < this.FLASH_WRITE_SIZE) {
+            dataToSend = new Uint8Array(this.FLASH_WRITE_SIZE).fill(0xff);
+            dataToSend.set(block);
+          }
+          let blockTimeout = 3000;
+          if (this.timeoutPerMb(this.ERASE_WRITE_TIMEOUT_PER_MB, dataToSend.length) > 3000) {
+            blockTimeout = this.timeoutPerMb(this.ERASE_WRITE_TIMEOUT_PER_MB, dataToSend.length);
+          }
+          if (this.IS_STUB === false) {
+            timeout = blockTimeout;
+          }
+          await this.flashBlock(dataToSend, seq, timeout);
+          if (this.IS_STUB) {
+            timeout = blockTimeout;
+          }
         }
         bytesSent += block.length;
         imageOffset += blockSize;
@@ -1638,6 +1654,8 @@ export class ESPLoader {
             t / 1000 +
             " seconds.",
         );
+      } else {
+        this.info("Wrote " + bytesSent + " bytes at 0x" + address.toString(16) + " in " + t / 1000 + " seconds.");
       }
       if (calcmd5) {
         this.info("File  md5: " + calcmd5);
