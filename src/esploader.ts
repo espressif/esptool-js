@@ -948,7 +948,9 @@ export class ESPLoader {
 
     const checksum = this.checksum(data);
     this.debug(
-      `flash_defl_block ${Array.from(data.slice(0, 2)).map(b => b.toString(16)).join(" ")}`
+      `flash_defl_block ${Array.from(data.slice(0, 2))
+        .map((b) => b.toString(16))
+        .join(" ")}`,
     );
 
     for (let attemptsLeft = this.WRITE_BLOCK_ATTEMPTS - 1; attemptsLeft >= 0; attemptsLeft--) {
