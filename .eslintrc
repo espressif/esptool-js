@@ -10,7 +10,11 @@
     "prettier"
   ],
   "rules": {
-    "no-console": 1, // Means warning
-    "prettier/prettier": 2 // Means error
+    "no-console": 1,
+    "prettier/prettier": 2,
+    "jsdoc/require-param-type": 0,
+    "jsdoc/require-param-description": 0,
+    "jsdoc/require-returns": 0,
+    "jsdoc/require-jsdoc": 0
   }
 }

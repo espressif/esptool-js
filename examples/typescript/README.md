@@ -1,25 +1,32 @@
-# Using Esptool-JS in a Typescript environment
+# Using Esptool-JS in a TypeScript environment
 
-Typescript example shows basic usage of esptool-js in static html js website with Webserial. The main code is in `src/index.ts` which is called in the `index.html`. 
+Example of flashing Espressif chips from the browser using `esptool-js` (WASM + Web Serial).
 
-We are using Parcel to bundle resulting files for simplicity here.
+## Prerequisites
 
-**NOTE:** This example is linked to the documentation generated from the source code. You could remove such dependency if necessary by remove `./docs/index.html` from `src/index.html` if you need so. NPM commands used below will generate documentation as well.
+Build the parent package first (needs Emscripten for WASM):
 
-## Testing it locally
-
-```
+```bash
+cd ../..
+source ~/emsdk/emsdk_env.sh   # if not already sourced
+git submodule update --init --recursive
 npm install
-npm run dev
+npm run build:wasm
+npm run build:js
 ```
 
-Then open http://localhost:1234 in Chrome or Edge. The `npm run dev` step will call Parcel which start a local http server serving `index.html` with compiled `index.ts`.
+## Run locally
 
-## Generate build to publish
-
-```
+```bash
 npm install
-npm run build
+npm run parcel:dev
 ```
 
-Copy the content of `dist` to your static pages service like Github pages.
+Open http://localhost:1234 in Chrome or Edge.
+
+## Flow
+
+1. **Connect** — request a serial port, open at 115200, upload stub, optionally raise baud.
+2. **Detect Flash Size** (optional) — call `detectFlashSize`.
+3. **Add files** — select `.bin` images and flash addresses.
+4. **Program** — `writeFlash` writes each image and verifies MD5 via the C library.

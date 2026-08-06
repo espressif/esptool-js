@@ -26,16 +26,26 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          submodules: recursive
       - name: Set up Node
         uses: actions/setup-node@v4
         with:
           node-version: 20
-      - name: Install Node modules
+      - name: Install Emscripten
         run: |
-          npm install
-      - name: Build example project and copy docs
+          git clone https://github.com/emscripten-core/emsdk.git $HOME/emsdk
+          cd $HOME/emsdk
+          ./emsdk install latest
+          ./emsdk activate latest
+      - name: Install Node modules and build package
         run: |
-          npm run build
+          source $HOME/emsdk/emsdk_env.sh
+          npm ci
+          npm run build:wasm
+          npm run build:js
+      - name: Build example project
+        run: |
           cd examples/typescript
           npm install
           npm run build

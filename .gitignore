@@ -5,3 +5,8 @@ docs
 esptool-js-*.tgz
 .vscode/settings.json
 .parcel-cache
+native/build
+# Prebuilt WASM is committed for consumers without Emscripten;
+# regenerate with: npm run build:wasm
+# wasm/esp_flasher.js
+# wasm/esp_flasher.wasm

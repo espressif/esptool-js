@@ -16,6 +16,8 @@ const config = {
     format: 'es',
     inlineDynamicImports: true
   },
+  // Emscripten glue + wasm are loaded at runtime from the package wasm/ folder.
+  external: (id) => id.includes('esp_flasher'),
   plugins: [
     resolve({ preferBuiltins: false, mainFields: ["browser"]}),
     commonjs(),
