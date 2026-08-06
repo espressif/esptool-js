@@ -108,9 +108,10 @@ EM_ASYNC_JS(void, js_serial_reset_target, (uint32_t reset_hold_ms), {
     return;
   }
   try {
-    await transport.setSignals({ dataTerminalReady: true, requestToSend: true });
+    // esptool HardReset: pulse EN/RESET via RTS, leave BOOT (DTR) deasserted
+    await transport.setSignals({ dataTerminalReady: false, requestToSend: true });
     await new Promise((resolve) => setTimeout(resolve, reset_hold_ms));
-    await transport.setSignals({ dataTerminalReady: true, requestToSend: false });
+    await transport.setSignals({ dataTerminalReady: false, requestToSend: false });
   } catch (error) {
     console.error("[ERROR] Failed to reset target:", error);
   }

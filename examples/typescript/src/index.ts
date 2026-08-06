@@ -12,6 +12,16 @@ const lblBaudrate = document.getElementById("lblBaudrate") as HTMLLabelElement;
 const lblConnTo = document.getElementById("lblConnTo") as HTMLLabelElement;
 const table = document.getElementById("fileTable") as HTMLTableElement;
 const alertDiv = document.getElementById("alertDiv") as HTMLDivElement;
+const programDiv = document.getElementById("program") as HTMLDivElement;
+const consoleDiv = document.getElementById("console") as HTMLDivElement;
+const consoleBaudrates = document.getElementById("consoleBaudrates") as HTMLSelectElement;
+const reconnectDelay = document.getElementById("reconnectDelay") as HTMLInputElement;
+const maxRetriesInput = document.getElementById("maxRetries") as HTMLInputElement;
+const consoleStartButton = document.getElementById("consoleStartButton") as HTMLButtonElement;
+const consoleStopButton = document.getElementById("consoleStopButton") as HTMLButtonElement;
+const resetButton = document.getElementById("resetButton") as HTMLButtonElement;
+const lblConsoleBaudrate = document.getElementById("lblConsoleBaudrate") as HTMLLabelElement;
+const lblConsoleFor = document.getElementById("lblConsoleFor") as HTMLLabelElement;
 
 import {
   Transport,
@@ -33,6 +43,7 @@ const serialLib = !navigator.serial && navigator.usb ? serial : navigator.serial
 declare let Terminal: {
   new (options?: { cols?: number; rows?: number }): {
     open: (el: HTMLElement) => void;
+    write: (msg: string) => void;
     writeln: (msg: string) => void;
     reset: () => void;
   };
@@ -45,12 +56,21 @@ const wasmUrl = new URL("../../../wasm/esp_flasher.wasm", import.meta.url).href;
 
 let transport: Transport | undefined;
 let esp: EspDevice | undefined;
+let deviceInfo: SerialPortInfo | null = null;
+let isConsoleClosed = true;
+let isReconnecting = false;
+let consoleLineBuffer = "";
+const consoleDecoder = new TextDecoder("utf-8");
 
 disconnectButton.style.display = "none";
 detectFlashButton.style.display = "none";
 readMacButton.style.display = "none";
 eraseButton.style.display = "none";
 filesDiv.style.display = "none";
+consoleStopButton.style.display = "none";
+resetButton.style.display = "none";
+
+const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
 function handleFileSelect(evt: Event) {
   const input = evt.target as HTMLInputElement & { data?: Uint8Array };
@@ -124,6 +144,106 @@ function setConnectedUi(connected: boolean) {
   lblBaudrate.style.display = connected ? "none" : "initial";
   baudrates.style.display = connected ? "none" : "initial";
   lblConnTo.style.display = connected ? "block" : "none";
+  consoleDiv.style.display = connected ? "none" : "initial";
+}
+
+function cleanUp() {
+  transport = undefined;
+  esp = undefined;
+  deviceInfo = null;
+}
+
+const IDF_LOG_LEVEL_REGEX = /^(I|W|E) \([\d.: -]+\)/;
+const ANSI = {
+  RED: "\x1b[1;31m",
+  GREEN: "\x1b[0;32m",
+  YELLOW: "\x1b[0;33m",
+  NORMAL: "\x1b[0m",
+};
+
+function colorizeIdfLine(line: string): string {
+  const match = IDF_LOG_LEVEL_REGEX.exec(line);
+  if (!match) return line;
+  const color = match[1] === "E" ? ANSI.RED : match[1] === "W" ? ANSI.YELLOW : ANSI.GREEN;
+  return color + line + ANSI.NORMAL;
+}
+
+function onConsoleRx(chunk: Uint8Array) {
+  consoleLineBuffer += consoleDecoder.decode(chunk, { stream: true });
+  let idx: number;
+  while ((idx = consoleLineBuffer.indexOf("\n")) !== -1) {
+    const lineWithEol = consoleLineBuffer.slice(0, idx + 1);
+    consoleLineBuffer = consoleLineBuffer.slice(idx + 1);
+    const lineStripped = lineWithEol.replace(/\r?\n$/, "");
+    const eol = lineWithEol.slice(lineStripped.length);
+    term.write(colorizeIdfLine(lineStripped) + eol);
+  }
+}
+
+function attachConsoleListener() {
+  if (!transport) return;
+  transport.setSerialBufferOwner(null);
+  transport.setRxListener(onConsoleRx);
+}
+
+async function setupDeviceLostCallback() {
+  if (!transport) return;
+  transport.setDeviceLostCallback(async () => {
+    if (isConsoleClosed || isReconnecting) return;
+
+    term.writeln("\n[DEVICE LOST] Device disconnected. Trying to reconnect...");
+    await sleep(parseInt(reconnectDelay.value, 10));
+    isReconnecting = true;
+
+    const maxRetries = parseInt(maxRetriesInput.value, 10);
+    let retryCount = 0;
+
+    while (retryCount < maxRetries && !isConsoleClosed) {
+      retryCount++;
+      term.writeln(`\n[RECONNECT] Attempt ${retryCount}/${maxRetries}...`);
+
+      if (serialLib && "getPorts" in serialLib && typeof serialLib.getPorts === "function") {
+        const ports = (await serialLib.getPorts()) as SerialPort[];
+        if (ports.length > 0 && deviceInfo) {
+          const newDevice = ports.find(
+            (port: SerialPort) =>
+              port.getInfo().usbVendorId === deviceInfo!.usbVendorId &&
+              port.getInfo().usbProductId === deviceInfo!.usbProductId,
+          );
+
+          if (newDevice && transport) {
+            try {
+              await transport.close();
+            } catch {
+              // port may already be gone
+            }
+            transport.updateDevice(newDevice);
+            term.writeln("[RECONNECT] Found previously authorized device, connecting...");
+            await transport.open(parseInt(consoleBaudrates.value, 10));
+            attachConsoleListener();
+            await setupDeviceLostCallback();
+            term.writeln("[RECONNECT] Successfully reconnected!");
+            consoleStopButton.style.display = "initial";
+            resetButton.style.display = "initial";
+            isReconnecting = false;
+            return;
+          }
+        }
+      }
+
+      if (retryCount < maxRetries) {
+        term.writeln(
+          `[RECONNECT] Device not found, retrying in ${parseInt(reconnectDelay.value, 10)}ms...`,
+        );
+        await sleep(parseInt(reconnectDelay.value, 10));
+      }
+    }
+
+    if (retryCount >= maxRetries) {
+      term.writeln("\n[RECONNECT] Failed to reconnect after max attempts. Please manually reconnect.");
+      isReconnecting = false;
+    }
+  });
 }
 
 connectButton.onclick = async () => {
@@ -132,8 +252,9 @@ connectButton.onclick = async () => {
       showAlert("Web Serial is not supported in this browser.");
       return;
     }
-    const port = await serialLib.requestPort();
+    const port = (await serialLib.requestPort()) as SerialPort;
     transport = new Transport(port);
+    deviceInfo = port.getInfo();
     await transport.open(115200);
 
     const baudrate = parseInt(baudrates.value, 10);
@@ -163,8 +284,7 @@ connectButton.onclick = async () => {
       } catch {
         // ignore
       }
-      transport = undefined;
-      esp = undefined;
+      cleanUp();
     }
   }
 };
@@ -213,8 +333,7 @@ disconnectButton.onclick = async () => {
   if (transport) {
     await transport.close();
   }
-  transport = undefined;
-  esp = undefined;
+  cleanUp();
   term.reset();
   setConnectedUi(false);
 };
@@ -257,5 +376,92 @@ programButton.onclick = async () => {
     showAlert(msg);
   } finally {
     programButton.disabled = false;
+  }
+};
+
+consoleStartButton.onclick = async () => {
+  try {
+    if (!serialLib) {
+      showAlert("Web Serial is not supported in this browser.");
+      return;
+    }
+
+    // End any flasher session before monitoring.
+    esp = undefined;
+    if (transport) {
+      transport.setRxListener(null);
+      transport.setSerialBufferOwner(null);
+      try {
+        await transport.close();
+      } catch {
+        // ignore
+      }
+    } else {
+      const port = (await serialLib.requestPort()) as SerialPort;
+      transport = new Transport(port);
+      deviceInfo = port.getInfo();
+    }
+
+    await setupDeviceLostCallback();
+
+    lblConsoleFor.style.display = "block";
+    lblConsoleFor.innerHTML = `Connected to device: ${transport!.getInfo() || "serial port"}`;
+    lblConsoleBaudrate.style.display = "none";
+    consoleBaudrates.style.display = "none";
+    consoleStartButton.style.display = "none";
+    consoleStopButton.style.display = "initial";
+    resetButton.style.display = "initial";
+    programDiv.style.display = "none";
+
+    const baud = parseInt(consoleBaudrates.value, 10);
+    await transport!.open(baud);
+    isConsoleClosed = false;
+    isReconnecting = false;
+    consoleLineBuffer = "";
+    attachConsoleListener();
+    await transport!.hardReset();
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e);
+    showAlert(msg);
+    isConsoleClosed = true;
+    programDiv.style.display = "initial";
+    consoleStartButton.style.display = "initial";
+    consoleStopButton.style.display = "none";
+    resetButton.style.display = "none";
+    lblConsoleBaudrate.style.display = "initial";
+    consoleBaudrates.style.display = "initial";
+    lblConsoleFor.style.display = "none";
+  }
+};
+
+consoleStopButton.onclick = async () => {
+  isConsoleClosed = true;
+  isReconnecting = false;
+  if (transport) {
+    transport.setRxListener(null);
+    await transport.close();
+  }
+  if (consoleLineBuffer.length > 0) {
+    term.write(colorizeIdfLine(consoleLineBuffer));
+    consoleLineBuffer = "";
+  }
+  term.reset();
+  lblConsoleBaudrate.style.display = "initial";
+  consoleBaudrates.style.display = "initial";
+  consoleStartButton.style.display = "initial";
+  consoleStopButton.style.display = "none";
+  resetButton.style.display = "none";
+  lblConsoleFor.style.display = "none";
+  programDiv.style.display = "initial";
+  cleanUp();
+};
+
+resetButton.onclick = async () => {
+  if (!transport || isConsoleClosed) return;
+  try {
+    await transport.hardReset();
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e);
+    term.writeln(`\n[RESET ERROR] ${msg}`);
   }
 };

@@ -28,6 +28,7 @@ export class Transport {
   private writeChain: Promise<void> = Promise.resolve();
   private reconfiguring = false;
   private serialBufferOwner: { serialBuffer: Uint8Array } | null = null;
+  private rxListener: ((data: Uint8Array) => void) | null = null;
   private onDeviceLostCallback: (() => void) | null = null;
   private disconnectHandler: ((event: Event) => void) | null = null;
 
@@ -44,14 +45,22 @@ export class Transport {
 
   /**
    * Bind the RX buffer sink used by the WASM port (typically the Emscripten Module).
+   * Pass null to disable WASM buffering (e.g. console-only mode).
    * @param owner
-   * @param owner.serialBuffer
    */
-  setSerialBufferOwner(owner: { serialBuffer: Uint8Array }): void {
+  setSerialBufferOwner(owner: { serialBuffer: Uint8Array } | null): void {
     this.serialBufferOwner = owner;
-    if (!owner.serialBuffer) {
+    if (owner && !owner.serialBuffer) {
       owner.serialBuffer = new Uint8Array(0);
     }
+  }
+
+  /**
+   * Optional fan-out for raw RX chunks (serial monitor). Cleared on close.
+   * @param listener
+   */
+  setRxListener(listener: ((data: Uint8Array) => void) | null): void {
+    this.rxListener = listener;
   }
 
   clearSerialBuffer(): void {
@@ -71,8 +80,22 @@ export class Transport {
     this.serialBufferOwner.serialBuffer = newBuffer;
   }
 
+  private dispatchRx(chunk: Uint8Array): void {
+    this.appendToSerialBuffer(chunk);
+    this.rxListener?.(chunk);
+  }
+
   setDeviceLostCallback(callback: (() => void) | null): void {
     this.onDeviceLostCallback = callback;
+  }
+
+  /**
+   * Replace the underlying SerialPort (e.g. after device reconnect).
+   * Caller must open() again after updating.
+   * @param newDevice
+   */
+  updateDevice(newDevice: SerialPort): void {
+    this.device = newDevice;
   }
 
   getInfo(): string {
@@ -146,7 +169,7 @@ export class Transport {
               break;
             }
             if (value && value.length > 0) {
-              this.appendToSerialBuffer(value);
+              this.dispatchRx(value);
             }
           } catch {
             if (this.backgroundReading) {
@@ -245,6 +268,19 @@ export class Transport {
   }
 
   /**
+   * Hard-reset the target (esptool HardReset / linux_port DTR_RTS).
+   * Pulses EN low via RTS while keeping BOOT/IO0 high (DTR deasserted).
+   * Classic USB-UART wiring: DTR→IO0, RTS→EN (inverted transistors).
+   * @param resetHoldMs
+   */
+  async hardReset(resetHoldMs = 100): Promise<void> {
+    await this.device.setSignals({ dataTerminalReady: false, requestToSend: true });
+    await new Promise((resolve) => setTimeout(resolve, resetHoldMs));
+    await this.device.setSignals({ dataTerminalReady: false, requestToSend: false });
+    this.clearSerialBuffer();
+  }
+
+  /**
    * Change baud rate without toggling DTR/RTS (avoids resetting a running stub).
    * @param newBaud
    */
@@ -281,6 +317,7 @@ export class Transport {
   }
 
   async close(): Promise<void> {
+    this.rxListener = null;
     await this.stopBackgroundReader();
     await this.releaseWriter(true);
     this.clearSerialBuffer();

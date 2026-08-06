@@ -35,3 +35,16 @@ Open http://localhost:1234 in Chrome or Edge. Use **View the API Documentation**
 3. **Erase Flash** (optional) — full chip erase.
 4. **Add files** — select `.bin` images and flash addresses.
 5. **Program** — `writeFlash` writes each image and verifies MD5 via the C library.
+6. **Disconnect**, then use **Console** to view firmware serial output.
+
+### Console (serial monitor)
+
+Program and Console are separate modes (monitoring is not active during `writeFlash`).
+
+1. After flashing, **Disconnect** (or skip Connect and open Console directly).
+2. Choose console baud (`115200` or `74880`), optional reconnect delay / max retries.
+3. **Start** — opens the port, hard-resets the chip into the running app, and streams UART output to the terminal (IDF `I`/`W`/`E` lines are colorized).
+4. **Reset** — toggles EN via DTR/RTS while monitoring.
+5. **Stop** — closes the port and returns to the Program UI.
+
+If the USB device drops while Console is running, the example retries reconnect using previously authorized ports (matching VID/PID).
