@@ -399,7 +399,12 @@ class Transport {
 
   /**
    * Read from serial device without SLIP formatting. Calls onData for each chunk.
-   * Stops when isClosed() returns true or the stream ends/errors.
+   * Stops when isClosed() returns true, the stream ends/errors, or disconnect() is called.
+   *
+   * The reader is stored on the instance so that disconnect() can cancel a pending
+   * read: isClosed() is only evaluated after each chunk arrives, so on an idle
+   * device a function-local reader would keep the stream locked forever and make
+   * disconnect() block in waitForUnlock().
    * @param {Function} onData Callback for each chunk of data read
    * @param {Function} isClosed Function that returns true when reading should stop (e.g. when console is closed)
    */
@@ -410,6 +415,7 @@ class Transport {
         return;
       }
       reader = this.device.readable.getReader();
+      this.reader = reader;
       while (!isClosed()) {
         const { value, done } = await reader.read();
         if (done || !value) break;
@@ -428,6 +434,9 @@ class Transport {
       }
     } finally {
       reader?.releaseLock();
+      if (this.reader === reader) {
+        this.reader = undefined;
+      }
     }
   }
 

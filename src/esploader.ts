@@ -640,10 +640,12 @@ export class ESPLoader {
       const chipMagicValue = (await this.readReg(this.CHIP_DETECT_MAGIC_REG_ADDR)) >>> 0;
       this.debug("Chip Magic " + chipMagicValue.toString(16));
       const chip = await magic2Chip(chipMagicValue);
-      if (typeof this.chip === null) {
-        throw new ESPError(`Unexpected CHIP magic value ${chipMagicValue}. Failed to autodetect chip type.`);
+      if (chip === null) {
+        throw new ESPError(
+          `Unexpected CHIP magic value 0x${chipMagicValue.toString(16)}. Failed to autodetect chip type.`,
+        );
       } else {
-        this.chip = chip as ROM;
+        this.chip = chip;
       }
     }
   }
@@ -945,7 +947,9 @@ export class ESPLoader {
     pkt = this._appendArray(pkt, data);
 
     const checksum = this.checksum(data);
-    this.debug("flash_defl_block " + data[0].toString(16) + " " + data[1].toString(16));
+    this.debug(
+      `flash_defl_block ${Array.from(data.slice(0, 2)).map(b => b.toString(16)).join(" ")}`
+    );
 
     for (let attemptsLeft = this.WRITE_BLOCK_ATTEMPTS - 1; attemptsLeft >= 0; attemptsLeft--) {
       try {
