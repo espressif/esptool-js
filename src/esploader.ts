@@ -933,8 +933,9 @@ export class ESPLoader {
     pkt = this._appendArray(pkt, data);
 
     const checksum = this.checksum(data);
-    this.debug("flash_defl_block " + data[0].toString(16) + " " + data[1].toString(16));
-
+    this.debug(
+      `flash_defl_block ${Array.from(data.slice(0, 2)).map(b => b.toString(16)).join(" ")}`
+    );
     await this.checkCommand(
       "write compressed data to flash after seq " + seq,
       this.ESP_FLASH_DEFL_DATA,
