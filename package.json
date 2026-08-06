@@ -1,6 +1,6 @@
 {
   "name": "esptool-js",
-  "version": "0.6.0",
+  "version": "0.6.1",
   "module": "lib/index.js",
   "main": "lib/index.js",
   "types": "lib/index.d.ts",
