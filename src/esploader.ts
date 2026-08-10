@@ -175,6 +175,9 @@ export class ESPLoader {
   FLASH_READ_TIMEOUT = 100000;
   MAX_TIMEOUT = this.CHIP_ERASE_TIMEOUT * 2;
 
+  WRITE_BLOCK_ATTEMPTS = 3;
+  WRITE_BLOCK_RETRY_DELAY_MS = 150;
+
   SPI_ADDR_REG_MSB = true;
 
   CHIP_DETECT_MAGIC_REG_ADDR = 0x40001000;
@@ -705,30 +708,44 @@ export class ESPLoader {
     this.debug("Connect attempt successful.");
     this.info("\n\r", false);
 
-    if (detecting) {
-      // Try chip_id detection first (for ESP32-S3 and later chips)
-      let chip: ROM | null = null;
-      try {
-        const chipId = await this.getChipId();
+      if (detecting) {
+        let chip: ROM | null = null;
+        let chipMagicValue: number | null = null;
+
+        let chipId: number | null = null;
+
+        try {
+          chipId = await this.getChipId();
+        } catch (e) {
+          this.debug(
+            "GET_SECURITY_INFO not supported, falling back to magic value",
+          );
+        }
+
         if (chipId !== null) {
           this.debug("Chip ID " + chipId);
           chip = await chipId2Chip(chipId);
         }
-      } catch (e) {
-        // GET_SECURITY_INFO not supported, fall back to magic value
-        this.debug("GET_SECURITY_INFO not supported, falling back to magic value");
-      }
 
-      // Fall back to magic value detection (for ESP8266, ESP32, ESP32-S2)
-      if (chip === null) {
-        const chipMagicValue = (await this.readReg(this.CHIP_DETECT_MAGIC_REG_ADDR)) >>> 0;
-        this.debug("Chip Magic " + chipMagicValue.toString(16));
-        chip = await magic2Chip(chipMagicValue);
-      }
+        if (chip === null) {
+          chipMagicValue =
+            (await this.readReg(this.CHIP_DETECT_MAGIC_REG_ADDR)) >>> 0;
 
-      if (chip === null) {
-        throw new ESPError(`Failed to autodetect chip type.`);
-      } else {
+          this.debug("Chip Magic " + chipMagicValue.toString(16));
+          chip = await magic2Chip(chipMagicValue);
+        }
+
+        if (chip === null) {
+          if (chipMagicValue !== null) {
+            throw new ESPError(
+              `Unexpected CHIP magic value 0x${chipMagicValue.toString(16)}. ` +
+              `Failed to autodetect chip type.`,
+            );
+          }
+
+          throw new ESPError("Failed to autodetect chip type.");
+        }
+
         this.chip = chip;
       }
     }
@@ -983,7 +1000,7 @@ export class ESPLoader {
   }
 
   /**
-   * Write block to flash, retry if fail
+   * Write block to flash, retry up to WRITE_BLOCK_ATTEMPTS times on failure.
    * @param {Uint8Array} data Unsigned 8-bit array data.
    * @param {number} seq Sequence number
    * @param {number} timeout Timeout in milliseconds (ms)
@@ -997,18 +1014,29 @@ export class ESPLoader {
 
     const checksum = this.checksum(data);
 
-    await this.checkCommand(
-      "write to target Flash after seq " + seq,
-      this.ESP_FLASH_DATA,
-      pkt,
-      checksum,
-      undefined,
-      timeout,
-    );
+    for (let attemptsLeft = this.WRITE_BLOCK_ATTEMPTS - 1; attemptsLeft >= 0; attemptsLeft--) {
+      try {
+        await this.checkCommand(
+          "write to target Flash after seq " + seq,
+          this.ESP_FLASH_DATA,
+          pkt,
+          checksum,
+          undefined,
+          timeout,
+        );
+        return;
+      } catch (e) {
+        if (attemptsLeft === 0) {
+          throw e;
+        }
+        this.debug(`Block ${seq} write failed (${e}), retrying with ${attemptsLeft} attempts left...`);
+        await sleep(this.WRITE_BLOCK_RETRY_DELAY_MS);
+      }
+    }
   }
 
   /**
-   * Write block to flash, send compressed, retry if fail
+   * Write compressed block to flash, retry up to WRITE_BLOCK_ATTEMPTS times on failure.
    * @param {Uint8Array} data Unsigned int 8-bit array data to write
    * @param {number} seq Sequence number
    * @param {number} timeout Timeout in milliseconds (ms)
@@ -1020,16 +1048,31 @@ export class ESPLoader {
     pkt = this._appendArray(pkt, data);
 
     const checksum = this.checksum(data);
-    this.debug("flash_defl_block " + data[0].toString(16) + " " + data[1].toString(16));
-
-    await this.checkCommand(
-      "write compressed data to flash after seq " + seq,
-      this.ESP_FLASH_DEFL_DATA,
-      pkt,
-      checksum,
-      undefined,
-      timeout,
+    this.debug(
+      `flash_defl_block ${Array.from(data.slice(0, 2))
+        .map((b) => b.toString(16))
+        .join(" ")}`,
     );
+
+    for (let attemptsLeft = this.WRITE_BLOCK_ATTEMPTS - 1; attemptsLeft >= 0; attemptsLeft--) {
+      try {
+        await this.checkCommand(
+          "write compressed data to flash after seq " + seq,
+          this.ESP_FLASH_DEFL_DATA,
+          pkt,
+          checksum,
+          undefined,
+          timeout,
+        );
+        return;
+      } catch (e) {
+        if (attemptsLeft === 0) {
+          throw e;
+        }
+        this.debug(`Compressed block ${seq} write failed (${e}), retrying with ${attemptsLeft} attempts left...`);
+        await sleep(this.WRITE_BLOCK_RETRY_DELAY_MS);
+      }
+    }
   }
 
   /**
@@ -1669,7 +1712,7 @@ export class ESPLoader {
         this.debug("Write loop " + address + " " + seq + " " + blocks);
         this.info(
           "Writing at 0x" +
-            (address + totalLenUncompressed).toString(16) +
+            (address + (options.compress ? totalLenUncompressed : bytesSent)).toString(16) +
             "... (" +
             Math.floor((100 * (seq + 1)) / blocks) +
             "%)",
@@ -1696,7 +1739,23 @@ export class ESPLoader {
             timeout = blockTimeout;
           }
         } else {
-          throw new ESPError("Yet to handle Non Compressed writes");
+          // Last block is padded to FLASH_WRITE_SIZE with 0xFF, matching esptool.py.
+          let dataToSend = block;
+          if (block.length < this.FLASH_WRITE_SIZE) {
+            dataToSend = new Uint8Array(this.FLASH_WRITE_SIZE).fill(0xff);
+            dataToSend.set(block);
+          }
+          let blockTimeout = 3000;
+          if (this.timeoutPerMb(this.ERASE_WRITE_TIMEOUT_PER_MB, dataToSend.length) > 3000) {
+            blockTimeout = this.timeoutPerMb(this.ERASE_WRITE_TIMEOUT_PER_MB, dataToSend.length);
+          }
+          if (this.IS_STUB === false) {
+            timeout = blockTimeout;
+          }
+          await this.flashBlock(dataToSend, seq, timeout);
+          if (this.IS_STUB) {
+            timeout = blockTimeout;
+          }
         }
         bytesSent += block.length;
         imageOffset += blockSize;
@@ -1724,6 +1783,8 @@ export class ESPLoader {
             t / 1000 +
             " seconds.",
         );
+      } else {
+        this.info("Wrote " + bytesSent + " bytes at 0x" + address.toString(16) + " in " + t / 1000 + " seconds.");
       }
       if (calcmd5) {
         this.info("File  md5: " + calcmd5);
