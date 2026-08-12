@@ -7,12 +7,15 @@ export { readFlash, ReadFlashOptions } from "./cmds/readFlash.js";
 export { readMac } from "./cmds/readMac.js";
 export { getTarget } from "./cmds/getTarget.js";
 export { getSecurityInfo } from "./cmds/getSecurityInfo.js";
+export { getChipInfo, formatChipInfo, ChipInfo } from "./cmds/getChipInfo.js";
 export { readRegister, writeRegister } from "./cmds/registers.js";
+export { getRom, ROM } from "./targets/index.js";
 export { loadRam, LoadRamOptions } from "./cmds/loadRam.js";
 export { resetChip } from "./cmds/resetChip.js";
 export { verifyFlash } from "./cmds/verifyFlash.js";
 export {
   EspDevice,
+  EspConnectionMode,
   EspFlasherModule,
   FlasherBindings,
   FlasherError,

@@ -16,7 +16,16 @@
 
 #include "esp_loader_io.h"
 #include "esp_loader.h"
+#include "protocol.h"
 #include <emscripten.h>
+
+/* Match esp-serial-flasher defaults used by baud-change / C2 crystal detect. */
+#ifndef DEFAULT_TIMEOUT
+#define DEFAULT_TIMEOUT 1000
+#endif
+#ifndef INITIAL_UART_BAUDRATE
+#define INITIAL_UART_BAUDRATE 115200
+#endif
 
 #ifndef SERIAL_FLASHER_RESET_HOLD_TIME_MS
 #define SERIAL_FLASHER_RESET_HOLD_TIME_MS 100
@@ -63,9 +72,12 @@ EM_ASYNC_JS(int, js_serial_read, (uint8_t *data, uint16_t size, uint32_t timeout
     if (typeof Module.serialBuffer === "undefined") {
       Module.serialBuffer = new Uint8Array(0);
     }
-    const startTime = Date.now();
+    if (timeout_ms === 0) {
+      return -2;
+    }
+    const deadline = Date.now() + timeout_ms;
     while (Module.serialBuffer.length < size) {
-      if (Date.now() - startTime >= timeout_ms) {
+      if (Date.now() >= deadline) {
         return -2;
       }
       await new Promise((resolve) => setTimeout(resolve, 0));
@@ -378,9 +390,66 @@ int flasher_get_target(void)
   return (int)esp_loader_get_target(&g_loader);
 }
 
+/*
+ * Stub CHANGE_BAUDRATE needs the current baud as the second word. Upstream
+ * esp_loader_change_transmission_rate() always sends old=0 (ROM convention),
+ * which desyncs host vs stub after a baud raise. Work around that here without
+ * patching the esp-serial-flasher submodule.
+ */
+static esp_loader_error_t flasher_scale_baud_for_esp32c2(uint32_t *transmission_rate)
+{
+  const uint32_t ESP32C2_CRYSTAL_26MHZ = 26;
+  const uint32_t ESP32C2_CRYSTAL_40MHZ = 40;
+  const uint32_t CRYSTAL_FREQ_THRESHOLD = 33;
+  const uint32_t UART_CLK_DIV_REG = 0x60000014;
+  const uint32_t UART_CLK_DIV_REG_MASK = 0xFFFFF;
+
+  uint32_t est_freq = 0;
+  esp_loader_error_t err = esp_loader_read_register(&g_loader, UART_CLK_DIV_REG, &est_freq);
+  if (err != ESP_LOADER_SUCCESS) {
+    return err;
+  }
+  est_freq &= UART_CLK_DIV_REG_MASK;
+  est_freq = (INITIAL_UART_BAUDRATE * est_freq) / 1000000U;
+
+  if (est_freq <= CRYSTAL_FREQ_THRESHOLD) {
+    *transmission_rate =
+        (*transmission_rate) * ESP32C2_CRYSTAL_40MHZ / ESP32C2_CRYSTAL_26MHZ;
+  }
+  return ESP_LOADER_SUCCESS;
+}
+
 int flasher_change_baudrate(uint32_t new_baud)
 {
-  return (int)esp_loader_change_transmission_rate(&g_loader, new_baud);
+  /* ROM path (old=0) is correct, including ESP32-C2 crystal adjustment. */
+  if (!g_loader._stub_running) {
+    return (int)esp_loader_change_transmission_rate(&g_loader, new_baud);
+  }
+
+  if (g_loader._target == ESP8266_CHIP ||
+      g_loader._protocol_type == ESP_LOADER_PROTOCOL_SDIO) {
+    return (int)ESP_LOADER_ERROR_UNSUPPORTED_FUNC;
+  }
+
+  uint32_t transmission_rate = new_baud;
+  if (g_loader._target == ESP32C2_CHIP) {
+    esp_loader_error_t scale_err = flasher_scale_baud_for_esp32c2(&transmission_rate);
+    if (scale_err != ESP_LOADER_SUCCESS) {
+      return (int)scale_err;
+    }
+  }
+
+  g_port.port.ops->start_timer(&g_port.port, DEFAULT_TIMEOUT);
+
+  esp_loader_error_t err =
+      loader_change_baudrate_cmd(&g_loader, transmission_rate, g_port._baud_rate);
+  if (err == ESP_LOADER_SUCCESS) {
+    g_port.port.ops->delay_ms(&g_port.port, 25);
+    if (g_port.port.ops->change_transmission_rate != NULL) {
+      err = g_port.port.ops->change_transmission_rate(&g_port.port, transmission_rate);
+    }
+  }
+  return (int)err;
 }
 
 int flasher_flash_detect_size(uint32_t *flash_size)

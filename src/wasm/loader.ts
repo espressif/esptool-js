@@ -1,4 +1,5 @@
 import type { EspFlasherModule, LogFn } from "./bindings.js";
+import { notifyModuleAborted } from "./bindings.js";
 import type { Transport } from "../transport.js";
 
 export type CreateEspFlasherModule = (moduleOverrides?: Record<string, unknown>) => Promise<EspFlasherModule>;
@@ -44,7 +45,7 @@ async function importModuleFactory(): Promise<CreateEspFlasherModule> {
   // Dynamic import of the Emscripten glue (MODULARIZE=1).
   // Path is relative to package root when consumed from lib/.
   const mod = await import("../../wasm/esp_flasher.js");
-  const factory = (mod.default ?? mod.createEspFlasherModule) as unknown as CreateEspFlasherModule;
+  const factory = mod.default as unknown as CreateEspFlasherModule;
   if (typeof factory !== "function") {
     throw new Error("Failed to load createEspFlasherModule from wasm/esp_flasher.js");
   }
@@ -57,7 +58,7 @@ async function importModuleFactory(): Promise<CreateEspFlasherModule> {
  * @param options
  */
 export async function loadWasmModule(options: LoadWasmOptions = {}): Promise<EspFlasherModule> {
-  if (moduleInstance) {
+  if (moduleInstance && !moduleInstance.__aborted) {
     if (options.log) {
       moduleInstance.__log = options.log;
     }
@@ -67,6 +68,7 @@ export async function loadWasmModule(options: LoadWasmOptions = {}): Promise<Esp
   const factory = options.factory ?? (await importModuleFactory());
   const wasmUrl = options.wasmUrl ?? defaultWasmUrl();
 
+  let created: EspFlasherModule | null = null;
   const instance = (await factory({
     locateFile: (path: string) => {
       if (path.endsWith(".wasm")) {
@@ -76,7 +78,20 @@ export async function loadWasmModule(options: LoadWasmOptions = {}): Promise<Esp
     },
     print: (text: string) => (options.log ? options.log(text) : undefined),
     printErr: (text: string) => (options.log ? options.log(text) : undefined),
+    // An aborted Emscripten runtime stays broken forever, so fail the calls
+    // waiting on it, drop it from the cache and let the next load build a
+    // fresh instance.
+    onAbort: (what: unknown) => {
+      if (created) {
+        notifyModuleAborted(created, what);
+      }
+      if (moduleInstance === created) {
+        moduleInstance = null;
+      }
+      options.log?.(`[E] WASM module aborted: ${String(what)}`);
+    },
   })) as EspFlasherModule;
+  created = instance;
 
   instance.serialBuffer = new Uint8Array(0);
   if (options.log) {

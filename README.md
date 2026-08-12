@@ -111,6 +111,7 @@ Open http://localhost:1234 in Chrome or Edge (Web Serial requires HTTPS or local
 | `eraseFlash` / `eraseRegion` | Chip / region erase |
 | `readFlash` | Read flash into `Uint8Array` |
 | `readMac` / `getTarget` / `getSecurityInfo` | Chip identity |
+| `getChipInfo` / `formatChipInfo` | esptool-style description, features, crystal, MAC |
 | `readRegister` / `writeRegister` | Register access |
 | `loadRam` | RAM download + jump to entrypoint |
 | `resetChip` | Hard reset target |

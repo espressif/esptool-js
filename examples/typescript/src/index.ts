@@ -30,6 +30,8 @@ import {
   detectFlashSize,
   eraseFlash,
   readMac,
+  getChipInfo,
+  formatChipInfo,
   getTarget,
   EspDevice,
   FlasherError,
@@ -255,6 +257,7 @@ connectButton.onclick = async () => {
     const port = (await serialLib.requestPort()) as SerialPort;
     transport = new Transport(port);
     deviceInfo = port.getInfo();
+    logLine("Opening serial port at 115200...");
     await transport.open(115200);
 
     const baudrate = parseInt(baudrates.value, 10);
@@ -267,12 +270,22 @@ connectButton.onclick = async () => {
       log: logLine,
     });
 
-    const chip = await getTarget(esp);
-    logLine(
-      `Connected chip=${TargetChip[chip] ?? chip} (stub uploaded${
-        baudrate !== 115200 ? `, baud ${baudrate}` : ""
-      })`,
-    );
+    try {
+      const info = await getChipInfo(esp);
+      for (const line of formatChipInfo(info).split("\n")) {
+        logLine(line);
+      }
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      logLine(`Chip info unavailable (${msg})`);
+      const chip = await getTarget(esp);
+      logLine(`Chip is ${TargetChip[chip] ?? chip}`);
+    }
+    if (baudrate !== 115200) {
+      logLine(`Stub uploaded, baud ${baudrate}`);
+    } else {
+      logLine("Stub uploaded");
+    }
     lblConnTo.innerHTML = `Connected to device: ${transport.getInfo() || "serial port"}`;
     setConnectedUi(true);
   } catch (e) {

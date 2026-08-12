@@ -75,11 +75,15 @@ export function checkResult(code: number, context?: string): void {
   }
 }
 
+/** Active target protocol mode for a connected session. */
+export type EspConnectionMode = "rom" | "stub" | "secure-download";
+
 /** Connected session handle returned by connectEsp(). */
 export interface EspDevice {
   transport: Transport;
   module: EspFlasherModule;
   bindings: FlasherBindings;
+  connectionMode: EspConnectionMode;
 }
 
 export type LogFn = (message: string) => void;
@@ -98,6 +102,12 @@ export interface EspFlasherModule {
   serialBuffer: Uint8Array;
   __transport?: Transport;
   __log?: LogFn;
+  /** Tail of the serialized call queue (see wrap()). */
+  __queue?: Promise<unknown>;
+  /** Set when the Emscripten runtime called abort(); the instance is unusable. */
+  __aborted?: boolean;
+  /** Rejecters of calls waiting on the module, settled by notifyModuleAborted(). */
+  __abortWaiters?: Set<(error: Error) => void>;
 }
 
 type AsyncFn = (...args: number[]) => Promise<number>;
@@ -135,8 +145,72 @@ export interface FlasherBindings {
   resetTarget: () => Promise<number>;
 }
 
+/** How long a single flasher call may run before it is reported as stalled. */
+const STALL_REPORT_INTERVAL_MS = 10000;
+
+/**
+ * Mark a module as aborted and fail every call waiting on it.
+ *
+ * An Asyncify abort happens while a call is suspended, so the promise returned
+ * by that call never settles. Without this the serialized queue would stay
+ * blocked behind it and the caller would hang instead of seeing the error.
+ * @param module
+ * @param what Abort reason reported by Emscripten.
+ */
+export function notifyModuleAborted(module: EspFlasherModule, what: unknown): void {
+  module.__aborted = true;
+  const waiters = module.__abortWaiters;
+  module.__abortWaiters = new Set();
+  if (waiters) {
+    const error = new FlasherError(EspLoaderError.Fail, `WASM module aborted: ${String(what)}`);
+    waiters.forEach((reject) => reject(error));
+  }
+}
+
+/**
+ * Wrap an exported flasher function and queue it behind any call already in
+ * flight. The WASM module is built with ASYNCIFY, which supports a single
+ * suspended call at a time: overlapping calls corrupt the unwind state, abort
+ * the runtime and interleave SLIP frames on the wire.
+ * @param module
+ * @param name
+ * @param argTypes
+ */
 function wrap(module: EspFlasherModule, name: string, argTypes: string[]): AsyncFn {
-  return module.cwrap(name, "number", argTypes, { async: true }) as AsyncFn;
+  const fn = module.cwrap(name, "number", argTypes, { async: true }) as AsyncFn;
+  return (...args: number[]) => {
+    const run = async () => {
+      if (module.__aborted) {
+        throw new FlasherError(EspLoaderError.Fail, `${name}: WASM module aborted, reconnect to recreate it`);
+      }
+
+      let rejectOnAbort: (error: Error) => void = () => undefined;
+      const abortedBeforeDone = new Promise<never>((_resolve, reject) => {
+        rejectOnAbort = reject;
+      });
+      const waiters = module.__abortWaiters ?? new Set<(error: Error) => void>();
+      module.__abortWaiters = waiters;
+      waiters.add(rejectOnAbort);
+
+      const startedAt = Date.now();
+      const stallReporter = setInterval(() => {
+        module.__log?.(`[W] ${name} still running after ${Math.round((Date.now() - startedAt) / 1000)}s`);
+      }, STALL_REPORT_INTERVAL_MS);
+
+      try {
+        return await Promise.race([fn(...args), abortedBeforeDone]);
+      } finally {
+        clearInterval(stallReporter);
+        waiters.delete(rejectOnAbort);
+      }
+    };
+    const queued = (module.__queue ?? Promise.resolve()).then(run, run);
+    module.__queue = queued.then(
+      () => undefined,
+      () => undefined,
+    );
+    return queued;
+  };
 }
 
 export function createBindings(module: EspFlasherModule): FlasherBindings {

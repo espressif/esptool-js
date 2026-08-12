@@ -14,6 +14,7 @@ add_executable(esp_flasher wasm_port.c)
 target_include_directories(esp_flasher PRIVATE
   ${CMAKE_CURRENT_SOURCE_DIR}
   ${CMAKE_CURRENT_SOURCE_DIR}/esp-serial-flasher/include
+  ${CMAKE_CURRENT_SOURCE_DIR}/esp-serial-flasher/private_include
 )
 
 target_link_libraries(esp_flasher PRIVATE flasher)
