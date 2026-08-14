@@ -417,6 +417,12 @@ export class ESPLoader {
     timeout = this.DEFAULT_TIMEOUT,
   ): Promise<[number, Uint8Array]> {
     if (op != null) {
+      // Discard any stale input before sending: leftover bytes (e.g. an
+      // extra ack packet from a fire-and-forget write) would otherwise be
+      // read as this command's response, desyncing the protocol — observed
+      // as flashMd5sum/readFlash returning constant junk right after a
+      // completed writeFlash.
+      this.transport.flushInput();
       if (this.transport.tracing) {
         this.transport.trace(
           `command op:0x${op.toString(16).padStart(2, "0")} data len=${data.length} wait_response=${
