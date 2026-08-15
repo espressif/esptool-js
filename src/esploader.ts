@@ -191,7 +191,7 @@ export class ESPLoader {
     // larger blocks overflow the flasher stub's USB buffer and the stub
     // answers 0xC9 "Too much data" mid-write. Native-USB Espressif links
     // are recognizable by the Web Serial USB vendor id.
-    const usbInfo = this.transport.device.getInfo?.();
+    const usbInfo = options.transport.device.getInfo?.();
     if (usbInfo && usbInfo.usbVendorId === 0x303a) {
       this.FLASH_WRITE_SIZE = 0x800;
     }
