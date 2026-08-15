@@ -1,6 +1,6 @@
 /* global SerialPort, ParityType, FlowControlType */
 
-import { sleep } from "./util";
+import { sleep } from "./util.js";
 /**
  * Options for device serialPort.
  * @interface SerialOptions

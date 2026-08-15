@@ -1,4 +1,4 @@
-import { FlashFreqValues, FlashModeValues, FlashSizeValues } from "./arguments";
+import { FlashFreqValues, FlashModeValues, FlashSizeValues } from "./arguments.js";
 
 /**
  * Options for flashing a device with firmware.

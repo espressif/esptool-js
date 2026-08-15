@@ -1,9 +1,9 @@
-import { ROM } from "../targets/rom";
-import { ESPError } from "../types/error";
-import { bstrToUi8 } from "../util";
-import { BaseFirmwareImage, ESP_IMAGE_MAGIC } from "./base";
-import { ESP32FirmwareImage } from "./esp32";
-import { ESP8266ROMFirmwareImage, ESP8266V2FirmwareImage } from "./esp8266";
+import { ROM } from "../targets/rom.js";
+import { ESPError } from "../types/error.js";
+import { bstrToUi8 } from "../util.js";
+import { BaseFirmwareImage, ESP_IMAGE_MAGIC } from "./base.js";
+import { ESP32FirmwareImage } from "./esp32.js";
+import { ESP8266ROMFirmwareImage, ESP8266V2FirmwareImage } from "./esp8266.js";
 import {
   ESP32C2FirmwareImage,
   ESP32C3FirmwareImage,
@@ -14,7 +14,7 @@ import {
   ESP32P4FirmwareImage,
   ESP32S2FirmwareImage,
   ESP32S3FirmwareImage,
-} from "./others";
+} from "./others.js";
 
 /**
  * Function to load a firmware image from a Uint8Array or string
