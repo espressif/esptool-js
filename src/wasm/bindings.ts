@@ -62,7 +62,10 @@ const ERROR_NAMES: Record<number, string> = {
 };
 
 export class FlasherError extends Error {
-  constructor(public readonly code: number, message?: string) {
+  constructor(
+    public readonly code: number,
+    message?: string,
+  ) {
     const name = ERROR_NAMES[code] ?? `ESP_LOADER_ERROR_${code}`;
     super(message ? `${name}: ${message}` : name);
     this.name = "FlasherError";
@@ -123,12 +126,7 @@ export interface FlasherBindings {
   flashStart: (offset: number, imageSize: number, blockSize: number, skipVerify: number) => Promise<number>;
   flashWrite: (payloadPtr: number, size: number) => Promise<number>;
   flashFinish: () => Promise<number>;
-  flashDeflateStart: (
-    offset: number,
-    imageSize: number,
-    compressedSize: number,
-    blockSize: number,
-  ) => Promise<number>;
+  flashDeflateStart: (offset: number, imageSize: number, compressedSize: number, blockSize: number) => Promise<number>;
   flashDeflateWrite: (payloadPtr: number, size: number) => Promise<number>;
   flashDeflateFinish: () => Promise<number>;
   flashErase: () => Promise<number>;
@@ -222,12 +220,8 @@ export function createBindings(module: EspFlasherModule): FlasherBindings {
     ) => Promise<number>,
     deinit: wrap(module, "flasher_deinit", []) as () => Promise<number>,
     getTarget: wrap(module, "flasher_get_target", []) as () => Promise<number>,
-    changeBaudrate: wrap(module, "flasher_change_baudrate", ["number"]) as (
-      baud: number,
-    ) => Promise<number>,
-    flashDetectSize: wrap(module, "flasher_flash_detect_size", ["number"]) as (
-      outPtr: number,
-    ) => Promise<number>,
+    changeBaudrate: wrap(module, "flasher_change_baudrate", ["number"]) as (baud: number) => Promise<number>,
+    flashDetectSize: wrap(module, "flasher_flash_detect_size", ["number"]) as (outPtr: number) => Promise<number>,
     flashStart: wrap(module, "flasher_flash_start", ["number", "number", "number", "number"]) as (
       offset: number,
       imageSize: number,
@@ -239,12 +233,7 @@ export function createBindings(module: EspFlasherModule): FlasherBindings {
       size: number,
     ) => Promise<number>,
     flashFinish: wrap(module, "flasher_flash_finish", []) as () => Promise<number>,
-    flashDeflateStart: wrap(module, "flasher_flash_deflate_start", [
-      "number",
-      "number",
-      "number",
-      "number",
-    ]) as (
+    flashDeflateStart: wrap(module, "flasher_flash_deflate_start", ["number", "number", "number", "number"]) as (
       offset: number,
       imageSize: number,
       compressedSize: number,
@@ -265,11 +254,11 @@ export function createBindings(module: EspFlasherModule): FlasherBindings {
       address: number,
       length: number,
     ) => Promise<number>,
-    flashVerifyKnownMd5: wrap(module, "flasher_flash_verify_known_md5", [
-      "number",
-      "number",
-      "number",
-    ]) as (address: number, size: number, md5Ptr: number) => Promise<number>,
+    flashVerifyKnownMd5: wrap(module, "flasher_flash_verify_known_md5", ["number", "number", "number"]) as (
+      address: number,
+      size: number,
+      md5Ptr: number,
+    ) => Promise<number>,
     memStart: wrap(module, "flasher_mem_start", ["number", "number", "number"]) as (
       offset: number,
       size: number,
@@ -289,9 +278,7 @@ export function createBindings(module: EspFlasherModule): FlasherBindings {
       address: number,
       outPtr: number,
     ) => Promise<number>,
-    getSecurityInfo: wrap(module, "flasher_get_security_info", ["number"]) as (
-      outPtr: number,
-    ) => Promise<number>,
+    getSecurityInfo: wrap(module, "flasher_get_security_info", ["number"]) as (outPtr: number) => Promise<number>,
     resetTarget: wrap(module, "flasher_reset_target", []) as () => Promise<number>,
   };
 }
@@ -355,10 +342,7 @@ export async function flasherFlashStart(
   blockSize: number,
   skipVerify = false,
 ): Promise<void> {
-  checkResult(
-    await esp.bindings.flashStart(offset, imageSize, blockSize, skipVerify ? 1 : 0),
-    "flasher_flash_start",
-  );
+  checkResult(await esp.bindings.flashStart(offset, imageSize, blockSize, skipVerify ? 1 : 0), "flasher_flash_start");
 }
 
 export async function flasherFlashWrite(esp: EspDevice, data: Uint8Array): Promise<void> {
@@ -406,19 +390,11 @@ export async function flasherFlashErase(esp: EspDevice): Promise<void> {
   checkResult(await esp.bindings.flashErase(), "flasher_flash_erase");
 }
 
-export async function flasherFlashEraseRegion(
-  esp: EspDevice,
-  offset: number,
-  size: number,
-): Promise<void> {
+export async function flasherFlashEraseRegion(esp: EspDevice, offset: number, size: number): Promise<void> {
   checkResult(await esp.bindings.flashEraseRegion(offset, size), "flasher_flash_erase_region");
 }
 
-export async function flasherFlashRead(
-  esp: EspDevice,
-  address: number,
-  length: number,
-): Promise<Uint8Array> {
+export async function flasherFlashRead(esp: EspDevice, address: number, length: number): Promise<Uint8Array> {
   const ptr = esp.module._malloc(length);
   try {
     checkResult(await esp.bindings.flashRead(ptr, address, length), "flasher_flash_read");
@@ -446,12 +422,7 @@ export async function flasherFlashVerifyKnownMd5(
   }
 }
 
-export async function flasherMemStart(
-  esp: EspDevice,
-  offset: number,
-  size: number,
-  blockSize: number,
-): Promise<void> {
+export async function flasherMemStart(esp: EspDevice, offset: number, size: number, blockSize: number): Promise<void> {
   checkResult(await esp.bindings.memStart(offset, size, blockSize), "flasher_mem_start");
 }
 
@@ -479,11 +450,7 @@ export async function flasherReadMac(esp: EspDevice): Promise<Uint8Array> {
   }
 }
 
-export async function flasherWriteRegister(
-  esp: EspDevice,
-  address: number,
-  value: number,
-): Promise<void> {
+export async function flasherWriteRegister(esp: EspDevice, address: number, value: number): Promise<void> {
   checkResult(await esp.bindings.writeRegister(address, value), "flasher_write_register");
 }
 

@@ -161,10 +161,11 @@ export class Transport {
         if (!this.device.readable) {
           return;
         }
-        this.reader = this.device.readable.getReader();
+        const reader = this.device.readable.getReader();
+        this.reader = reader;
         while (this.backgroundReading) {
           try {
-            const { value, done } = await this.reader.read();
+            const { value, done } = await reader.read();
             if (done) {
               break;
             }
@@ -248,10 +249,9 @@ export class Transport {
       if (!this.device.writable) {
         throw new Error("Serial port became unavailable during write");
       }
-      if (!this.writer) {
-        this.writer = this.device.writable.getWriter();
-      }
-      await this.writer.write(data);
+      const writer = this.writer ?? this.device.writable.getWriter();
+      this.writer = writer;
+      await writer.write(data);
     });
 
     try {

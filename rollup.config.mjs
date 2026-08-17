@@ -23,7 +23,7 @@ const config = {
     commonjs(),
     babel({ exclude: 'node_modules/**', babelHelpers: "runtime", skipPreflightCheck: true }),
     json({ namedExports: true, preferConst: true }),
-    terser()
+    terser({ maxWorkers: 1 })
   ],
 };
 

@@ -12,6 +12,7 @@
     "noImplicitReturns": true,
     "forceConsistentCasingInFileNames": true,
     "lib": ["ES2020", "DOM"],
+    "types": ["w3c-web-serial"],
     "importHelpers": true,
     "resolveJsonModule": true,
     "strict": true
