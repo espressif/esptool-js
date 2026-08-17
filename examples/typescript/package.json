@@ -19,13 +19,14 @@
   "author": "",
   "license": "ISC",
   "devDependencies": {
-    "@types/w3c-web-usb": "^1.0.10",
-    "cross-env": "^7.0.3",
+    "@types/w3c-web-usb": "^1.0.14",
+    "@types/web": "^0.0.354",
+    "cross-env": "^10.1.0",
     "npm-run-all": "^4.1.5",
-    "parcel": "^2.8.3",
-    "parcel-resolver-ignore": "^2.1.5",
-    "shx": "^0.3.4",
-    "typescript": "^4.9.4",
+    "parcel": "^2.16.4",
+    "parcel-resolver-ignore": "^2.2.1",
+    "shx": "^0.4.0",
+    "typescript": "^6.0.3",
     "web-serial-polyfill": "^1.0.15"
   }
 }

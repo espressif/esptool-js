@@ -1,428 +1,160 @@
 const baudrates = document.getElementById("baudrates") as HTMLSelectElement;
+const connectButton = document.getElementById("connectButton") as HTMLButtonElement;
+const disconnectButton = document.getElementById("disconnectButton") as HTMLButtonElement;
+const detectFlashButton = document.getElementById("detectFlashButton") as HTMLButtonElement;
+const readMacButton = document.getElementById("readMacButton") as HTMLButtonElement;
+const eraseButton = document.getElementById("eraseButton") as HTMLButtonElement;
+const addFileButton = document.getElementById("addFile") as HTMLButtonElement;
+const programButton = document.getElementById("programButton") as HTMLButtonElement;
+const filesDiv = document.getElementById("files") as HTMLDivElement;
+const terminal = document.getElementById("terminal") as HTMLDivElement;
+const lblBaudrate = document.getElementById("lblBaudrate") as HTMLLabelElement;
+const lblConnTo = document.getElementById("lblConnTo") as HTMLLabelElement;
+const table = document.getElementById("fileTable") as HTMLTableElement;
+const alertDiv = document.getElementById("alertDiv") as HTMLDivElement;
+const programDiv = document.getElementById("program") as HTMLDivElement;
+const consoleDiv = document.getElementById("console") as HTMLDivElement;
 const consoleBaudrates = document.getElementById("consoleBaudrates") as HTMLSelectElement;
 const reconnectDelay = document.getElementById("reconnectDelay") as HTMLInputElement;
 const maxRetriesInput = document.getElementById("maxRetries") as HTMLInputElement;
-const connectButton = document.getElementById("connectButton") as HTMLButtonElement;
-const traceButton = document.getElementById("copyTraceButton") as HTMLButtonElement;
-const disconnectButton = document.getElementById("disconnectButton") as HTMLButtonElement;
-const resetButton = document.getElementById("resetButton") as HTMLButtonElement;
 const consoleStartButton = document.getElementById("consoleStartButton") as HTMLButtonElement;
 const consoleStopButton = document.getElementById("consoleStopButton") as HTMLButtonElement;
-const eraseButton = document.getElementById("eraseButton") as HTMLButtonElement;
-const addFileButton = document.getElementById("addFile") as HTMLButtonElement;
-const programButton = document.getElementById("programButton");
-const filesDiv = document.getElementById("files");
-const terminal = document.getElementById("terminal");
-const programDiv = document.getElementById("program");
-const consoleDiv = document.getElementById("console");
-const lblBaudrate = document.getElementById("lblBaudrate");
-const lblConsoleBaudrate = document.getElementById("lblConsoleBaudrate");
-const lblConsoleFor = document.getElementById("lblConsoleFor");
-const lblConnTo = document.getElementById("lblConnTo");
-const table = document.getElementById("fileTable") as HTMLTableElement;
-const alertDiv = document.getElementById("alertDiv");
-const flashMode = document.getElementById("flashMode") as HTMLSelectElement;
-const flashFreq = document.getElementById("flashFreq") as HTMLSelectElement;
-const flashSize = document.getElementById("flashSize") as HTMLSelectElement;
-const lblFlashMode = document.getElementById("lblFlashMode");
-const lblFlashFreq = document.getElementById("lblFlashFreq");
-const lblFlashSize = document.getElementById("lblFlashSize");
+const resetButton = document.getElementById("resetButton") as HTMLButtonElement;
+const lblConsoleBaudrate = document.getElementById("lblConsoleBaudrate") as HTMLLabelElement;
+const lblConsoleFor = document.getElementById("lblConsoleFor") as HTMLLabelElement;
 
-const debugLogging = document.getElementById("debugLogging") as HTMLInputElement;
-
-// This is a frontend example of Esptool-JS using local bundle file
-// To optimize use a CDN hosted version like
-// https://unpkg.com/esptool-js@0.5.0/bundle.js
 import {
-  ESPLoader,
-  FlashOptions,
-  FlashModeValues,
-  FlashFreqValues,
-  FlashSizeValues,
-  LoaderOptions,
   Transport,
+  connectEsp,
+  writeFlash,
+  detectFlashSize,
+  eraseFlash,
+  readMac,
+  getChipInfo,
+  formatChipInfo,
+  getTarget,
+  EspDevice,
+  FlasherError,
+  TargetChip,
 } from "../../../lib";
+import createEspFlasherModule from "../../../wasm/esp_flasher.js";
 import { serial } from "web-serial-polyfill";
 
 const serialLib = !navigator.serial && navigator.usb ? serial : navigator.serial;
 
-declare let Terminal; // Terminal is imported in HTML script
-declare let CryptoJS; // CryptoJS is imported in HTML script
+declare let Terminal: {
+  new (options?: { cols?: number; rows?: number }): {
+    open: (el: HTMLElement) => void;
+    write: (msg: string) => void;
+    writeln: (msg: string) => void;
+    reset: () => void;
+  };
+};
 
 const term = new Terminal({ cols: 120, rows: 40 });
 term.open(terminal);
 
-let device = null;
-let deviceInfo = null;
-let transport: Transport;
-let chip: string = null;
-let esploader: ESPLoader;
+const wasmUrl = new URL("../../../wasm/esp_flasher.wasm", import.meta.url).href;
+
+let transport: Transport | undefined;
+let esp: EspDevice | undefined;
+let deviceInfo: SerialPortInfo | null = null;
+let isConsoleClosed = true;
+let isReconnecting = false;
+let consoleLineBuffer = "";
+const consoleDecoder = new TextDecoder("utf-8");
 
 disconnectButton.style.display = "none";
-traceButton.style.display = "none";
+detectFlashButton.style.display = "none";
+readMacButton.style.display = "none";
 eraseButton.style.display = "none";
+filesDiv.style.display = "none";
 consoleStopButton.style.display = "none";
 resetButton.style.display = "none";
-filesDiv.style.display = "none";
-flashMode.style.display = "none";
-flashFreq.style.display = "none";
-flashSize.style.display = "none";
-lblFlashMode.style.display = "none";
-lblFlashFreq.style.display = "none";
-lblFlashSize.style.display = "none";
 
-/**
- * The built in Event object.
- * @external Event
- * @see {@link https://developer.mozilla.org/en-US/docs/Web/API/Event}
- */
+const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
-/**
- * File reader handler to read given local file.
- * @param {Event} evt File Select event
- */
-function handleFileSelect(evt) {
-  const file = evt.target.files[0];
-
+function handleFileSelect(evt: Event) {
+  const input = evt.target as HTMLInputElement & { data?: Uint8Array };
+  const file = input.files?.[0];
   if (!file) return;
 
   const reader = new FileReader();
-
   reader.onload = (ev: ProgressEvent<FileReader>) => {
-    if (ev.target.result instanceof ArrayBuffer) {
-      evt.target.data = new Uint8Array(ev.target.result);
-    } else {
-      evt.target.data = ev.target.result;
+    if (ev.target?.result instanceof ArrayBuffer) {
+      input.data = new Uint8Array(ev.target.result);
     }
   };
-
   reader.readAsArrayBuffer(file);
 }
 
-const espLoaderTerminal = {
-  clean() {
-    term.clear();
-  },
-  writeLine(data) {
-    term.writeln(data);
-  },
-  write(data) {
-    term.write(data);
-  },
-};
-
-/**
- * Populate flash size and frequency dropdowns based on chip's supported values
- */
-function populateFlashDropdowns() {
-  if (!esploader || !esploader.chip) {
-    return;
-  }
-
-  // Populate Flash Frequency dropdown
-  flashFreq.innerHTML = '<option value="keep">keep</option>';
-  const flashFreqKeys = Object.keys(esploader.chip.FLASH_FREQUENCY).sort((a, b) => {
-    const freqOrder = ["80m", "60m", "48m", "40m", "30m", "26m", "24m", "20m", "16m", "15m", "12m"];
-    const indexA = freqOrder.indexOf(a);
-    const indexB = freqOrder.indexOf(b);
-    if (indexA !== -1 && indexB !== -1) return indexA - indexB;
-    if (indexA !== -1) return -1;
-    if (indexB !== -1) return 1;
-    return a.localeCompare(b);
-  });
-  flashFreqKeys.forEach((freq) => {
-    const option = document.createElement("option");
-    option.value = freq;
-    option.textContent = freq;
-    flashFreq.appendChild(option);
-  });
-  flashFreq.options[0].selected = true;
-
-  // Populate Flash Size dropdown
-  flashSize.innerHTML = '<option value="detect">detect</option><option value="keep">keep</option>';
-  const flashSizeKeys = Object.keys(esploader.chip.FLASH_SIZES).sort((a, b) => {
-    const sizeOrder = [
-      "256KB",
-      "512KB",
-      "1MB",
-      "2MB",
-      "2MB-c1",
-      "4MB",
-      "4MB-c1",
-      "8MB",
-      "16MB",
-      "32MB",
-      "64MB",
-      "128MB",
-    ];
-    const indexA = sizeOrder.indexOf(a);
-    const indexB = sizeOrder.indexOf(b);
-    if (indexA !== -1 && indexB !== -1) return indexA - indexB;
-    if (indexA !== -1) return -1;
-    if (indexB !== -1) return 1;
-    return a.localeCompare(b);
-  });
-  flashSizeKeys.forEach((size) => {
-    const option = document.createElement("option");
-    option.value = size;
-    option.textContent = size;
-    flashSize.appendChild(option);
-  });
-  flashSize.options[1].selected = true;
+function logLine(msg: string) {
+  term.writeln(msg);
 }
 
-connectButton.onclick = async () => {
-  try {
-    if (device === null) {
-      device = await serialLib.requestPort({});
-      deviceInfo = device.getInfo();
-      transport = new Transport(device, true);
-    }
-    const flashOptions = {
-      transport,
-      baudrate: parseInt(baudrates.value),
-      terminal: espLoaderTerminal,
-      debugLogging: debugLogging.checked,
-    } as LoaderOptions;
-    esploader = new ESPLoader(flashOptions);
-
-    traceButton.style.display = "initial";
-    chip = await esploader.main();
-
-    // Populate flash dropdowns based on chip's supported values
-    populateFlashDropdowns();
-
-    // Temporarily broken
-    // await esploader.flashId();
-    // eslint-disable-next-line no-console
-    console.log("Settings done for :" + chip);
-    lblBaudrate.style.display = "none";
-    lblConnTo.innerHTML = "Connected to device: " + chip;
-    lblConnTo.style.display = "block";
-    baudrates.style.display = "none";
-    connectButton.style.display = "none";
-    disconnectButton.style.display = "initial";
-    eraseButton.style.display = "initial";
-    filesDiv.style.display = "initial";
-    flashMode.style.display = "initial";
-    flashFreq.style.display = "initial";
-    flashSize.style.display = "initial";
-    lblFlashMode.style.display = "initial";
-    lblFlashFreq.style.display = "initial";
-    lblFlashSize.style.display = "initial";
-    consoleDiv.style.display = "none";
-  } catch (e) {
-    // eslint-disable-next-line no-console
-    console.error(e);
-    term.writeln(`Error: ${e.message}`);
+function showAlert(message: string) {
+  const alertmsg = document.getElementById("alertmsg");
+  if (alertmsg) {
+    alertmsg.innerHTML = `<strong>${message}</strong>`;
   }
-};
+  alertDiv.style.display = "block";
+  term.writeln(`Error: ${message}`);
+}
 
-traceButton.onclick = async () => {
-  if (transport) {
-    transport.returnTrace();
-  }
-};
+function formatMac(mac: Uint8Array): string {
+  return Array.from(mac)
+    .map((b) => b.toString(16).padStart(2, "0"))
+    .join(":");
+}
 
-resetButton.onclick = async () => {
-  if (transport) {
-    await transport.setDTR(false);
-    await new Promise((resolve) => setTimeout(resolve, 100));
-    await transport.setDTR(true);
-  }
-};
-
-eraseButton.onclick = async () => {
-  eraseButton.disabled = true;
-  try {
-    await esploader.eraseFlash();
-  } catch (e) {
-    // eslint-disable-next-line no-console
-    console.error(e);
-    term.writeln(`Error: ${e.message}`);
-  } finally {
-    eraseButton.disabled = false;
-  }
-};
-
-addFileButton.onclick = () => {
+/**
+ * Add a row for flash address + file selection.
+ */
+function addFileRow(offset = 0x10000) {
   const rowCount = table.rows.length;
   const row = table.insertRow(rowCount);
 
-  //Column 1 - Offset
   const cell1 = row.insertCell(0);
-  const element1 = document.createElement("input");
-  element1.type = "text";
-  element1.id = "offset" + rowCount;
-  element1.value = "0x1000";
-  cell1.appendChild(element1);
-
-  // Column 2 - File selector
   const cell2 = row.insertCell(1);
-  const element2 = document.createElement("input");
-  element2.type = "file";
-  element2.id = "selectFile" + rowCount;
-  element2.name = "selected_File" + rowCount;
-  element2.addEventListener("change", handleFileSelect, false);
-  cell2.appendChild(element2);
-
-  // Column 3  - Progress
   const cell3 = row.insertCell(2);
-  cell3.classList.add("progress-cell");
-  cell3.style.display = "none";
-  cell3.innerHTML = `<progress value="0" max="100"></progress>`;
 
-  // Column 4  - Remove File
-  const cell4 = row.insertCell(3);
-  cell4.classList.add("action-cell");
-  if (rowCount > 1) {
-    const element4 = document.createElement("input");
-    element4.type = "button";
-    const btnName = "button" + rowCount;
-    element4.name = btnName;
-    element4.setAttribute("class", "btn");
-    element4.setAttribute("value", "Remove"); // or element1.value = "button";
-    element4.onclick = function () {
-      removeRow(row);
-    };
-    cell4.appendChild(element4);
-  }
-};
+  cell1.innerHTML = `<input type="text" value="0x${offset.toString(16)}" style="width: 100px;" />`;
+  cell2.innerHTML = '<input type="file" accept=".bin,.img" />';
+  cell3.innerHTML =
+    '<input type="button" value="Remove" class="btn btn-danger btn-sm" />';
 
-/**
- * The built in HTMLTableRowElement object.
- * @external HTMLTableRowElement
- * @see {@link https://developer.mozilla.org/en-US/docs/Web/API/HTMLTableRowElement}
- */
-
-/**
- * Remove file row from HTML Table
- * @param {HTMLTableRowElement} row Table row element to remove
- */
-function removeRow(row: HTMLTableRowElement) {
-  const rowIndex = Array.from(table.rows).indexOf(row);
-  table.deleteRow(rowIndex);
+  const fileInput = cell2.childNodes[0] as HTMLInputElement;
+  fileInput.addEventListener("change", handleFileSelect, false);
+  (cell3.childNodes[0] as HTMLButtonElement).onclick = () => {
+    if (table.rows.length > 1) {
+      table.deleteRow(row.rowIndex);
+    }
+  };
 }
 
-/**
- * Clean devices variables on chip disconnect. Remove stale references if any.
- */
+addFileRow(0x0);
+addFileRow(0x8000);
+addFileRow(0x10000);
+
+function setConnectedUi(connected: boolean) {
+  connectButton.style.display = connected ? "none" : "initial";
+  disconnectButton.style.display = connected ? "initial" : "none";
+  detectFlashButton.style.display = connected ? "initial" : "none";
+  readMacButton.style.display = connected ? "initial" : "none";
+  eraseButton.style.display = connected ? "initial" : "none";
+  filesDiv.style.display = connected ? "initial" : "none";
+  lblBaudrate.style.display = connected ? "none" : "initial";
+  baudrates.style.display = connected ? "none" : "initial";
+  lblConnTo.style.display = connected ? "block" : "none";
+  consoleDiv.style.display = connected ? "none" : "initial";
+}
+
 function cleanUp() {
-  device = null;
+  transport = undefined;
+  esp = undefined;
   deviceInfo = null;
-  transport = null;
-  chip = null;
 }
 
-disconnectButton.onclick = async () => {
-  if (transport) await transport.disconnect();
-
-  term.reset();
-  lblBaudrate.style.display = "initial";
-  baudrates.style.display = "initial";
-  consoleBaudrates.style.display = "initial";
-  connectButton.style.display = "initial";
-  disconnectButton.style.display = "none";
-  traceButton.style.display = "none";
-  eraseButton.style.display = "none";
-  lblConnTo.style.display = "none";
-  filesDiv.style.display = "none";
-  flashMode.style.display = "none";
-  flashFreq.style.display = "none";
-  flashSize.style.display = "none";
-  lblFlashMode.style.display = "none";
-  lblFlashFreq.style.display = "none";
-  lblFlashSize.style.display = "none";
-  alertDiv.style.display = "none";
-  consoleDiv.style.display = "initial";
-  cleanUp();
-};
-
-let isConsoleClosed = false;
-let isReconnecting = false;
-
-const sleep = async (ms: number) => {
-  return new Promise((resolve) => setTimeout(resolve, ms));
-};
-
-consoleStartButton.onclick = async () => {
-  if (device === null) {
-    device = await serialLib.requestPort({});
-    transport = new Transport(device, true);
-    deviceInfo = device.getInfo();
-
-    // Set up device lost callback
-    transport.setDeviceLostCallback(async () => {
-      if (!isConsoleClosed && !isReconnecting) {
-        term.writeln("\n[DEVICE LOST] Device disconnected. Trying to reconnect...");
-        await sleep(parseInt(reconnectDelay.value));
-        isReconnecting = true;
-
-        const maxRetries = parseInt(maxRetriesInput.value);
-        let retryCount = 0;
-
-        while (retryCount < maxRetries && !isConsoleClosed) {
-          retryCount++;
-          term.writeln(`\n[RECONNECT] Attempt ${retryCount}/${maxRetries}...`);
-
-          if (serialLib && serialLib.getPorts) {
-            const ports = await serialLib.getPorts();
-            if (ports.length > 0) {
-              const newDevice = ports.find(
-                (port) =>
-                  port.getInfo().usbVendorId === deviceInfo.usbVendorId &&
-                  port.getInfo().usbProductId === deviceInfo.usbProductId,
-              );
-
-              if (newDevice) {
-                device = newDevice;
-                transport.updateDevice(device);
-                term.writeln("[RECONNECT] Found previously authorized device, connecting...");
-                await transport.connect(parseInt(consoleBaudrates.value));
-                term.writeln("[RECONNECT] Successfully reconnected!");
-                consoleStopButton.style.display = "initial";
-                resetButton.style.display = "initial";
-                isReconnecting = false;
-
-                startConsoleReading();
-                return;
-              }
-            }
-          }
-
-          if (retryCount < maxRetries) {
-            term.writeln(`[RECONNECT] Device not found, retrying in ${parseInt(reconnectDelay.value)}ms...`);
-            await sleep(parseInt(reconnectDelay.value));
-          }
-        }
-
-        if (retryCount >= maxRetries) {
-          term.writeln("\n[RECONNECT] Failed to reconnect after 5 attempts. Please manually reconnect.");
-          isReconnecting = false;
-        }
-      }
-    });
-  }
-
-  lblConsoleFor.style.display = "block";
-  lblConsoleBaudrate.style.display = "none";
-  consoleBaudrates.style.display = "none";
-  consoleStartButton.style.display = "none";
-  consoleStopButton.style.display = "initial";
-  resetButton.style.display = "initial";
-  programDiv.style.display = "none";
-
-  await transport.connect(parseInt(consoleBaudrates.value));
-  isConsoleClosed = false;
-  isReconnecting = false;
-
-  startConsoleReading();
-};
-
-/**
- * IDF Monitor–style auto-coloring: inject ANSI codes by log level (E/W/I) so colors
- * work without CONFIG_LOG_COLORS on the device. Same regex as esp-idf-monitor.
- */
 const IDF_LOG_LEVEL_REGEX = /^(I|W|E) \([\d.: -]+\)/;
 const ANSI = {
   RED: "\x1b[1;31m",
@@ -431,11 +163,6 @@ const ANSI = {
   NORMAL: "\x1b[0m",
 };
 
-/**
- * Use IDF Monitor style log level prefixes to inject ANSI color codes for better readability. Lines that don't match the pattern are returned unmodified.
- * @param {string} line Console line to colorize
- * @returns {string} Colorized console line
- */
 function colorizeIdfLine(line: string): string {
   const match = IDF_LOG_LEVEL_REGEX.exec(line);
   if (!match) return line;
@@ -443,49 +170,293 @@ function colorizeIdfLine(line: string): string {
   return color + line + ANSI.NORMAL;
 }
 
-/**
- * Continuously read from the console until it's closed, applying colorization to IDF log lines. If the connection is lost, it will wait for reconnection and resume reading. Errors are caught and displayed in the terminal without breaking the reading loop.
- */
-async function startConsoleReading() {
-  if (isConsoleClosed || !transport) return;
-
-  const decoder = new TextDecoder("utf-8");
-  let lineBuffer = "";
-  try {
-    await transport.rawRead(
-      (value) => {
-        lineBuffer += decoder.decode(value);
-        let idx: number;
-        while ((idx = lineBuffer.indexOf("\n")) !== -1) {
-          const lineWithEol = lineBuffer.slice(0, idx + 1);
-          lineBuffer = lineBuffer.slice(idx + 1);
-          const lineStripped = lineWithEol.replace(/\r?\n$/, "");
-          const eol = lineWithEol.slice(lineStripped.length);
-          term.write(colorizeIdfLine(lineStripped) + eol);
-        }
-      },
-      () => isConsoleClosed,
-    );
-    if (lineBuffer.length > 0) {
-      term.write(colorizeIdfLine(lineBuffer));
-    }
-  } catch (error) {
-    if (!isConsoleClosed) {
-      term.writeln(`\n[CONSOLE ERROR] ${error instanceof Error ? error.message : String(error)}`);
-    }
-  }
-
-  if (!isConsoleClosed) {
-    term.writeln("\n[CONSOLE] Connection lost, waiting for reconnection...");
+function onConsoleRx(chunk: Uint8Array) {
+  consoleLineBuffer += consoleDecoder.decode(chunk, { stream: true });
+  let idx: number;
+  while ((idx = consoleLineBuffer.indexOf("\n")) !== -1) {
+    const lineWithEol = consoleLineBuffer.slice(0, idx + 1);
+    consoleLineBuffer = consoleLineBuffer.slice(idx + 1);
+    const lineStripped = lineWithEol.replace(/\r?\n$/, "");
+    const eol = lineWithEol.slice(lineStripped.length);
+    term.write(colorizeIdfLine(lineStripped) + eol);
   }
 }
+
+function attachConsoleListener() {
+  if (!transport) return;
+  transport.setSerialBufferOwner(null);
+  transport.setRxListener(onConsoleRx);
+}
+
+async function setupDeviceLostCallback() {
+  if (!transport) return;
+  transport.setDeviceLostCallback(async () => {
+    if (isConsoleClosed || isReconnecting) return;
+
+    term.writeln("\n[DEVICE LOST] Device disconnected. Trying to reconnect...");
+    await sleep(parseInt(reconnectDelay.value, 10));
+    isReconnecting = true;
+
+    const maxRetries = parseInt(maxRetriesInput.value, 10);
+    let retryCount = 0;
+
+    while (retryCount < maxRetries && !isConsoleClosed) {
+      retryCount++;
+      term.writeln(`\n[RECONNECT] Attempt ${retryCount}/${maxRetries}...`);
+
+      if (serialLib && "getPorts" in serialLib && typeof serialLib.getPorts === "function") {
+        const ports = (await serialLib.getPorts()) as SerialPort[];
+        if (ports.length > 0 && deviceInfo) {
+          const newDevice = ports.find(
+            (port: SerialPort) =>
+              port.getInfo().usbVendorId === deviceInfo!.usbVendorId &&
+              port.getInfo().usbProductId === deviceInfo!.usbProductId,
+          );
+
+          if (newDevice && transport) {
+            try {
+              await transport.close();
+            } catch {
+              // port may already be gone
+            }
+            transport.updateDevice(newDevice);
+            term.writeln("[RECONNECT] Found previously authorized device, connecting...");
+            await transport.open(parseInt(consoleBaudrates.value, 10));
+            attachConsoleListener();
+            await setupDeviceLostCallback();
+            term.writeln("[RECONNECT] Successfully reconnected!");
+            consoleStopButton.style.display = "initial";
+            resetButton.style.display = "initial";
+            isReconnecting = false;
+            return;
+          }
+        }
+      }
+
+      if (retryCount < maxRetries) {
+        term.writeln(
+          `[RECONNECT] Device not found, retrying in ${parseInt(reconnectDelay.value, 10)}ms...`,
+        );
+        await sleep(parseInt(reconnectDelay.value, 10));
+      }
+    }
+
+    if (retryCount >= maxRetries) {
+      term.writeln("\n[RECONNECT] Failed to reconnect after max attempts. Please manually reconnect.");
+      isReconnecting = false;
+    }
+  });
+}
+
+connectButton.onclick = async () => {
+  try {
+    if (!serialLib) {
+      showAlert("Web Serial is not supported in this browser.");
+      return;
+    }
+    const port = (await serialLib.requestPort()) as SerialPort;
+    transport = new Transport(port);
+    deviceInfo = port.getInfo();
+    logLine("Opening serial port at 115200...");
+    await transport.open(115200);
+
+    const baudrate = parseInt(baudrates.value, 10);
+    esp = await connectEsp({
+      transport,
+      baudrate,
+      openTransport: false,
+      factory: createEspFlasherModule as never,
+      wasmUrl,
+      log: logLine,
+    });
+
+    try {
+      const info = await getChipInfo(esp);
+      for (const line of formatChipInfo(info).split("\n")) {
+        logLine(line);
+      }
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      logLine(`Chip info unavailable (${msg})`);
+      const chip = await getTarget(esp);
+      logLine(`Chip is ${TargetChip[chip] ?? chip}`);
+    }
+    if (baudrate !== 115200) {
+      logLine(`Stub uploaded, baud ${baudrate}`);
+    } else {
+      logLine("Stub uploaded");
+    }
+    lblConnTo.innerHTML = `Connected to device: ${transport.getInfo() || "serial port"}`;
+    setConnectedUi(true);
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e);
+    showAlert(msg);
+    if (transport) {
+      try {
+        await transport.close();
+      } catch {
+        // ignore
+      }
+      cleanUp();
+    }
+  }
+};
+
+detectFlashButton.onclick = async () => {
+  if (!esp) return;
+  try {
+    const size = await detectFlashSize(esp);
+    logLine(`Flash size: ${size} bytes (${(size / (1024 * 1024)).toFixed(2)} MB)`);
+  } catch (e) {
+    const msg = e instanceof FlasherError ? e.message : e instanceof Error ? e.message : String(e);
+    showAlert(msg);
+  }
+};
+
+readMacButton.onclick = async () => {
+  if (!esp) return;
+  try {
+    const mac = await readMac(esp);
+    logLine(`MAC: ${formatMac(mac)}`);
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e);
+    showAlert(msg);
+  }
+};
+
+eraseButton.onclick = async () => {
+  if (!esp) return;
+  if (!confirm("Erase the entire flash chip?")) {
+    return;
+  }
+  try {
+    eraseButton.disabled = true;
+    logLine("Erasing flash...");
+    await eraseFlash(esp);
+    logLine("Erase complete.");
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e);
+    showAlert(msg);
+  } finally {
+    eraseButton.disabled = false;
+  }
+};
+
+disconnectButton.onclick = async () => {
+  if (transport) {
+    await transport.close();
+  }
+  cleanUp();
+  term.reset();
+  setConnectedUi(false);
+};
+
+addFileButton.onclick = () => addFileRow();
+
+programButton.onclick = async () => {
+  if (!esp) {
+    showAlert("Connect to a device first.");
+    return;
+  }
+
+  const fileArray: { address: number; data: Uint8Array }[] = [];
+  for (let index = 1; index < table.rows.length; index++) {
+    const row = table.rows[index];
+    const addrInput = row.cells[0].childNodes[0] as HTMLInputElement;
+    const fileInput = row.cells[1].childNodes[0] as HTMLInputElement & { data?: Uint8Array };
+    if (!fileInput.data) {
+      continue;
+    }
+    const offset = parseInt(addrInput.value, 16);
+    fileArray.push({ address: offset, data: fileInput.data });
+  }
+
+  if (fileArray.length === 0) {
+    showAlert("No files selected.");
+    return;
+  }
+
+  try {
+    programButton.disabled = true;
+    await writeFlash(esp, fileArray, {
+      onProgress: (percent, written, total) => {
+        logLine(`Progress: ${percent.toFixed(1)}% (${written}/${total})`);
+      },
+    });
+    logLine("Done flashing.");
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e);
+    showAlert(msg);
+  } finally {
+    programButton.disabled = false;
+  }
+};
+
+consoleStartButton.onclick = async () => {
+  try {
+    if (!serialLib) {
+      showAlert("Web Serial is not supported in this browser.");
+      return;
+    }
+
+    // End any flasher session before monitoring.
+    esp = undefined;
+    if (transport) {
+      transport.setRxListener(null);
+      transport.setSerialBufferOwner(null);
+      try {
+        await transport.close();
+      } catch {
+        // ignore
+      }
+    } else {
+      const port = (await serialLib.requestPort()) as SerialPort;
+      transport = new Transport(port);
+      deviceInfo = port.getInfo();
+    }
+
+    await setupDeviceLostCallback();
+
+    lblConsoleFor.style.display = "block";
+    lblConsoleFor.innerHTML = `Connected to device: ${transport!.getInfo() || "serial port"}`;
+    lblConsoleBaudrate.style.display = "none";
+    consoleBaudrates.style.display = "none";
+    consoleStartButton.style.display = "none";
+    consoleStopButton.style.display = "initial";
+    resetButton.style.display = "initial";
+    programDiv.style.display = "none";
+
+    const baud = parseInt(consoleBaudrates.value, 10);
+    await transport!.open(baud);
+    isConsoleClosed = false;
+    isReconnecting = false;
+    consoleLineBuffer = "";
+    attachConsoleListener();
+    await transport!.hardReset();
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e);
+    showAlert(msg);
+    isConsoleClosed = true;
+    programDiv.style.display = "initial";
+    consoleStartButton.style.display = "initial";
+    consoleStopButton.style.display = "none";
+    resetButton.style.display = "none";
+    lblConsoleBaudrate.style.display = "initial";
+    consoleBaudrates.style.display = "initial";
+    lblConsoleFor.style.display = "none";
+  }
+};
 
 consoleStopButton.onclick = async () => {
   isConsoleClosed = true;
   isReconnecting = false;
   if (transport) {
-    await transport.disconnect();
-    await transport.waitForUnlock(1500);
+    transport.setRxListener(null);
+    await transport.close();
+  }
+  if (consoleLineBuffer.length > 0) {
+    term.write(colorizeIdfLine(consoleLineBuffer));
+    consoleLineBuffer = "";
   }
   term.reset();
   lblConsoleBaudrate.style.display = "initial";
@@ -498,101 +469,12 @@ consoleStopButton.onclick = async () => {
   cleanUp();
 };
 
-/**
- * Validate the provided files images and offset to see if they're valid.
- * @returns {string} Program input validation result
- */
-function validateProgramInputs() {
-  const offsetArr = [];
-  const rowCount = table.rows.length;
-  let row;
-  let offset = 0;
-  let fileData = null;
-
-  // check for mandatory fields
-  for (let index = 1; index < rowCount; index++) {
-    row = table.rows[index];
-
-    //offset fields checks
-    const offSetObj = row.cells[0].childNodes[0];
-    offset = parseInt(offSetObj.value);
-
-    // Non-numeric or blank offset
-    if (Number.isNaN(offset)) return "Offset field in row " + index + " is not a valid address!";
-    // Repeated offset used
-    else if (offsetArr.includes(offset)) return "Offset field in row " + index + " is already in use!";
-    else offsetArr.push(offset);
-
-    const fileObj = row.cells[1].childNodes[0];
-    fileData = fileObj.data;
-    if (fileData == null) return "No file selected for row " + index + "!";
-  }
-  return "success";
-}
-
-programButton.onclick = async () => {
-  const alertMsg = document.getElementById("alertmsg");
-  const err = validateProgramInputs();
-
-  if (err != "success") {
-    alertMsg.innerHTML = "<strong>" + err + "</strong>";
-    alertDiv.style.display = "block";
-    return;
-  }
-
-  // Hide error message
-  alertDiv.style.display = "none";
-
-  const fileArray = [];
-  const progressBars = [];
-
-  for (let index = 1; index < table.rows.length; index++) {
-    const row = table.rows[index];
-
-    const offSetObj = row.cells[0].childNodes[0] as HTMLInputElement;
-    const offset = parseInt(offSetObj.value);
-
-    const fileObj = row.cells[1].childNodes[0] as ChildNode & { data: Uint8Array };
-    const progressBar = row.cells[2].childNodes[0];
-
-    progressBar.textContent = "0";
-    progressBars.push(progressBar);
-
-    row.cells[2].style.display = "initial";
-    row.cells[3].style.display = "none";
-
-    fileArray.push({ data: fileObj.data, address: offset });
-  }
-
+resetButton.onclick = async () => {
+  if (!transport || isConsoleClosed) return;
   try {
-    const flashOptions: FlashOptions = {
-      fileArray: fileArray,
-      eraseAll: false,
-      compress: true,
-      flashMode: flashMode.value as FlashModeValues,
-      flashFreq: flashFreq.value as FlashFreqValues,
-      flashSize: flashSize.value as FlashSizeValues,
-      reportProgress: (fileIndex, written, total) => {
-        progressBars[fileIndex].value = (written / total) * 100;
-      },
-      calculateMD5Hash: (image: Uint8Array) => {
-        const latin1String = Array.from(image, (byte) => String.fromCharCode(byte)).join("");
-        return CryptoJS.MD5(CryptoJS.enc.Latin1.parse(latin1String)).toString();
-      },
-    };
-    await esploader.writeFlash(flashOptions);
-    await esploader.after();
+    await transport.hardReset();
   } catch (e) {
-    // eslint-disable-next-line no-console
-    console.error(e);
-    term.writeln(`Error: ${e.message}`);
-  } finally {
-    // Hide progress bars and show erase buttons
-    for (let index = 1; index < table.rows.length; index++) {
-      table.rows[index].cells[2].style.display = "none";
-      table.rows[index].cells[3].style.display = "initial";
-    }
+    const msg = e instanceof Error ? e.message : String(e);
+    term.writeln(`\n[RESET ERROR] ${msg}`);
   }
 };
-
-addFileButton.onclick(this);

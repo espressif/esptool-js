@@ -1,118 +1,57 @@
-import { ESPLoader } from "../esploader.js";
+import type { EspDevice } from "../wasm/bindings.js";
 import { ESP32C3ROM } from "./esp32c3.js";
-import { MemoryMapEntry } from "./rom.js";
 
 export class ESP32C6ROM extends ESP32C3ROM {
-  public CHIP_NAME = "ESP32-C6";
-  public IMAGE_CHIP_ID = 13;
-  public EFUSE_BASE = 0x600b0800;
-  public EFUSE_BLOCK1_ADDR = this.EFUSE_BASE + 0x044;
-  public MAC_EFUSE_REG = this.EFUSE_BASE + 0x044;
-  public UART_CLKDIV_REG = 0x3ff40014;
-  public UART_CLKDIV_MASK = 0xfffff;
-  public UART_DATE_REG_ADDR = 0x6000007c;
+  CHIP_NAME = "ESP32-C6";
+  EFUSE_BASE = 0x600b0800;
+  EFUSE_BLOCK1_ADDR = this.EFUSE_BASE + 0x044;
+  MAC_EFUSE_REG = this.EFUSE_BASE + 0x044;
+  UART_CLKDIV_REG = 0x60000014;
+  UART_CLKDIV_MASK = 0xfffff;
 
-  public FLASH_WRITE_SIZE = 0x400;
-  public BOOTLOADER_FLASH_OFFSET = 0;
-
-  public SPI_REG_BASE = 0x60002000;
-  public SPI_USR_OFFS = 0x18;
-  public SPI_USR1_OFFS = 0x1c;
-  public SPI_USR2_OFFS = 0x20;
-  public SPI_MOSI_DLEN_OFFS = 0x24;
-  public SPI_MISO_DLEN_OFFS = 0x28;
-  public SPI_W0_OFFS = 0x58;
-
-  IROM_MAP_START = 0x42000000;
-  IROM_MAP_END = 0x42800000;
-
-  public MEMORY_MAP: MemoryMapEntry[] = [
-    [0x00000000, 0x00010000, "PADDING"],
-    [0x42000000, 0x43000000, "DROM"],
-    [0x40800000, 0x40880000, "DRAM"],
-    [0x40800000, 0x40880000, "BYTE_ACCESSIBLE"],
-    [0x4004ac00, 0x40050000, "DROM_MASK"],
-    [0x40000000, 0x4004ac00, "IROM_MASK"],
-    [0x42000000, 0x43000000, "IROM"],
-    [0x40800000, 0x40880000, "IRAM"],
-    [0x50000000, 0x50004000, "RTC_IRAM"],
-    [0x50000000, 0x50004000, "RTC_DRAM"],
-    [0x600fe000, 0x60100000, "MEM_INTERNAL2"],
-  ];
-
-  public async getPkgVersion(loader: ESPLoader) {
-    const numWord = 3;
-    const block1Addr = this.EFUSE_BASE + 0x044;
-    const addr = block1Addr + 4 * numWord;
-    const word3 = await loader.readReg(addr);
-    const pkgVersion = (word3 >> 21) & 0x07;
-    return pkgVersion;
+  async getPkgVersion(esp: EspDevice): Promise<number> {
+    return ((await this.readReg(esp, this.EFUSE_BLOCK1_ADDR + 4 * 3)) >> 21) & 0x07;
   }
 
-  public async getChipRevision(loader: ESPLoader) {
-    const block1Addr = this.EFUSE_BASE + 0x044;
-    const numWord = 3;
-    const pos = 18;
-    const addr = block1Addr + 4 * numWord;
-    const ret = ((await loader.readReg(addr)) & (0x7 << pos)) >> pos;
-    return ret;
+  async getFlashCap(esp: EspDevice): Promise<number> {
+    return ((await this.readReg(esp, this.EFUSE_BLOCK1_ADDR + 4 * 3)) >> 27) & 0x07;
   }
 
-  public async getChipDescription(loader: ESPLoader) {
-    let desc: string;
-    const pkgVer = await this.getPkgVersion(loader);
+  async getMinorChipVersion(esp: EspDevice): Promise<number> {
+    return ((await this.readReg(esp, this.EFUSE_BLOCK1_ADDR + 4 * 3)) >> 18) & 0x07;
+  }
+
+  async getMajorChipVersion(esp: EspDevice): Promise<number> {
+    return ((await this.readReg(esp, this.EFUSE_BLOCK1_ADDR + 4 * 5)) >> 24) & 0x03;
+  }
+
+  async getChipDescription(esp: EspDevice): Promise<string> {
+    const pkgVer = await this.getPkgVersion(esp);
+    let chipName = "Unknown ESP32-C6";
     if (pkgVer === 0) {
-      desc = "ESP32-C6";
-    } else {
-      desc = "unknown ESP32-C6";
+      chipName = "ESP32-C6 (QFN40)";
+    } else if (pkgVer === 1) {
+      const flashCap = await this.getFlashCap(esp);
+      if (flashCap === 1) {
+        chipName = "ESP32-C6FH4 (QFN32)";
+      } else if (flashCap === 2) {
+        chipName = "ESP32-C6FH8 (QFN32)";
+      }
     }
-    const chipRev = await this.getChipRevision(loader);
-    desc += " (revision " + chipRev + ")";
-    return desc;
+    const majorRev = await this.getMajorChipVersion(esp);
+    const minorRev = await this.getMinorChipVersion(esp);
+    return `${chipName} (revision v${majorRev}.${minorRev})`;
   }
 
-  public async getChipFeatures(loader: ESPLoader) {
-    return ["Wi-Fi 6", "BT 5", "IEEE802.15.4"];
+  async getChipFeatures(esp: EspDevice): Promise<string[]> {
+    const flashVersion =
+      ({ 1: "Embedded Flash 4MB", 2: "Embedded Flash 8MB" } as Record<number, string>)[await this.getFlashCap(esp)] ??
+      "Unknown Embedded Flash";
+    return ["Wi-Fi 6", "BT 5 (LE)", "IEEE802.15.4", "Single Core + LP Core", "160MHz", flashVersion];
   }
 
-  public async getCrystalFreq(loader: ESPLoader) {
+  async getCrystalFreq(esp: EspDevice): Promise<number> {
+    void esp;
     return 40;
-  }
-
-  public _d2h(d: number) {
-    const h = (+d).toString(16);
-    return h.length === 1 ? "0" + h : h;
-  }
-
-  public async readMac(loader: ESPLoader) {
-    let mac0 = await loader.readReg(this.MAC_EFUSE_REG);
-    mac0 = mac0 >>> 0;
-    let mac1 = await loader.readReg(this.MAC_EFUSE_REG + 4);
-    mac1 = (mac1 >>> 0) & 0x0000ffff;
-    const mac = new Uint8Array(6);
-    mac[0] = (mac1 >> 8) & 0xff;
-    mac[1] = mac1 & 0xff;
-    mac[2] = (mac0 >> 24) & 0xff;
-    mac[3] = (mac0 >> 16) & 0xff;
-    mac[4] = (mac0 >> 8) & 0xff;
-    mac[5] = mac0 & 0xff;
-
-    return (
-      this._d2h(mac[0]) +
-      ":" +
-      this._d2h(mac[1]) +
-      ":" +
-      this._d2h(mac[2]) +
-      ":" +
-      this._d2h(mac[3]) +
-      ":" +
-      this._d2h(mac[4]) +
-      ":" +
-      this._d2h(mac[5])
-    );
-  }
-
-  public getEraseSize(offset: number, size: number) {
-    return size;
   }
 }

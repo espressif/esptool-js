@@ -13,24 +13,44 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
       - uses: actions/setup-node@v4
         with:
-          node-version: 16
+          node-version: 20
           registry-url: 'https://registry.npmjs.org'
-      - name: Install dependencies and build 🔧
-        run: npm ci && npm run build
-      - name: Run lint 
+
+      - name: Install Emscripten
+        run: |
+          git clone https://github.com/emscripten-core/emsdk.git $HOME/emsdk
+          cd $HOME/emsdk
+          ./emsdk install latest
+          ./emsdk activate latest
+
+      - name: Install dependencies and build
+        run: |
+          source $HOME/emsdk/emsdk_env.sh
+          npm ci
+          npm run build:wasm
+          npm run build:js
+
+      - name: Run lint
         run: npm run lint
-      - name: Run tests 
+
+      - name: Run tests
         run: npm run test
+
       - name: Package module
         run: npm pack
+
       - name: Determine version
         id: version
         run: |
           ESPTOOLJS_VERSION=$(node -p "require('./package.json').version")
           echo $ESPTOOLJS_VERSION
           echo "version=$ESPTOOLJS_VERSION" >> $GITHUB_OUTPUT
+
       - name: Upload npm package file
         uses: actions/upload-artifact@v4
         with:

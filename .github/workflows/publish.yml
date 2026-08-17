@@ -12,12 +12,24 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
+        with:
+          submodules: recursive
       - uses: actions/setup-node@v6
         with:
           node-version: '24'
           registry-url: "https://registry.npmjs.org"
-      - name: Install dependencies and build 🔧
-        run: npm ci && npm run build
+      - name: Install Emscripten
+        run: |
+          git clone https://github.com/emscripten-core/emsdk.git $HOME/emsdk
+          cd $HOME/emsdk
+          ./emsdk install latest
+          ./emsdk activate latest
+      - name: Install dependencies and build
+        run: |
+          source $HOME/emsdk/emsdk_env.sh
+          npm ci
+          npm run build:wasm
+          npm run build:js
       - name: Run lint
         run: npm run lint
       - name: Run tests
@@ -49,5 +61,5 @@ jobs:
             ### Bug Fixes
 
             <!-- Insert The Bug Fixes below as points, also add relevant links -->
-      - name: Publish package on NPM 📦
+      - name: Publish package on NPM
         run: npm publish

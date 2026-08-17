@@ -1,18 +1,63 @@
-export { ESPLoader, FlashReadCallback } from "./esploader.js";
+export { Transport, SerialOptions, SerialSignals } from "./transport.js";
+export { connectEsp, ConnectEspOptions } from "./cmds/connect.js";
+export { detectFlashSize } from "./cmds/detectFlashSize.js";
+export { writeFlash, WriteFlashOptions, FlashImage, FLASH_BLOCK_SIZE } from "./cmds/writeFlash.js";
+export { eraseFlash, eraseRegion } from "./cmds/eraseFlash.js";
+export { readFlash, ReadFlashOptions } from "./cmds/readFlash.js";
+export { readMac } from "./cmds/readMac.js";
+export { getTarget } from "./cmds/getTarget.js";
+export { getSecurityInfo } from "./cmds/getSecurityInfo.js";
+export { getChipInfo, formatChipInfo, ChipInfo } from "./cmds/getChipInfo.js";
+export { readRegister, writeRegister } from "./cmds/registers.js";
+export { getRom, ROM } from "./targets/index.js";
+export { loadRam, LoadRamOptions } from "./cmds/loadRam.js";
+export { resetChip } from "./cmds/resetChip.js";
+export { verifyFlash } from "./cmds/verifyFlash.js";
 export {
-  ClassicReset,
-  CustomReset,
-  HardReset,
-  UsbJtagSerialReset,
-  validateCustomResetStringSequence,
-  ResetConstructors,
-  ResetStrategy,
-} from "./reset.js";
-export { ROM } from "./targets/rom.js";
-export { Transport, SerialOptions } from "./webserial.js";
-export { decodeBase64Data, getStubJsonByChipName, Stub } from "./stubFlasher.js";
-export { LoaderOptions } from "./types/loaderOptions.js";
-export { FlashOptions } from "./types/flashOptions.js";
-export { IEspLoaderTerminal } from "./types/loaderTerminal.js";
-export { Before, After } from "./types/resetModes.js";
-export { FlashModeValues, FlashSizeValues, FlashFreqValues } from "./types/arguments.js";
+  EspDevice,
+  EspConnectionMode,
+  EspFlasherModule,
+  FlasherBindings,
+  FlasherError,
+  EspLoaderError,
+  TargetChip,
+  SecurityInfo,
+  SECURITY_INFO_SIZE,
+  createBindings,
+  checkResult,
+  decodeSecurityInfo,
+  flasherConnect,
+  flasherConnectRom,
+  flasherConnectSecureDownload,
+  flasherDeinit,
+  flasherGetTarget,
+  flasherChangeBaudrate,
+  flasherFlashDetectSize,
+  flasherFlashStart,
+  flasherFlashWrite,
+  flasherFlashFinish,
+  flasherFlashDeflateStart,
+  flasherFlashDeflateWrite,
+  flasherFlashDeflateFinish,
+  flasherFlashErase,
+  flasherFlashEraseRegion,
+  flasherFlashRead,
+  flasherFlashVerifyKnownMd5,
+  flasherMemStart,
+  flasherMemWrite,
+  flasherMemFinish,
+  flasherReadMac,
+  flasherWriteRegister,
+  flasherReadRegister,
+  flasherGetSecurityInfo,
+  flasherResetTarget,
+  LogFn,
+} from "./wasm/bindings.js";
+export {
+  loadWasmModule,
+  bindTransport,
+  defaultWasmUrl,
+  LoadWasmOptions,
+  CreateEspFlasherModule,
+  resetWasmModuleCache,
+} from "./wasm/loader.js";

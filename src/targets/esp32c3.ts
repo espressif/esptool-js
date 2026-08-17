@@ -1,176 +1,87 @@
-import { ESPLoader } from "../esploader.js";
+import type { EspDevice } from "../wasm/bindings.js";
 import { ESP32ROM } from "./esp32.js";
-import { MemoryMapEntry } from "./rom.js";
 
 export class ESP32C3ROM extends ESP32ROM {
-  public CHIP_NAME = "ESP32-C3";
-  public IMAGE_CHIP_ID = 5;
-  public EFUSE_BASE = 0x60008800;
-  public MAC_EFUSE_REG = this.EFUSE_BASE + 0x044;
-  public UART_CLKDIV_REG = 0x3ff40014;
-  public UART_CLKDIV_MASK = 0xfffff;
-  public UART_DATE_REG_ADDR = 0x6000007c;
+  CHIP_NAME = "ESP32-C3";
+  EFUSE_BASE = 0x60008800;
+  MAC_EFUSE_REG = this.EFUSE_BASE + 0x044;
+  UART_CLKDIV_REG = 0x60000014;
+  UART_CLKDIV_MASK = 0xfffff;
 
-  public FLASH_WRITE_SIZE = 0x400;
-  public BOOTLOADER_FLASH_OFFSET = 0;
-
-  public SPI_REG_BASE = 0x60002000;
-  public SPI_USR_OFFS = 0x18;
-  public SPI_USR1_OFFS = 0x1c;
-  public SPI_USR2_OFFS = 0x20;
-  public SPI_MOSI_DLEN_OFFS = 0x24;
-  public SPI_MISO_DLEN_OFFS = 0x28;
-  public SPI_W0_OFFS = 0x58;
-
-  IROM_MAP_START = 0x42000000;
-  IROM_MAP_END = 0x42800000;
-
-  public MEMORY_MAP: MemoryMapEntry[] = [
-    [0x00000000, 0x00010000, "PADDING"],
-    [0x3c000000, 0x3c800000, "DROM"],
-    [0x3fc80000, 0x3fce0000, "DRAM"],
-    [0x3fc88000, 0x3fd00000, "BYTE_ACCESSIBLE"],
-    [0x3ff00000, 0x3ff20000, "DROM_MASK"],
-    [0x40000000, 0x40060000, "IROM_MASK"],
-    [0x42000000, 0x42800000, "IROM"],
-    [0x4037c000, 0x403e0000, "IRAM"],
-    [0x50000000, 0x50002000, "RTC_IRAM"],
-    [0x50000000, 0x50002000, "RTC_DRAM"],
-    [0x600fe000, 0x60100000, "MEM_INTERNAL2"],
-  ];
-
-  public async getPkgVersion(loader: ESPLoader): Promise<number> {
-    const numWord = 3;
-    const block1Addr = this.EFUSE_BASE + 0x044;
-    const addr = block1Addr + 4 * numWord;
-    const word3 = await loader.readReg(addr);
-    const pkgVersion = (word3 >> 21) & 0x07;
-    return pkgVersion;
+  async getPkgVersion(esp: EspDevice): Promise<number> {
+    const addr = this.EFUSE_BASE + 0x044 + 4 * 3;
+    return ((await this.readReg(esp, addr)) >> 21) & 0x07;
   }
 
-  public async getChipRevision(loader: ESPLoader): Promise<number> {
-    const block1Addr = this.EFUSE_BASE + 0x044;
-    const numWord = 3;
-    const pos = 18;
-    const addr = block1Addr + 4 * numWord;
-    const ret = ((await loader.readReg(addr)) & (0x7 << pos)) >> pos;
-    return ret;
-  }
-
-  public async getMinorChipVersion(loader: ESPLoader): Promise<number> {
-    const hiNumWord = 5;
-    const hiAddr = this.EFUSE_BASE + 0x044 + 4 * hiNumWord;
-    const hi = ((await loader.readReg(hiAddr)) >> 23) & 0x01;
-
-    const lowNumWord = 3;
-    const lowAddr = this.EFUSE_BASE + 0x044 + 4 * lowNumWord;
-    const low = ((await loader.readReg(lowAddr)) >> 18) & 0x07;
-
+  async getMinorChipVersion(esp: EspDevice): Promise<number> {
+    const hi = ((await this.readReg(esp, this.EFUSE_BASE + 0x044 + 4 * 5)) >> 23) & 0x01;
+    const low = ((await this.readReg(esp, this.EFUSE_BASE + 0x044 + 4 * 3)) >> 18) & 0x07;
     return (hi << 3) + low;
   }
 
-  public async getMajorChipVersion(loader: ESPLoader): Promise<number> {
-    const numWord = 5;
-    const addr = this.EFUSE_BASE + 0x044 + 4 * numWord;
-    return ((await loader.readReg(addr)) >> 24) & 0x03;
+  async getMajorChipVersion(esp: EspDevice): Promise<number> {
+    return ((await this.readReg(esp, this.EFUSE_BASE + 0x044 + 4 * 5)) >> 24) & 0x03;
   }
 
-  public async getChipDescription(loader: ESPLoader) {
-    const chipDesc: { [key: number]: string } = {
+  async getFlashCap(esp: EspDevice): Promise<number> {
+    const addr = this.EFUSE_BASE + 0x044 + 4 * 3;
+    return ((await this.readReg(esp, addr)) >> 27) & 0x07;
+  }
+
+  async getFlashVendor(esp: EspDevice): Promise<string> {
+    const addr = this.EFUSE_BASE + 0x044 + 4 * 4;
+    const vendorId = ((await this.readReg(esp, addr)) >> 0) & 0x07;
+    return ({ 1: "XMC", 2: "GD", 3: "FM", 4: "TT", 5: "ZBIT" } as Record<number, string>)[vendorId] ?? "";
+  }
+
+  async getChipDescription(esp: EspDevice): Promise<string> {
+    const chipDesc: Record<number, string> = {
       0: "ESP32-C3 (QFN32)",
       1: "ESP8685 (QFN28)",
       2: "ESP32-C3 AZ (QFN32)",
       3: "ESP8686 (QFN24)",
     };
-    const chipIndex = await this.getPkgVersion(loader);
-    const majorRev = await this.getMajorChipVersion(loader);
-    const minorRev = await this.getMinorChipVersion(loader);
-    return `${chipDesc[chipIndex] || "Unknown ESP32-C3"} (revision v${majorRev}.${minorRev})`;
+    const pkg = await this.getPkgVersion(esp);
+    const majorRev = await this.getMajorChipVersion(esp);
+    const minorRev = await this.getMinorChipVersion(esp);
+    return `${chipDesc[pkg] ?? "Unknown ESP32-C3"} (revision v${majorRev}.${minorRev})`;
   }
 
-  public async getFlashCap(loader: ESPLoader): Promise<number> {
-    const numWord = 3;
-    const block1Addr = this.EFUSE_BASE + 0x044;
-    const addr = block1Addr + 4 * numWord;
-    const registerValue = await loader.readReg(addr);
-    const flashCap = (registerValue >> 27) & 0x07;
-    return flashCap;
-  }
-
-  public async getFlashVendor(loader: ESPLoader): Promise<string> {
-    const numWord = 4;
-    const block1Addr = this.EFUSE_BASE + 0x044;
-    const addr = block1Addr + 4 * numWord;
-    const registerValue = await loader.readReg(addr);
-    const vendorId = (registerValue >> 0) & 0x07;
-    const vendorMap: { [key: number]: string } = {
-      1: "XMC",
-      2: "GD",
-      3: "FM",
-      4: "TT",
-      5: "ZBIT",
-    };
-    return vendorMap[vendorId] || "";
-  }
-
-  public async getChipFeatures(loader: ESPLoader): Promise<string[]> {
-    const features: string[] = ["Wi-Fi", "BLE"];
-
-    const flashMap: { [key: number]: string | null } = {
+  async getChipFeatures(esp: EspDevice): Promise<string[]> {
+    const features = ["Wi-Fi", "BT 5 (LE)", "Single Core", "160MHz"];
+    const flashMap: Record<number, string | null> = {
       0: null,
       1: "Embedded Flash 4MB",
       2: "Embedded Flash 2MB",
       3: "Embedded Flash 1MB",
       4: "Embedded Flash 8MB",
     };
-    const flashCap = await this.getFlashCap(loader);
-    const flashVendor = await this.getFlashVendor(loader);
-    const flash = flashMap[flashCap];
-    const flashDescription = flash !== undefined ? flash : "Unknown Embedded Flash";
+    const flashCap = await this.getFlashCap(esp);
+    const flashVendor = await this.getFlashVendor(esp);
+    const flash = Object.prototype.hasOwnProperty.call(flashMap, flashCap)
+      ? flashMap[flashCap]
+      : "Unknown Embedded Flash";
     if (flash !== null) {
-      features.push(`${flashDescription} (${flashVendor})`);
+      features.push(flashVendor ? `${flash} (${flashVendor})` : flash);
     }
     return features;
   }
 
-  public async getCrystalFreq(loader: ESPLoader) {
+  async getCrystalFreq(esp: EspDevice): Promise<number> {
+    void esp;
     return 40;
   }
 
-  public _d2h(d: number) {
-    const h = (+d).toString(16);
-    return h.length === 1 ? "0" + h : h;
-  }
-
-  public async readMac(loader: ESPLoader) {
-    let mac0 = await loader.readReg(this.MAC_EFUSE_REG);
-    mac0 = mac0 >>> 0;
-    let mac1 = await loader.readReg(this.MAC_EFUSE_REG + 4);
-    mac1 = (mac1 >>> 0) & 0x0000ffff;
-    const mac = new Uint8Array(6);
-    mac[0] = (mac1 >> 8) & 0xff;
-    mac[1] = mac1 & 0xff;
-    mac[2] = (mac0 >> 24) & 0xff;
-    mac[3] = (mac0 >> 16) & 0xff;
-    mac[4] = (mac0 >> 8) & 0xff;
-    mac[5] = mac0 & 0xff;
-
-    return (
-      this._d2h(mac[0]) +
-      ":" +
-      this._d2h(mac[1]) +
-      ":" +
-      this._d2h(mac[2]) +
-      ":" +
-      this._d2h(mac[3]) +
-      ":" +
-      this._d2h(mac[4]) +
-      ":" +
-      this._d2h(mac[5])
-    );
-  }
-
-  public getEraseSize(offset: number, size: number) {
-    return size;
+  async readMac(esp: EspDevice): Promise<Uint8Array> {
+    const mac0 = (await this.readReg(esp, this.MAC_EFUSE_REG)) >>> 0;
+    const mac1 = ((await this.readReg(esp, this.MAC_EFUSE_REG + 4)) >>> 0) & 0xffff;
+    return new Uint8Array([
+      (mac1 >> 8) & 0xff,
+      mac1 & 0xff,
+      (mac0 >> 24) & 0xff,
+      (mac0 >> 16) & 0xff,
+      (mac0 >> 8) & 0xff,
+      mac0 & 0xff,
+    ]);
   }
 }
