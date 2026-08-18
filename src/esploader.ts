@@ -640,17 +640,42 @@ export class ESPLoader {
     this.debug("Connect attempt successful.");
     this.info("\n\r", false);
 
-    if (!detecting) {
-      const chipMagicValue = (await this.readReg(this.CHIP_DETECT_MAGIC_REG_ADDR)) >>> 0;
-      this.debug("Chip Magic " + chipMagicValue.toString(16));
-      const chip = await magic2Chip(chipMagicValue);
-      if (chip === null) {
-        throw new ESPError(
-          `Unexpected CHIP magic value 0x${chipMagicValue.toString(16)}. Failed to autodetect chip type.`,
-        );
-      } else {
-        this.chip = chip;
+    if (detecting) {
+      this.info("Detecting chip type... ");
+      let chip: ROM | null = null;
+      let chipMagicValue: number | null = null;
+
+      let chipId: number | undefined = undefined;
+
+      try {
+        chipId = await this.getChipId();
+      } catch (error) {
+        this.debug("GET_SECURITY_INFO not supported, falling back to magic value");
       }
+      for (const cls of ROM_LIST) {
+        if (chipId === cls.IMAGE_CHIP_ID) {
+          chip = cls;
+          break;
+        }
+      }
+
+      if (chip === null) {
+        chipMagicValue = (await this.readReg(this.CHIP_DETECT_MAGIC_REG_ADDR)) >>> 0;
+
+        this.debug("Chip Magic " + chipMagicValue.toString(16));
+        chip = await magic2Chip(chipMagicValue);
+      }
+
+      if (chip === null) {
+        if (chipMagicValue !== null) {
+          throw new ESPError(
+            `Unexpected CHIP magic value 0x${chipMagicValue.toString(16)}. ` + `Failed to autodetect chip type.`,
+          );
+        }
+
+        throw new ESPError("Failed to autodetect chip type.");
+      }
+      this.chip = chip;
     }
   }
 
@@ -768,8 +793,8 @@ export class ESPLoader {
                 .toString(16)
                 .padStart(8, "0")}.
             Can't load binary at overlapping address range 0x${loadStart.toString(16).padStart(8, "0")}-0x${loadEnd
-                .toString(16)
-                .padStart(8, "0")}.
+              .toString(16)
+              .padStart(8, "0")}.
             Either change binary loading address, or use the no-stub option to disable the software loader.`,
             );
           }
