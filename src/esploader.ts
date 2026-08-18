@@ -1470,6 +1470,11 @@ export class ESPLoader {
       if (flashSize === "detect") {
         this.info("Configuring flash size...");
         const detectedFlashSize = await this.detectFlashSize();
+        if (!detectedFlashSize) {
+          throw new ESPError(
+            "Could not auto-detect Flash size. Set flash size explicitly or check the flash connection.",
+          );
+        }
         this.info("Detected flash size set to " + detectedFlashSize);
         aFlashSize = this.parseFlashSizeArg(detectedFlashSize as FlashSizeValues);
       } else {
@@ -1711,17 +1716,20 @@ export class ESPLoader {
     this.info("Detected flash size: " + this.DETECTED_FLASH_SIZES[flidLowbyte]);
   }
 
-  async detectFlashSize() {
+  /**
+   * Detect attached flash size from the SPI flash ID.
+   * @returns {Promise<string | undefined>} Detected size string, or undefined if the flash ID could not be read / mapped.
+   */
+  async detectFlashSize(): Promise<string | undefined> {
     this.debug("detectFlashSize");
     const flashid = await this.readFlashId();
     const sizeId = (flashid >> 16) & 0xff;
-    let flashSizeStr = this.DETECTED_FLASH_SIZES[sizeId];
+    const flashSizeStr = this.DETECTED_FLASH_SIZES[sizeId];
     if (!flashSizeStr) {
-      flashSizeStr = "4MB";
-      this.info("Could not auto-detect Flash size. defaulting to 4MB");
-    } else {
-      this.info("Auto-detected Flash size: " + flashSizeStr);
+      this.info("Could not auto-detect Flash size");
+      return undefined;
     }
+    this.info("Auto-detected Flash size: " + flashSizeStr);
     return flashSizeStr;
   }
 
