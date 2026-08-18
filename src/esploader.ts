@@ -793,8 +793,8 @@ export class ESPLoader {
                 .toString(16)
                 .padStart(8, "0")}.
             Can't load binary at overlapping address range 0x${loadStart.toString(16).padStart(8, "0")}-0x${loadEnd
-              .toString(16)
-              .padStart(8, "0")}.
+                .toString(16)
+                .padStart(8, "0")}.
             Either change binary loading address, or use the no-stub option to disable the software loader.`,
             );
           }
