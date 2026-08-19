@@ -1407,7 +1407,8 @@ export class ESPLoader {
    * @param {number} address flash address number
    * @param {FlashModeValues} flashMode Flash mode string
    * @param {FlashFreqValues} flashFreq Flash frequency string
-   * @param {FlashSizeValues} flashSize Flash size string
+   * @param {FlashSizeValues} flashSize Already-resolved flash size (`"keep"` or a concrete size such as `"8MB"`).
+   * `"detect"` is not accepted here; resolve it in `writeFlash` first.
    * @returns {Uint8Array} modified image Uint8Array
    */
   async _updateImageFlashParams(
@@ -1467,19 +1468,7 @@ export class ESPLoader {
     }
     let aFlashSize = flashSizeFreq & 0xf0;
     if (flashSize !== "keep") {
-      if (flashSize === "detect") {
-        this.info("Configuring flash size...");
-        const detectedFlashSize = await this.detectFlashSize();
-        if (!detectedFlashSize) {
-          throw new ESPError(
-            "Could not auto-detect Flash size. Set flash size explicitly or check the flash connection.",
-          );
-        }
-        this.info("Detected flash size set to " + detectedFlashSize);
-        aFlashSize = this.parseFlashSizeArg(detectedFlashSize as FlashSizeValues);
-      } else {
-        aFlashSize = this.parseFlashSizeArg(flashSize);
-      }
+      aFlashSize = this.parseFlashSizeArg(flashSize);
     }
 
     const flashParams = (aFlashMode << 8) | (aFlashFreq + aFlashSize);
@@ -1544,6 +1533,9 @@ export class ESPLoader {
 
   /**
    * Write set of file images into given address based on given FlashOptions object.
+   * When `options.flashSize` is `"detect"`, the flash ID is read before any file is written
+   * (including images that are not at `BOOTLOADER_FLASH_OFFSET`) so the bounds check can
+   * use a concrete size. Throws if the flash ID cannot be read or mapped.
    * @param {FlashOptions} options FlashOptions to configure how and what to write into flash.
    */
   async writeFlash(options: FlashOptions) {
