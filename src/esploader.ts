@@ -1548,8 +1548,25 @@ export class ESPLoader {
    */
   async writeFlash(options: FlashOptions) {
     this.debug("EspLoader program");
-    if (options.flashSize !== "keep") {
-      const flashEnd = this.flashSizeBytes(options.flashSize);
+
+    let resolvedFlashSize: FlashSizeValues = options.flashSize;
+    if (options.flashSize === "detect") {
+      this.info("Configuring flash size...");
+      const detectedFlashSize = await this.detectFlashSize();
+      if (!detectedFlashSize) {
+        throw new ESPError(
+          "Could not auto-detect Flash size. Set flash size explicitly or check the flash connection.",
+        );
+      }
+      this.info("Detected flash size set to " + detectedFlashSize);
+      resolvedFlashSize = detectedFlashSize as FlashSizeValues;
+    }
+
+    if (resolvedFlashSize !== "keep") {
+      const flashEnd = this.flashSizeBytes(resolvedFlashSize);
+      if (flashEnd < 0) {
+        throw new ESPError(`Invalid flash size: ${resolvedFlashSize}`);
+      }
       for (let i = 0; i < options.fileArray.length; i++) {
         if (options.fileArray[i].data.length + options.fileArray[i].address > flashEnd) {
           throw new ESPError(`File ${i + 1} doesn't fit in the available flash`);
@@ -1578,7 +1595,7 @@ export class ESPLoader {
         address,
         options.flashMode,
         options.flashFreq,
-        options.flashSize,
+        resolvedFlashSize,
       );
       let calcmd5: string | null = null;
       if (options.calculateMD5Hash) {
