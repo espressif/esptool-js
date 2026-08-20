@@ -1407,7 +1407,8 @@ export class ESPLoader {
    * @param {number} address flash address number
    * @param {FlashModeValues} flashMode Flash mode string
    * @param {FlashFreqValues} flashFreq Flash frequency string
-   * @param {FlashSizeValues} flashSize Flash size string
+   * @param {FlashSizeValues} flashSize Already-resolved flash size (`"keep"` or a concrete size such as `"8MB"`).
+   * `"detect"` is not accepted here; resolve it in `writeFlash` first.
    * @returns {Uint8Array} modified image Uint8Array
    */
   async _updateImageFlashParams(
@@ -1467,14 +1468,7 @@ export class ESPLoader {
     }
     let aFlashSize = flashSizeFreq & 0xf0;
     if (flashSize !== "keep") {
-      if (flashSize === "detect") {
-        this.info("Configuring flash size...");
-        const detectedFlashSize = await this.detectFlashSize();
-        this.info("Detected flash size set to " + detectedFlashSize);
-        aFlashSize = this.parseFlashSizeArg(detectedFlashSize as FlashSizeValues);
-      } else {
-        aFlashSize = this.parseFlashSizeArg(flashSize);
-      }
+      aFlashSize = this.parseFlashSizeArg(flashSize);
     }
 
     const flashParams = (aFlashMode << 8) | (aFlashFreq + aFlashSize);
@@ -1539,12 +1533,32 @@ export class ESPLoader {
 
   /**
    * Write set of file images into given address based on given FlashOptions object.
+   * When `options.flashSize` is `"detect"`, the flash ID is read before any file is written
+   * (including images that are not at `BOOTLOADER_FLASH_OFFSET`) so the bounds check can
+   * use a concrete size. Throws if the flash ID cannot be read or mapped.
    * @param {FlashOptions} options FlashOptions to configure how and what to write into flash.
    */
   async writeFlash(options: FlashOptions) {
     this.debug("EspLoader program");
-    if (options.flashSize !== "keep") {
-      const flashEnd = this.flashSizeBytes(options.flashSize);
+
+    let resolvedFlashSize: FlashSizeValues = options.flashSize;
+    if (options.flashSize === "detect") {
+      this.info("Configuring flash size...");
+      const detectedFlashSize = await this.detectFlashSize();
+      if (!detectedFlashSize) {
+        throw new ESPError(
+          "Could not auto-detect Flash size. Set flash size explicitly or check the flash connection.",
+        );
+      }
+      this.info("Detected flash size set to " + detectedFlashSize);
+      resolvedFlashSize = detectedFlashSize as FlashSizeValues;
+    }
+
+    if (resolvedFlashSize !== "keep") {
+      const flashEnd = this.flashSizeBytes(resolvedFlashSize);
+      if (flashEnd < 0) {
+        throw new ESPError(`Invalid flash size: ${resolvedFlashSize}`);
+      }
       for (let i = 0; i < options.fileArray.length; i++) {
         if (options.fileArray[i].data.length + options.fileArray[i].address > flashEnd) {
           throw new ESPError(`File ${i + 1} doesn't fit in the available flash`);
@@ -1573,7 +1587,7 @@ export class ESPLoader {
         address,
         options.flashMode,
         options.flashFreq,
-        options.flashSize,
+        resolvedFlashSize,
       );
       let calcmd5: string | null = null;
       if (options.calculateMD5Hash) {
@@ -1711,17 +1725,20 @@ export class ESPLoader {
     this.info("Detected flash size: " + this.DETECTED_FLASH_SIZES[flidLowbyte]);
   }
 
-  async detectFlashSize() {
+  /**
+   * Detect attached flash size from the SPI flash ID.
+   * @returns {Promise<string | undefined>} Detected size string, or undefined if the flash ID could not be read / mapped.
+   */
+  async detectFlashSize(): Promise<string | undefined> {
     this.debug("detectFlashSize");
     const flashid = await this.readFlashId();
     const sizeId = (flashid >> 16) & 0xff;
-    let flashSizeStr = this.DETECTED_FLASH_SIZES[sizeId];
+    const flashSizeStr = this.DETECTED_FLASH_SIZES[sizeId];
     if (!flashSizeStr) {
-      flashSizeStr = "4MB";
-      this.info("Could not auto-detect Flash size. defaulting to 4MB");
-    } else {
-      this.info("Auto-detected Flash size: " + flashSizeStr);
+      this.info("Could not auto-detect Flash size");
+      return undefined;
     }
+    this.info("Auto-detected Flash size: " + flashSizeStr);
     return flashSizeStr;
   }
 
