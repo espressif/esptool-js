@@ -1,4 +1,5 @@
-export { ESPLoader, FlashReadCallback } from "./esploader.js";
+export { ESPLoader, FlashReadCallback, SecurityInfo } from "./esploader.js";
+export { SECURITY_INFO_FLAG_MAP, ParsedSecurityFlags } from "./types/securityInfo.js";
 export {
   ClassicReset,
   CustomReset,

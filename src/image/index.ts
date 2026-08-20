@@ -10,10 +10,14 @@ import {
   ESP32C5FirmwareImage,
   ESP32C61FirmwareImage,
   ESP32C6FirmwareImage,
+  ESP32E22FirmwareImage,
   ESP32H2FirmwareImage,
+  ESP32H21FirmwareImage,
+  ESP32H4FirmwareImage,
   ESP32P4FirmwareImage,
   ESP32S2FirmwareImage,
   ESP32S3FirmwareImage,
+  ESP32S31FirmwareImage,
 } from "./others";
 
 /**
@@ -42,6 +46,9 @@ export async function loadFirmwareImage(rom: ROM, imageData: Uint8Array | string
       case "esp32s3":
         firmwareImageClass = ESP32S3FirmwareImage;
         break;
+      case "esp32s31":
+        firmwareImageClass = ESP32S31FirmwareImage;
+        break;
       case "esp32c3":
         firmwareImageClass = ESP32C3FirmwareImage;
         break;
@@ -57,8 +64,17 @@ export async function loadFirmwareImage(rom: ROM, imageData: Uint8Array | string
       case "esp32c5":
         firmwareImageClass = ESP32C5FirmwareImage;
         break;
+      case "esp32e22":
+        firmwareImageClass = ESP32E22FirmwareImage;
+        break;
       case "esp32h2":
         firmwareImageClass = ESP32H2FirmwareImage;
+        break;
+      case "esp32h21":
+        firmwareImageClass = ESP32H21FirmwareImage;
+        break;
+      case "esp32h4":
+        firmwareImageClass = ESP32H4FirmwareImage;
         break;
       case "esp32p4":
         firmwareImageClass = ESP32P4FirmwareImage;

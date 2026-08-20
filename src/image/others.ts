@@ -3,10 +3,14 @@ import { ESP32C3ROM } from "../targets/esp32c3";
 import { ESP32C5ROM } from "../targets/esp32c5";
 import { ESP32C6ROM } from "../targets/esp32c6";
 import { ESP32C61ROM } from "../targets/esp32c61";
+import { ESP32E22ROM } from "../targets/esp32e22";
 import { ESP32H2ROM } from "../targets/esp32h2";
+import { ESP32H21ROM } from "../targets/esp32h21";
+import { ESP32H4ROM } from "../targets/esp32h4";
 import { ESP32P4ROM } from "../targets/esp32p4";
 import { ESP32S2ROM } from "../targets/esp32s2";
 import { ESP32S3ROM } from "../targets/esp32s3";
+import { ESP32S31ROM } from "../targets/esp32s31";
 import { ESP32FirmwareImage } from "./esp32";
 
 export class ESP32S2FirmwareImage extends ESP32FirmwareImage {
@@ -136,5 +140,65 @@ export class ESP32H2FirmwareImage extends ESP32C6FirmwareImage {
   ) {
     super(rom, loadFile, appendDigest, ramOnlyHeader);
     this.ROM_LOADER = rom as ESP32H2ROM;
+  }
+}
+
+export class ESP32H21FirmwareImage extends ESP32C6FirmwareImage {
+  ROM_LOADER: ESP32H21ROM;
+
+  constructor(
+    rom: ESP32H21ROM,
+    loadFile: Uint8Array | string | null = null,
+    appendDigest = true,
+    ramOnlyHeader = false,
+  ) {
+    super(rom, loadFile, appendDigest, ramOnlyHeader);
+    this.ROM_LOADER = rom as ESP32H21ROM;
+  }
+}
+
+export class ESP32H4FirmwareImage extends ESP32FirmwareImage {
+  ROM_LOADER: ESP32H4ROM;
+
+  constructor(
+    rom: ESP32H4ROM,
+    loadFile: Uint8Array | string | null = null,
+    appendDigest = true,
+    ramOnlyHeader = false,
+  ) {
+    super(rom, loadFile, appendDigest, ramOnlyHeader);
+    this.ROM_LOADER = rom as ESP32H4ROM;
+  }
+
+  MMU_PAGE_SIZE_CONF = [8192, 16384, 32768, 65536];
+}
+
+export class ESP32S31FirmwareImage extends ESP32C5FirmwareImage {
+  ROM_LOADER: ESP32S31ROM;
+
+  constructor(
+    rom: ESP32S31ROM,
+    loadFile: Uint8Array | string | null = null,
+    appendDigest = true,
+    ramOnlyHeader = false,
+  ) {
+    super(rom, loadFile, appendDigest, ramOnlyHeader);
+    this.ROM_LOADER = rom as ESP32S31ROM;
+  }
+
+  MMU_PAGE_SIZE_CONF = [32768, 65536, 131072, 262144];
+}
+
+export class ESP32E22FirmwareImage extends ESP32FirmwareImage {
+  ROM_LOADER: ESP32E22ROM;
+
+  constructor(
+    rom: ESP32E22ROM,
+    loadFile: Uint8Array | string | null = null,
+    appendDigest = true,
+    ramOnlyHeader = false,
+  ) {
+    super(rom, loadFile, appendDigest, ramOnlyHeader);
+    this.ROM_LOADER = rom as ESP32E22ROM;
   }
 }

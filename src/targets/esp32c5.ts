@@ -221,13 +221,10 @@ export class ESP32C5ROM extends ESP32C6ROM {
   }
 
   public async changeBaud(loader: ESPLoader): Promise<void> {
-    // Note: secure_download_mode check would need to be added to ESPLoader if needed
-    // if (loader.secureDownloadMode) {
-    //   loader.info(
-    //     "Baud rate change is not supported in secure download mode. " + "Keeping 115200 baud.",
-    //   );
-    //   return;
-    // }
+    if (loader.secureDownloadMode) {
+      loader.info("Baud rate change is not supported in secure download mode. " + "Keeping 115200 baud.");
+      return;
+    }
     if (!loader.IS_STUB) {
       const crystalFreqRomExpect = await this.getCrystalFreqRomExpect(loader);
       const crystalFreqDetect = await this.getCrystalFreq(loader);
