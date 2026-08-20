@@ -107,6 +107,7 @@ export abstract class ROM {
    * ESP8266/ESP32 do not support the command; ESP32-S2 supports it but omits chip-id.
    */
   USES_MAGIC_VALUE = false;
+  SPI_ADDR_REG_MSB?: boolean;
   abstract SPI_MOSI_DLEN_OFFS: number; // not in esp8266
   abstract SPI_MISO_DLEN_OFFS: number; // not in esp8266
   abstract SPI_REG_BASE: number;

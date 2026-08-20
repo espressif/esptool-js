@@ -710,6 +710,9 @@ export class ESPLoader {
       throw new ESPError(errMsg);
     }
     this.chip = chip;
+    if (chip.SPI_ADDR_REG_MSB !== undefined) {
+      this.SPI_ADDR_REG_MSB = chip.SPI_ADDR_REG_MSB;
+    }
   }
 
   private async chipFromMagicValue(): Promise<ROM> {

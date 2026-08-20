@@ -171,9 +171,9 @@ export class ESP32P4ROM extends ESP32ROM {
   public async getStubJsonPath(loader: ESPLoader): Promise<string> {
     const chipRevision = await this.getChipRevision(loader);
     if (chipRevision < 300) {
-      return "./targets/stub_flasher/stub_flasher_32p4rc1.json";
+      return "./targets/stub_flasher/esp32p4-rev1.json";
     } else {
-      return "./targets/stub_flasher/stub_flasher_32p4.json";
+      return "./targets/stub_flasher/esp32p4.json";
     }
   }
 

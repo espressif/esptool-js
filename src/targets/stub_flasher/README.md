@@ -1,9 +1,7 @@
 # Flasher stub binaries
 
-Included here are the flasher stub binaries from [esptool](https://github.com/espressif/esptool) (.py) project.
+Included here are the flasher stub binaries from the [esptool](https://github.com/espressif/esptool) project, set 2 (`esptool/targets/stub_flasher/2`). Filenames match esptool (`esp32.json`, `esp32p4-rev1.json`, and so on).
 
-The binaries were copied from [v4.6.1 release of esptool](https://github.com/espressif/esptool/tree/v4.6.1/esptool/targets/stub_flasher).
+The binaries were copied from [esp-flasher-stub v1.2.2](https://github.com/espressif/esp-flasher-stub/releases/tag/v1.2.2), where the sources can be obtained.
 
-The source code used to produce these binaries can be found [here](https://github.com/espressif/esptool/tree/v4.6.1/flasher_stub).
-
-The stub is Copyright 2016 Cesanta Software Limited, 2016-2022 Espressif Systems (Shanghai) Co. Ltd. and is licensed under [GNU General Public License v2.0 or later](https://spdx.org/licenses/GPL-2.0-or-later.html) license.
+The binaries in JSON format distributed in this directory are dual licensed under the Apache License Version 2.0 or the MIT license. See [LICENSE-APACHE](LICENSE-APACHE) and [LICENSE-MIT](LICENSE-MIT).
