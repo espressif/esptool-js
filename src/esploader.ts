@@ -6,7 +6,10 @@ import {
   UnsupportedCommandError,
 } from "./types/error.js";
 import { Data, deflate, Inflate } from "pako";
-import { Transport, SerialOptions } from "./webserial.js";
+import {
+  Transport,
+  SerialOptions,
+} from "./webserial.js";
 import { ROM } from "./targets/rom.js";
 import { ClassicReset, CustomReset, HardReset, ResetConstructors, ResetStrategy, UsbJtagSerialReset } from "./reset.js";
 import { getStubJsonByChipName } from "./stubFlasher.js";
@@ -28,6 +31,12 @@ import { parseSecurityFlags, SecurityInfo } from "./types/securityInfo.js";
  * @param {number} totalSize - The total size of the data to be read in bytes.
  */
 export type FlashReadCallback = ((packet: Uint8Array, progress: number, totalSize: number) => void) | null;
+
+/** Espressif USB vendor ID used by native USB-Serial/JTAG and USB-OTG. */
+export const ESPRESSIF_VID = 0x303a;
+
+/** Default USB product ID for Espressif USB-Serial/JTAG. */
+export const USB_JTAG_SERIAL_PID = 0x1001;
 
 /**
  * Return the chip ROM based on the given magic number
@@ -169,9 +178,6 @@ export class ESPLoader {
     0x39: "32MB",
     0x3a: "64MB",
   };
-
-  USB_JTAG_SERIAL_PID = 0x1001;
-  ESPRESSIF_VID = 0x303a;
 
   chip!: ROM;
   IS_STUB: boolean;
@@ -600,12 +606,53 @@ export class ESPLoader {
   }
 
   /**
-   * True when the serial device is Espressif USB with the given product ID.
-   * @param {number} pid USB product ID to match
-   * @returns {boolean} Whether VID is Espressif and PID matches
+   * True when Web Serial reports Espressif USB-Serial/JTAG VID/PID.
+   * Safe before chip identify/sync (no register reads).
    */
-  isEspressifUsb(pid: number): boolean {
-    return this.transport.getVid() === this.ESPRESSIF_VID && this.transport.getPid() === pid;
+  private isUsbJtagSerialPort(): boolean {
+    return this.transport.getVid() === ESPRESSIF_VID && this.transport.getPid() === USB_JTAG_SERIAL_PID;
+  }
+
+  /**
+   * True if the host sees this port as Espressif USB-OTG (VID/PID match).
+   * Falls back to the chip UARTDEV_BUF_NO helper when Web Serial omits IDs
+   * or the USB product ID was customized.
+   */
+  async usesUsbOtg(): Promise<boolean> {
+    const vid = this.transport.getVid();
+    const pid = this.transport.getPid();
+    if (vid === ESPRESSIF_VID && this.chip.IMAGE_CHIP_ID != null && pid === this.chip.IMAGE_CHIP_ID) {
+      return true;
+    }
+    if (vid === ESPRESSIF_VID && pid === USB_JTAG_SERIAL_PID) {
+      return false;
+    }
+    if (vid !== undefined && vid !== ESPRESSIF_VID) {
+      return false;
+    }
+    if (typeof this.chip.usesUsbOtg === "function") {
+      return await this.chip.usesUsbOtg(this);
+    }
+    if (typeof this.chip.usingUsbOtg === "function") {
+      return await this.chip.usingUsbOtg(this);
+    }
+    return false;
+  }
+
+  /**
+   * Cap FLASH_WRITE_SIZE to USB_RAM_BLOCK when the stub is talking over
+   * USB-OTG. Matches esptool.py's stub USB buffer limit; USB-Serial/JTAG
+   * and USB-UART bridges keep the 16 KB default.
+   */
+  private async applyUsbFlashWriteSize() {
+    const usbRamBlock = this.chip.USB_RAM_BLOCK;
+    if (!usbRamBlock) {
+      return;
+    }
+    if (await this.usesUsbOtg()) {
+      this.FLASH_WRITE_SIZE = usbRamBlock;
+      this.debug(`Using USB_RAM_BLOCK (0x${usbRamBlock.toString(16)}) for FLASH_WRITE_SIZE (USB-OTG)`);
+    }
   }
 
   /**
@@ -616,24 +663,25 @@ export class ESPLoader {
    * @returns {ResetStrategy[]} - Array of reset strategies
    */
   constructResetSequence(mode: Before): ResetStrategy[] {
-    if (mode !== "no_reset") {
-      if (mode === "usb_reset" || this.isEspressifUsb(this.USB_JTAG_SERIAL_PID)) {
-        // Custom reset sequence, which is required when the device
-        // is connecting via its USB-JTAG-Serial peripheral
-        if (this.resetConstructors.usbJTAGSerialReset) {
-          this.debug("using USB JTAG Serial Reset");
-          return [this.resetConstructors.usbJTAGSerialReset(this.transport)];
-        }
-      } else {
-        const DEFAULT_RESET_DELAY = 50;
-        const EXTRA_DELAY = DEFAULT_RESET_DELAY + 500;
-        if (this.resetConstructors.classicReset) {
-          this.debug("using Classic Serial Reset");
-          return [
-            this.resetConstructors.classicReset(this.transport, DEFAULT_RESET_DELAY),
-            this.resetConstructors.classicReset(this.transport, EXTRA_DELAY),
-          ];
-        }
+    if (mode === "no_reset") {
+      return [];
+    }
+    if (mode === "usb_reset" || this.isUsbJtagSerialPort()) {
+      // Custom reset sequence, which is required when the device
+      // is connecting via its USB-JTAG-Serial peripheral
+      if (this.resetConstructors.usbJTAGSerialReset) {
+        this.debug("using USB JTAG Serial Reset");
+        return [this.resetConstructors.usbJTAGSerialReset(this.transport)];
+      }
+    } else {
+      const DEFAULT_RESET_DELAY = 50;
+      const EXTRA_DELAY = DEFAULT_RESET_DELAY + 500;
+      if (this.resetConstructors.classicReset) {
+        this.debug("using Classic Serial Reset");
+        return [
+          this.resetConstructors.classicReset(this.transport, DEFAULT_RESET_DELAY),
+          this.resetConstructors.classicReset(this.transport, EXTRA_DELAY),
+        ];
       }
     }
 
@@ -1467,6 +1515,8 @@ export class ESPLoader {
   async runStub(): Promise<ROM> {
     if (this.syncStubDetected) {
       this.info("Stub is already running. No upload is necessary.");
+      this.IS_STUB = true;
+      await this.applyUsbFlashWriteSize();
       return this.chip;
     }
 
@@ -1511,6 +1561,7 @@ export class ESPLoader {
 
     this.info("Stub running...");
     this.IS_STUB = true;
+    await this.applyUsbFlashWriteSize();
     return this.chip;
   }
 
@@ -1996,7 +2047,7 @@ export class ESPLoader {
   /**
    * Execute this function to execute after operation reset functions.
    * @param {After} mode After operation mode. Default is 'hard_reset'.
-   * @param { boolean } usingUsbOtg For 'hard_reset' to specify if using USB-OTG
+   * @param { boolean } usingUsbOtg For 'hard_reset'. When omitted, detected via usesUsbOtg()
    * @param {string} sequenceString For 'custom_reset' to specify the custom reset sequence string
    */
   async after(mode: After = "hard_reset", usingUsbOtg?: boolean, sequenceString?: string) {
@@ -2004,7 +2055,8 @@ export class ESPLoader {
       case "hard_reset":
         if (this.resetConstructors.hardReset) {
           this.info("Hard resetting via RTS pin...");
-          const hardReset = this.resetConstructors.hardReset(this.transport, usingUsbOtg);
+          const usbOtg = usingUsbOtg ?? (await this.usesUsbOtg());
+          const hardReset = this.resetConstructors.hardReset(this.transport, usbOtg);
           await hardReset.reset();
         }
         break;
