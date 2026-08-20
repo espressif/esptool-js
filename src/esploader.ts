@@ -12,6 +12,7 @@ import { After, Before } from "./types/resetModes.js";
 import { FlashFreqValues, FlashModeValues, FlashSizeValues } from "./types/arguments.js";
 import { loadFirmwareImage } from "./image/index.js";
 import { ROM_LIST } from "./targets/index.js";
+import { parseSecurityFlags, SecurityInfo } from "./types/securityInfo.js";
 
 /**
  * Callback function type for handling packets received during flash memory read operations.
@@ -21,6 +22,8 @@ import { ROM_LIST } from "./targets/index.js";
  * @param {number} totalSize - The total size of the data to be read in bytes.
  */
 export type FlashReadCallback = ((packet: Uint8Array, progress: number, totalSize: number) => void) | null;
+
+export { SecurityInfo, SECURITY_INFO_FLAG_MAP, ParsedSecurityFlags } from "./types/securityInfo.js";
 
 /**
  * Return the chip ROM based on the given magic number
@@ -168,6 +171,8 @@ export class ESPLoader {
   chip!: ROM;
   IS_STUB: boolean;
   FLASH_WRITE_SIZE: number;
+  secureDownloadMode = false;
+  private securityInfoCache: SecurityInfo | null = null;
 
   public transport: Transport;
   private baudrate: number;
@@ -642,57 +647,143 @@ export class ESPLoader {
 
     if (detecting) {
       this.info("Detecting chip type... ");
-      let chip: ROM | null = null;
-      let chipMagicValue: number | null = null;
-
-      let chipId: number | undefined = undefined;
-
-      try {
-        chipId = await this.getChipId();
-      } catch (error) {
-        this.debug("GET_SECURITY_INFO not supported, falling back to magic value");
-      }
-      for (const cls of ROM_LIST) {
-        if (chipId === cls.IMAGE_CHIP_ID) {
-          chip = cls;
-          break;
-        }
-      }
-
-      if (chip === null) {
-        chipMagicValue = (await this.readReg(this.CHIP_DETECT_MAGIC_REG_ADDR)) >>> 0;
-
-        this.debug("Chip Magic " + chipMagicValue.toString(16));
-        chip = await magic2Chip(chipMagicValue);
-      }
-
-      if (chip === null) {
-        if (chipMagicValue !== null) {
-          throw new ESPError(
-            `Unexpected CHIP magic value 0x${chipMagicValue.toString(16)}. ` + `Failed to autodetect chip type.`,
-          );
-        }
-
-        throw new ESPError("Failed to autodetect chip type.");
-      }
-      this.chip = chip;
+      await this.identifyChip(mode, attempts);
     }
   }
 
   /**
-   * Get the CHIP ID with ESP_GET_SECURITY_INFO check command.
+   * Identify the connected chip using GET_SECURITY_INFO chip-id, then magic-register fallback.
+   * @param {Before} mode Reset mode used if a reconnect is required
+   * @param {number} attempts Connection attempts used if a reconnect is required
+   */
+  private async identifyChip(mode: Before, attempts: number) {
+    let chip: ROM | null = null;
+    const errMsg = "Failed to autodetect chip type.";
+
+    try {
+      const chipId = await this.getChipId();
+      for (const cls of ROM_LIST) {
+        // ESP8266/ESP32: command unsupported; ESP32-S2: no chip-id in the payload
+        if (cls.USES_MAGIC_VALUE) {
+          continue;
+        }
+        if (chipId === cls.IMAGE_CHIP_ID) {
+          chip = cls;
+          const securityInfo = await this.getSecurityInfo();
+          this.secureDownloadMode = securityInfo.parsedFlags.SECURE_DOWNLOAD_ENABLE;
+          break;
+        }
+      }
+      if (chip === null) {
+        throw new ESPError(`Unexpected chip ID value ${chipId}. Failed to autodetect chip type.`);
+      }
+    } catch (error) {
+      if (error instanceof ESPError && error.message.startsWith("Unexpected chip ID value")) {
+        throw error;
+      }
+      this.debug("GET_SECURITY_INFO not supported, falling back to magic value");
+    }
+
+    if (chip === null) {
+      try {
+        chip = await this.chipFromMagicValue();
+      } catch (error) {
+        if (error instanceof ESPError && error.message === "unsupported command error") {
+          // ESP32-S2 supports GET_SECURITY_INFO but not magic-register reads in SDM
+          const { ESP32S2ROM } = await import("./targets/esp32s2.js");
+          chip = new ESP32S2ROM();
+          const securityInfo = await this.getSecurityInfo();
+          this.secureDownloadMode = securityInfo.parsedFlags.SECURE_DOWNLOAD_ENABLE;
+        } else if (error instanceof ESPError && error.message.startsWith("Unexpected CHIP magic value")) {
+          throw error;
+        } else {
+          this.info(" Autodetection failed, trying again...");
+          await this.transport.disconnect();
+          await this.connect(mode, attempts, false);
+          this.info("Detecting chip type... ");
+          chip = await this.chipFromMagicValue();
+        }
+      }
+    }
+
+    if (chip === null) {
+      throw new ESPError(errMsg);
+    }
+    this.chip = chip;
+  }
+
+  private async chipFromMagicValue(): Promise<ROM> {
+    const chipMagicValue = (await this.readReg(this.CHIP_DETECT_MAGIC_REG_ADDR)) >>> 0;
+    this.debug("Chip Magic " + chipMagicValue.toString(16));
+    const chip = await magic2Chip(chipMagicValue);
+    if (chip === null) {
+      throw new ESPError(
+        `Unexpected CHIP magic value 0x${chipMagicValue.toString(16)}. Failed to autodetect chip type.`,
+      );
+    }
+    return chip;
+  }
+
+  /**
+   * Read GET_SECURITY_INFO (0x14): flags, flash crypt count, key purposes, chip id, API version.
+   * Tries the 20-byte layout first (ESP32-S3 and later), then 12 bytes (ESP32-S2).
+   * @param {boolean} cache Return a previously parsed result when available
+   * @returns {Promise<SecurityInfo>} Parsed security information
+   */
+  async getSecurityInfo(cache = true): Promise<SecurityInfo> {
+    if (cache && this.securityInfoCache !== null) {
+      return this.securityInfoCache;
+    }
+
+    let res: Uint8Array;
+    let esp32s2 = false;
+    try {
+      res = (await this.checkCommand(
+        "get security info",
+        this.ESP_GET_SECURITY_INFO,
+        new Uint8Array(0),
+        0,
+        20,
+      )) as Uint8Array;
+    } catch {
+      res = (await this.checkCommand(
+        "get security info",
+        this.ESP_GET_SECURITY_INFO,
+        new Uint8Array(0),
+        0,
+        12,
+      )) as Uint8Array;
+      esp32s2 = true;
+    }
+
+    const flags = this._byteArrayToInt(res[0], res[1], res[2], res[3]) >>> 0;
+    const securityInfo: SecurityInfo = {
+      flags,
+      flashCryptCnt: res[4],
+      keyPurposes: Array.from(res.slice(5, 12)),
+      chipId: esp32s2 ? null : this._byteArrayToInt(res[12], res[13], res[14], res[15]) >>> 0,
+      apiVersion: esp32s2 ? null : this._byteArrayToInt(res[16], res[17], res[18], res[19]) >>> 0,
+      parsedFlags: parseSecurityFlags(flags),
+    };
+
+    this.securityInfoCache = securityInfo;
+    return securityInfo;
+  }
+
+  /**
+   * Get the CHIP ID from ESP_GET_SECURITY_INFO.
    * @returns {number} Chip ID number
    */
-  async getChipId(): Promise<number | undefined> {
-    const response = await this.checkCommand("get security info", this.ESP_GET_SECURITY_INFO, new Uint8Array(0));
-
-    this.debug("get_chip_id " + response.toString(16));
-
-    if (response instanceof Uint8Array && response.length > 16) {
-      const chipId = response[12] | (response[13] << 8) | (response[14] << 16) | (response[15] << 24);
-      return chipId;
+  async getChipId(): Promise<number> {
+    const chipId = (await this.getSecurityInfo()).chipId;
+    if (chipId === null) {
+      throw new ESPError(
+        "Security info command does not contain chip ID. " +
+          "This is expected for ESP32-S2 which doesn't support chip ID in security info.",
+      );
     }
-    return;
+    this.debug("get_chip_id " + chipId.toString(16));
+    return chipId;
   }
 
   /**
@@ -701,20 +792,7 @@ export class ESPLoader {
    * @param {number} attempts - Number of connection attempts
    */
   async detectChip(mode: Before = "default_reset", attempts = 7) {
-    await this.connect(mode);
-    try {
-      this.info("Detecting chip type... ");
-      const chipID = await this.getChipId();
-      for (const cls of ROM_LIST) {
-        if (chipID === cls.IMAGE_CHIP_ID) {
-          this.chip = cls;
-          break;
-        }
-      }
-    } catch (error) {
-      await this.transport.disconnect();
-      await this.connect(mode, attempts, false);
-    }
+    await this.connect(mode, attempts, true);
     if (this.chip != null) {
       this.info(this.chip.CHIP_NAME);
     } else {
@@ -1373,6 +1451,10 @@ export class ESPLoader {
    * Change the chip baudrate.
    */
   async changeBaud() {
+    if (this.secureDownloadMode) {
+      this.info("Baud rate change is not supported in secure download mode. Keeping 115200 baud.");
+      return;
+    }
     this.info("Changing baudrate to " + this.baudrate);
     const secondArg = this.IS_STUB ? this.romBaudrate : 0;
     const pkt = this._appendArray(this._intToByteArray(this.baudrate), this._intToByteArray(secondArg));

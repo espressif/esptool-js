@@ -5,6 +5,7 @@ import { MemoryMapEntry } from "./rom.js";
 export class ESP32S3ROM extends ESP32ROM {
   public CHIP_NAME = "ESP32-S3";
   public IMAGE_CHIP_ID = 9;
+  public USES_MAGIC_VALUE = false;
   public EFUSE_BASE = 0x60007000;
   public MAC_EFUSE_REG = this.EFUSE_BASE + 0x044;
   public EFUSE_BLOCK1_ADDR = this.EFUSE_BASE + 0x44;

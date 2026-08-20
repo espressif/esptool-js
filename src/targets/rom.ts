@@ -102,6 +102,11 @@ export abstract class ROM {
 
   abstract FLASH_WRITE_SIZE: number;
   IMAGE_CHIP_ID?: number; // not in esp8266, optional for other chips
+  /**
+   * True when chip type is identified from the magic register, not GET_SECURITY_INFO chip-id.
+   * ESP8266/ESP32 do not support the command; ESP32-S2 supports it but omits chip-id.
+   */
+  USES_MAGIC_VALUE = false;
   abstract SPI_MOSI_DLEN_OFFS: number; // not in esp8266
   abstract SPI_MISO_DLEN_OFFS: number; // not in esp8266
   abstract SPI_REG_BASE: number;
