@@ -1,6 +1,11 @@
 import { ESPError } from "./types/error.js";
 import { Data, deflate, Inflate } from "pako";
-import { Transport, SerialOptions } from "./webserial.js";
+import {
+  Transport,
+  SerialOptions,
+  ESPRESSIF_VID as ESPRESSIF_USB_VID,
+  USB_JTAG_SERIAL_PID as ESPRESSIF_USB_JTAG_SERIAL_PID,
+} from "./webserial.js";
 import { ROM } from "./targets/rom.js";
 import { ClassicReset, CustomReset, HardReset, ResetConstructors, ResetStrategy, UsbJtagSerialReset } from "./reset.js";
 import { getStubJsonByChipName } from "./stubFlasher.js";
@@ -159,7 +164,8 @@ export class ESPLoader {
     0x3a: "64MB",
   };
 
-  USB_JTAG_SERIAL_PID = 0x1001;
+  ESPRESSIF_VID = ESPRESSIF_USB_VID;
+  USB_JTAG_SERIAL_PID = ESPRESSIF_USB_JTAG_SERIAL_PID;
 
   chip!: ROM;
   IS_STUB: boolean;
@@ -583,6 +589,71 @@ export class ESPLoader {
     }
 
     return lastError;
+  }
+
+  /**
+   * True if the host sees this port as Espressif USB Serial/JTAG (VID/PID match).
+   * Falls back to the chip UARTDEV_BUF_NO helper when Web Serial omits IDs
+   * or the USB product ID was customized.
+   */
+  async usesUsbJtagSerial(): Promise<boolean> {
+    const vid = this.transport.getVid();
+    const pid = this.transport.getPid();
+    if (vid === this.ESPRESSIF_VID && pid === this.USB_JTAG_SERIAL_PID) {
+      return true;
+    }
+    if (vid === this.ESPRESSIF_VID && pid === this.chip.IMAGE_CHIP_ID) {
+      return false;
+    }
+    if (vid !== undefined && vid !== this.ESPRESSIF_VID) {
+      return false;
+    }
+    if (typeof this.chip.usesUsbJtagSerial === "function") {
+      return await this.chip.usesUsbJtagSerial(this);
+    }
+    return false;
+  }
+
+  /**
+   * True if the host sees this port as Espressif USB-OTG (VID/PID match).
+   * Falls back to the chip UARTDEV_BUF_NO helper when Web Serial omits IDs
+   * or the USB product ID was customized.
+   */
+  async usesUsbOtg(): Promise<boolean> {
+    const vid = this.transport.getVid();
+    const pid = this.transport.getPid();
+    if (vid === this.ESPRESSIF_VID && this.chip.IMAGE_CHIP_ID != null && pid === this.chip.IMAGE_CHIP_ID) {
+      return true;
+    }
+    if (vid === this.ESPRESSIF_VID && pid === this.USB_JTAG_SERIAL_PID) {
+      return false;
+    }
+    if (vid !== undefined && vid !== this.ESPRESSIF_VID) {
+      return false;
+    }
+    if (typeof this.chip.usesUsbOtg === "function") {
+      return await this.chip.usesUsbOtg(this);
+    }
+    if (typeof this.chip.usingUsbOtg === "function") {
+      return await this.chip.usingUsbOtg(this);
+    }
+    return false;
+  }
+
+  /**
+   * Cap FLASH_WRITE_SIZE to USB_RAM_BLOCK when the stub is talking over
+   * USB-OTG. Matches esptool.py's stub USB buffer limit; USB-Serial/JTAG
+   * and USB-UART bridges keep the 16 KB default.
+   */
+  private async applyUsbFlashWriteSize() {
+    const usbRamBlock = this.chip.USB_RAM_BLOCK;
+    if (!usbRamBlock) {
+      return;
+    }
+    if (await this.usesUsbOtg()) {
+      this.FLASH_WRITE_SIZE = usbRamBlock;
+      this.debug(`Using USB_RAM_BLOCK (0x${usbRamBlock.toString(16)}) for FLASH_WRITE_SIZE (USB-OTG)`);
+    }
   }
 
   /**
@@ -1272,6 +1343,8 @@ export class ESPLoader {
   async runStub(): Promise<ROM> {
     if (this.syncStubDetected) {
       this.info("Stub is already running. No upload is necessary.");
+      this.IS_STUB = true;
+      await this.applyUsbFlashWriteSize();
       return this.chip;
     }
 
@@ -1311,6 +1384,7 @@ export class ESPLoader {
 
     this.info("Stub running...");
     this.IS_STUB = true;
+    await this.applyUsbFlashWriteSize();
     return this.chip;
   }
 
