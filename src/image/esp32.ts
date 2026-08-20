@@ -1,8 +1,8 @@
-import { bstrToUi8, ESP_CHECKSUM_MAGIC } from "../util";
-import { alignFilePosition, BaseFirmwareImage, ELFSection, ESP_IMAGE_MAGIC, ImageSegment } from "./base";
-import { ESPError } from "../types/error";
-import { ROM } from "../targets/rom";
-import { ESP32ROM } from "../targets/esp32";
+import { bstrToUi8, ESP_CHECKSUM_MAGIC } from "../util.js";
+import { alignFilePosition, BaseFirmwareImage, ELFSection, ESP_IMAGE_MAGIC, ImageSegment } from "./base.js";
+import { ESPError } from "../types/error.js";
+import { ROM } from "../targets/rom.js";
+import { ESP32ROM } from "../targets/esp32.js";
 
 export class ESP32FirmwareImage extends BaseFirmwareImage {
   securePad: string | null = null;

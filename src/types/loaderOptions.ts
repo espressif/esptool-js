@@ -1,6 +1,6 @@
-import { ResetConstructors } from "../reset";
-import { Transport, SerialOptions } from "../webserial";
-import { IEspLoaderTerminal } from "./loaderTerminal";
+import { ResetConstructors } from "../reset.js";
+import { Transport, SerialOptions } from "../webserial.js";
+import { IEspLoaderTerminal } from "./loaderTerminal.js";
 
 /* global SerialPort */
 
