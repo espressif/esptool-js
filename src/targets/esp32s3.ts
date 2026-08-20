@@ -207,6 +207,11 @@ export class ESP32S3ROM extends ESP32ROM {
     }
   }
 
+  public async usesUsbJtagSerial(loader: ESPLoader): Promise<boolean> {
+    const bufNo = (await loader.readReg(this.UARTDEV_BUF_NO)) & 0xff;
+    return bufNo === this.UARTDEV_BUF_NO_USB;
+  }
+
   public async readMac(loader: ESPLoader) {
     let mac0 = await loader.readReg(this.MAC_EFUSE_REG);
     mac0 = mac0 >>> 0;

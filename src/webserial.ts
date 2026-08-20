@@ -1,6 +1,13 @@
 /* global SerialPort, ParityType, FlowControlType */
 
 import { sleep } from "./util";
+
+/** Espressif USB vendor ID used by native USB-Serial/JTAG and USB-OTG. */
+export const ESPRESSIF_VID = 0x303a;
+
+/** Default USB product ID for Espressif USB-Serial/JTAG. */
+export const USB_JTAG_SERIAL_PID = 0x1001;
+
 /**
  * Options for device serialPort.
  * @interface SerialOptions
@@ -96,6 +103,14 @@ class Transport {
     return info.usbVendorId && info.usbProductId
       ? `WebSerial VendorID 0x${info.usbVendorId.toString(16)} ProductID 0x${info.usbProductId.toString(16)}`
       : "";
+  }
+
+  /**
+   * Request the serial device vendor id from SerialPortInfo.
+   * @returns {number | undefined} Return the vendor ID.
+   */
+  getVid(): number | undefined {
+    return this.device.getInfo().usbVendorId;
   }
 
   /**

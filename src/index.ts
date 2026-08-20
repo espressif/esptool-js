@@ -9,7 +9,7 @@ export {
   ResetStrategy,
 } from "./reset.js";
 export { ROM } from "./targets/rom.js";
-export { Transport, SerialOptions } from "./webserial.js";
+export { Transport, SerialOptions, ESPRESSIF_VID, USB_JTAG_SERIAL_PID } from "./webserial.js";
 export { decodeBase64Data, getStubJsonByChipName, Stub } from "./stubFlasher.js";
 export { LoaderOptions } from "./types/loaderOptions.js";
 export { FlashOptions } from "./types/flashOptions.js";
