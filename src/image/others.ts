@@ -7,6 +7,7 @@ import { ESP32H2ROM } from "../targets/esp32h2";
 import { ESP32P4ROM } from "../targets/esp32p4";
 import { ESP32S2ROM } from "../targets/esp32s2";
 import { ESP32S3ROM } from "../targets/esp32s3";
+import { ESP32S31ROM } from "../targets/esp32s31";
 import { ESP32FirmwareImage } from "./esp32";
 
 export class ESP32S2FirmwareImage extends ESP32FirmwareImage {
@@ -136,5 +137,19 @@ export class ESP32H2FirmwareImage extends ESP32C6FirmwareImage {
   ) {
     super(rom, loadFile, appendDigest, ramOnlyHeader);
     this.ROM_LOADER = rom as ESP32H2ROM;
+  }
+}
+
+export class ESP32S31FirmwareImage extends ESP32FirmwareImage {
+  ROM_LOADER: ESP32S31ROM;
+
+  constructor(
+    rom: ESP32S31ROM,
+    loadFile: Uint8Array | string | null = null,
+    appendDigest = true,
+    ramOnlyHeader = false,
+  ) {
+    super(rom, loadFile, appendDigest, ramOnlyHeader);
+    this.ROM_LOADER = rom as ESP32S31ROM;
   }
 }
