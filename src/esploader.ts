@@ -173,6 +173,7 @@ export class ESPLoader {
   };
 
   USB_JTAG_SERIAL_PID = 0x1001;
+  ESPRESSIF_VID = 0x303a;
 
   chip!: ROM;
   IS_STUB: boolean;
@@ -595,6 +596,15 @@ export class ESPLoader {
   }
 
   /**
+   * True when the serial device is Espressif USB with the given product ID.
+   * @param {number} pid USB product ID to match
+   * @returns {boolean} Whether VID is Espressif and PID matches
+   */
+  isEspressifUsb(pid: number): boolean {
+    return this.transport.getVid() === this.ESPRESSIF_VID && this.transport.getPid() === pid;
+  }
+
+  /**
    * Constructs a sequence of reset strategies based on the OS,
    * used ESP chip, external settings, and environment variables.
    * Returns a tuple of one or more reset strategies to be tried sequentially.
@@ -603,7 +613,7 @@ export class ESPLoader {
    */
   constructResetSequence(mode: Before): ResetStrategy[] {
     if (mode !== "no_reset") {
-      if (mode === "usb_reset" || this.transport.getPid() === this.USB_JTAG_SERIAL_PID) {
+      if (mode === "usb_reset" || this.isEspressifUsb(this.USB_JTAG_SERIAL_PID)) {
         // Custom reset sequence, which is required when the device
         // is connecting via its USB-JTAG-Serial peripheral
         if (this.resetConstructors.usbJTAGSerialReset) {
@@ -633,6 +643,7 @@ export class ESPLoader {
    * @param {number} attempts - Number of connection attempts
    */
   private async openAndSync(mode: Before, attempts: number) {
+    this.securityInfoCache = null;
     let resp;
     this.info("Connecting...", false);
     await this.transport.connect(this.romBaudrate, this.serialOptions);
@@ -676,7 +687,6 @@ export class ESPLoader {
       }
       this.info(" Autodetection failed, trying again...");
       await this.transport.disconnect();
-      this.securityInfoCache = null;
       await this.openAndSync(mode, attempts);
       this.info("Detecting chip type... ");
       this.applyDetectedChip(await this.identifyChipByMagic());
@@ -1456,14 +1466,19 @@ export class ESPLoader {
       return this.chip;
     }
 
-    this.info("Uploading stub...");
+    if (this.secureDownloadMode) {
+      this.info("Stub flasher is not supported in Secure Download Mode, it has been disabled.");
+      return this.chip;
+    }
+
     const chipRevision = this.chip.getChipRevision ? await this.chip.getChipRevision(this) : undefined;
     const stubFlasher = await getStubJsonByChipName(this.chip.CHIP_NAME, chipRevision);
     if (stubFlasher === undefined) {
-      this.debug("Error loading Stub json");
-      throw new Error("Error loading Stub json");
+      this.info(`Stub flasher is not yet supported on ${this.chip.CHIP_NAME}, it has been disabled.`);
+      return this.chip;
     }
 
+    this.info("Uploading stub...");
     const stub = [stubFlasher.decodedText, stubFlasher.decodedData];
 
     for (let i = 0; i < stub.length; i++) {
@@ -1511,6 +1526,7 @@ export class ESPLoader {
     this.info("If the chip does not respond to any further commands, consider using a lower baud rate.");
     await sleep(50);
     await this.transport.disconnect();
+    this.securityInfoCache = null;
     await sleep(50);
     await this.transport.connect(this.baudrate, this.serialOptions);
     await sleep(50);
@@ -1525,19 +1541,29 @@ export class ESPLoader {
   async main(mode: Before = "default_reset") {
     await this.detectChip(mode);
 
-    const chip = await this.chip.getChipDescription(this);
-    if (this.chip.getChipRevision) {
-      const chipRevision = await this.chip.getChipRevision(this);
-      this.info("Chip Revision: " + chipRevision);
-    }
-    this.info("Chip is " + chip);
-    this.info("Features: " + (await this.chip.getChipFeatures(this)));
-    this.info("Crystal is " + (await this.chip.getCrystalFreq(this)) + "MHz");
-    this.info("MAC: " + (await this.chip.readMac(this)));
-    await this.chip.readMac(this);
+    let chip: string;
+    if (this.secureDownloadMode) {
+      this.info(
+        "WARNING: Connected chip is in Secure Download Mode. " +
+          "Register reads (chip description, features, MAC) are not supported.",
+      );
+      chip = this.chip.CHIP_NAME;
+      this.info("Chip is " + chip);
+    } else {
+      chip = await this.chip.getChipDescription(this);
+      if (this.chip.getChipRevision) {
+        const chipRevision = await this.chip.getChipRevision(this);
+        this.info("Chip Revision: " + chipRevision);
+      }
+      this.info("Chip is " + chip);
+      this.info("Features: " + (await this.chip.getChipFeatures(this)));
+      this.info("Crystal is " + (await this.chip.getCrystalFreq(this)) + "MHz");
+      this.info("MAC: " + (await this.chip.readMac(this)));
+      await this.chip.readMac(this);
 
-    if (typeof this.chip.postConnect != "undefined") {
-      await this.chip.postConnect(this);
+      if (typeof this.chip.postConnect != "undefined") {
+        await this.chip.postConnect(this);
+      }
     }
 
     await this.runStub();
@@ -1546,17 +1572,19 @@ export class ESPLoader {
       await this.changeBaud();
     }
 
-    // Check flash chip connection
-    try {
-      const flashId = await this.readFlashId();
-      this.info("Flash ID: " + flashId.toString(16));
-      if (flashId === 0xffffff || flashId === 0x000000) {
-        this.info(
-          `WARNING: Failed to communicate with the flash chip,\nread/write operations will fail.\nTry checking the chip connections or removing\nany other hardware connected to IOs.`,
-        );
+    if (!this.secureDownloadMode) {
+      // Check flash chip connection (SPI register ops are unsupported in SDM)
+      try {
+        const flashId = await this.readFlashId();
+        this.info("Flash ID: " + flashId.toString(16));
+        if (flashId === 0xffffff || flashId === 0x000000) {
+          this.info(
+            `WARNING: Failed to communicate with the flash chip,\nread/write operations will fail.\nTry checking the chip connections or removing\nany other hardware connected to IOs.`,
+          );
+        }
+      } catch (error) {
+        throw new ESPError("Unable to verify flash chip connection " + error);
       }
-    } catch (error) {
-      throw new ESPError("Unable to verify flash chip connection " + error);
     }
     return chip;
   }
