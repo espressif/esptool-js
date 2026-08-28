@@ -398,7 +398,7 @@ export class ESP32P4ROM extends ESP32ROM {
    */
   public async powerOnFlash(loader: ESPLoader) {
     if (loader.secureDownloadMode) {
-      throw new Error("Powering on flash in secure download mode");
+      throw new Error("Powering on flash in secure download mode is not allowed.");
     }
 
     const chipRev = await this.getChipRevision(loader);

@@ -29,8 +29,6 @@ import { parseSecurityFlags, SecurityInfo } from "./types/securityInfo.js";
  */
 export type FlashReadCallback = ((packet: Uint8Array, progress: number, totalSize: number) => void) | null;
 
-export { SecurityInfo, SECURITY_INFO_FLAG_MAP, ParsedSecurityFlags } from "./types/securityInfo.js";
-
 /**
  * Return the chip ROM based on the given magic number
  * @param {number} magic - magic hex number to select ROM.
