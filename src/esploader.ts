@@ -1,4 +1,10 @@
-import { ESPError } from "./types/error.js";
+import {
+  ESPError,
+  MissingChipIdError,
+  UnexpectedChipIdError,
+  UnexpectedChipMagicError,
+  UnsupportedCommandError,
+} from "./types/error.js";
 import { Data, deflate, Inflate } from "pako";
 import { Transport, SerialOptions } from "./webserial.js";
 import { ROM } from "./targets/rom.js";
@@ -11,12 +17,15 @@ import { FlashOptions } from "./types/flashOptions.js";
 import { After, Before } from "./types/resetModes.js";
 import { FlashFreqValues, FlashModeValues, FlashSizeValues } from "./types/arguments.js";
 import { loadFirmwareImage } from "./image/index.js";
+import { CHIP_DEFS, ROM_LIST } from "./targets/index.js";
+import { parseSecurityFlags, SecurityInfo } from "./types/securityInfo.js";
 
 /**
- * Flash read callback function type
- * @param {Uint8Array} packet - Packet data
- * @param {number} progress - Progress number
- * @param {number} totalSize - Total size number
+ * Callback function type for handling packets received during flash memory read operations.
+ * @callback FlashReadCallback
+ * @param {Uint8Array} packet - The data packet received from the flash memory.
+ * @param {number} progress - The current progress of the read operation in bytes.
+ * @param {number} totalSize - The total size of the data to be read in bytes.
  */
 export type FlashReadCallback = ((packet: Uint8Array, progress: number, totalSize: number) => void) | null;
 
@@ -106,6 +115,8 @@ export class ESPLoader {
   ESP_FLASH_DEFL_END = 0x12;
   ESP_SPI_FLASH_MD5 = 0x13;
 
+  ESP_GET_SECURITY_INFO = 0x14;
+
   // Only Stub supported commands
   ESP_ERASE_FLASH = 0xd0;
   ESP_ERASE_REGION = 0xd1;
@@ -160,10 +171,13 @@ export class ESPLoader {
   };
 
   USB_JTAG_SERIAL_PID = 0x1001;
+  ESPRESSIF_VID = 0x303a;
 
   chip!: ROM;
   IS_STUB: boolean;
   FLASH_WRITE_SIZE: number;
+  secureDownloadMode = false;
+  private securityInfoCache: SecurityInfo | null = null;
 
   public transport: Transport;
   private baudrate: number;
@@ -393,7 +407,7 @@ export class ESPLoader {
           return [val, data];
         } else if (data[0] != 0 && data[1] == this.ROM_INVALID_RECV_MSG) {
           this.transport.flushInput();
-          throw new ESPError("unsupported command error");
+          throw new UnsupportedCommandError();
         }
       }
     }
@@ -586,6 +600,15 @@ export class ESPLoader {
   }
 
   /**
+   * True when the serial device is Espressif USB with the given product ID.
+   * @param {number} pid USB product ID to match
+   * @returns {boolean} Whether VID is Espressif and PID matches
+   */
+  isEspressifUsb(pid: number): boolean {
+    return this.transport.getVid() === this.ESPRESSIF_VID && this.transport.getPid() === pid;
+  }
+
+  /**
    * Constructs a sequence of reset strategies based on the OS,
    * used ESP chip, external settings, and environment variables.
    * Returns a tuple of one or more reset strategies to be tried sequentially.
@@ -594,7 +617,7 @@ export class ESPLoader {
    */
   constructResetSequence(mode: Before): ResetStrategy[] {
     if (mode !== "no_reset") {
-      if (mode === "usb_reset" || this.transport.getPid() === this.USB_JTAG_SERIAL_PID) {
+      if (mode === "usb_reset" || this.isEspressifUsb(this.USB_JTAG_SERIAL_PID)) {
         // Custom reset sequence, which is required when the device
         // is connecting via its USB-JTAG-Serial peripheral
         if (this.resetConstructors.usbJTAGSerialReset) {
@@ -618,12 +641,13 @@ export class ESPLoader {
   }
 
   /**
-   * Perform a connection to chip.
-   * @param {string} mode - Reset mode to use. Example: 'default_reset' | 'no_reset'
+   * Open the serial port and sync with the ROM bootloader.
+   * Does not identify the chip.
+   * @param {Before} mode - Reset mode to use. Example: 'default_reset' | 'no_reset'
    * @param {number} attempts - Number of connection attempts
-   * @param {boolean} detecting - Detect the connected chip
    */
-  async connect(mode: Before = "default_reset", attempts = 7, detecting = true) {
+  private async openAndSync(mode: Before, attempts: number) {
+    this.securityInfoCache = null;
     let resp;
     this.info("Connecting...", false);
     await this.transport.connect(this.romBaudrate, this.serialOptions);
@@ -641,32 +665,200 @@ export class ESPLoader {
     }
     this.debug("Connect attempt successful.");
     this.info("\n\r", false);
+  }
 
-    if (detecting) {
-      const chipMagicValue = (await this.readReg(this.CHIP_DETECT_MAGIC_REG_ADDR)) >>> 0;
-      this.debug("Chip Magic " + chipMagicValue.toString(16));
-      const chip = await magic2Chip(chipMagicValue);
+  /**
+   * Perform a connection to chip.
+   * @param {string} mode - Reset mode to use. Example: 'default_reset' | 'no_reset'
+   * @param {number} attempts - Number of connection attempts
+   * @param {boolean} detecting - Detect the connected chip
+   */
+  async connect(mode: Before = "default_reset", attempts = 7, detecting = true) {
+    await this.openAndSync(mode, attempts);
+    if (!detecting) {
+      return;
+    }
+
+    this.info("Detecting chip type... ");
+    try {
+      this.applyDetectedChip(await this.identifyChip());
+    } catch (error) {
+      if (error instanceof UnexpectedChipIdError || error instanceof UnexpectedChipMagicError) {
+        throw error;
+      }
+      if (!(error instanceof ESPError)) {
+        throw error;
+      }
+      this.info(" Autodetection failed, trying again...");
+      await this.transport.disconnect();
+      await this.openAndSync(mode, attempts);
+      this.info("Detecting chip type... ");
+      this.applyDetectedChip(await this.identifyChipByMagic());
+    }
+  }
+
+  /**
+   * Identify the connected chip using GET_SECURITY_INFO chip-id, then magic-register fallback.
+   * @returns {Promise<ROM>} Detected chip ROM
+   */
+  private async identifyChip(): Promise<ROM> {
+    try {
+      const chipId = await this.getChipId();
+      const chip = this.romFromChipId(chipId);
       if (chip === null) {
-        throw new ESPError(
-          `Unexpected CHIP magic value 0x${chipMagicValue.toString(16)}. Failed to autodetect chip type.`,
-        );
+        throw new UnexpectedChipIdError(chipId);
+      }
+      await this.readSecureDownloadMode();
+      return chip;
+    } catch (error) {
+      if (error instanceof UnexpectedChipIdError) {
+        throw error;
+      }
+      if (error instanceof UnsupportedCommandError || error instanceof MissingChipIdError) {
+        this.debug("GET_SECURITY_INFO not supported, falling back to magic value");
       } else {
-        this.chip = chip;
+        throw error;
       }
     }
+    return this.identifyChipByMagic();
+  }
+
+  /**
+   * Map a GET_SECURITY_INFO chip ID to a registered ROM instance.
+   * @param {number} chipId Chip ID from GET_SECURITY_INFO
+   * @returns {ROM | null} Matching ROM, or null if the ID is unknown
+   */
+  private romFromChipId(chipId: number): ROM | null {
+    for (const cls of ROM_LIST) {
+      // ESP8266/ESP32: command unsupported; ESP32-S2: no chip-id in the payload
+      if (cls.USES_MAGIC_VALUE) {
+        continue;
+      }
+      if (chipId === cls.IMAGE_CHIP_ID) {
+        return cls;
+      }
+    }
+    return null;
+  }
+
+  /**
+   * Read GET_SECURITY_INFO flags and update secure download mode.
+   * @returns {Promise<boolean>} Whether secure download mode is enabled
+   */
+  private async readSecureDownloadMode(): Promise<boolean> {
+    const securityInfo = await this.getSecurityInfo();
+    this.secureDownloadMode = securityInfo.parsedFlags.SECURE_DOWNLOAD_ENABLE;
+    return this.secureDownloadMode;
+  }
+
+  /**
+   * Identify the chip from the magic register, or ESP32-S2 in secure download mode.
+   * @returns {Promise<ROM>} Detected chip ROM
+   */
+  private async identifyChipByMagic(): Promise<ROM> {
+    try {
+      return await this.chipFromMagicValue();
+    } catch (error) {
+      if (error instanceof UnsupportedCommandError) {
+        // ESP32-S2 supports GET_SECURITY_INFO but not magic-register reads in SDM
+        await this.readSecureDownloadMode();
+        return CHIP_DEFS.esp32s2;
+      }
+      throw error;
+    }
+  }
+
+  /**
+   * Store the detected ROM on the loader.
+   * @param {ROM} chip Detected chip ROM
+   */
+  private applyDetectedChip(chip: ROM) {
+    this.chip = chip;
+    if (chip.SPI_ADDR_REG_MSB !== undefined) {
+      this.SPI_ADDR_REG_MSB = chip.SPI_ADDR_REG_MSB;
+    }
+  }
+
+  private async chipFromMagicValue(): Promise<ROM> {
+    const chipMagicValue = (await this.readReg(this.CHIP_DETECT_MAGIC_REG_ADDR)) >>> 0;
+    this.debug("Chip Magic " + chipMagicValue.toString(16));
+    const chip = await magic2Chip(chipMagicValue);
+    if (chip === null) {
+      throw new UnexpectedChipMagicError(chipMagicValue);
+    }
+    return chip;
+  }
+
+  /**
+   * Read GET_SECURITY_INFO (0x14): flags, flash crypt count, key purposes, chip id, API version.
+   * Tries the 20-byte layout first (ESP32-S3 and later), then 12 bytes (ESP32-S2).
+   * @param {boolean} cache Return a previously parsed result when available
+   * @returns {Promise<SecurityInfo>} Parsed security information
+   */
+  async getSecurityInfo(cache = true): Promise<SecurityInfo> {
+    if (cache && this.securityInfoCache !== null) {
+      return this.securityInfoCache;
+    }
+
+    let res: Uint8Array;
+    let esp32s2 = false;
+    try {
+      res = (await this.checkCommand(
+        "get security info",
+        this.ESP_GET_SECURITY_INFO,
+        new Uint8Array(0),
+        0,
+        20,
+      )) as Uint8Array;
+    } catch {
+      res = (await this.checkCommand(
+        "get security info",
+        this.ESP_GET_SECURITY_INFO,
+        new Uint8Array(0),
+        0,
+        12,
+      )) as Uint8Array;
+      esp32s2 = true;
+    }
+
+    const flags = this._byteArrayToInt(res[0], res[1], res[2], res[3]) >>> 0;
+    const securityInfo: SecurityInfo = {
+      flags,
+      flashCryptCnt: res[4],
+      keyPurposes: Array.from(res.slice(5, 12)),
+      chipId: esp32s2 ? null : this._byteArrayToInt(res[12], res[13], res[14], res[15]) >>> 0,
+      apiVersion: esp32s2 ? null : this._byteArrayToInt(res[16], res[17], res[18], res[19]) >>> 0,
+      parsedFlags: parseSecurityFlags(flags),
+    };
+
+    this.securityInfoCache = securityInfo;
+    return securityInfo;
+  }
+
+  /**
+   * Get the CHIP ID from ESP_GET_SECURITY_INFO.
+   * @returns {number} Chip ID number
+   */
+  async getChipId(): Promise<number> {
+    const chipId = (await this.getSecurityInfo()).chipId;
+    if (chipId === null) {
+      throw new MissingChipIdError();
+    }
+    this.debug("get_chip_id " + chipId.toString(16));
+    return chipId;
   }
 
   /**
    * Connect and detect the existing chip.
    * @param {string} mode Reset mode to use for connection.
+   * @param {number} attempts - Number of connection attempts
    */
-  async detectChip(mode: Before = "default_reset") {
-    await this.connect(mode);
-    this.info("Detecting chip type... ", false);
+  async detectChip(mode: Before = "default_reset", attempts = 7) {
+    await this.connect(mode, attempts, true);
     if (this.chip != null) {
       this.info(this.chip.CHIP_NAME);
     } else {
-      this.info("unknown!");
+      this.info("unknown chip! detectchip has failed.");
     }
   }
 
@@ -1227,11 +1419,14 @@ export class ESPLoader {
   }
 
   /**
-   * Read flash memory from the chip.
-   * @param {number} addr Address number
-   * @param {number} size Package size
-   * @param {FlashReadCallback} onPacketReceived Callback function to call when packet is received
-   * @returns {Uint8Array} Flash read data
+   * Read data from flash memory of the chip.
+   * This function reads a specified amount of data from the flash memory starting at a given address.
+   * It sends a read command to the chip and processes the response packets until the requested size is read.
+   * @param {number} addr - The starting address in flash memory to read from.
+   * @param {number} size - The number of bytes to read from flash memory.
+   * @param {FlashReadCallback} onPacketReceived - Optional callback function to handle each received packet.
+   * @returns {Promise<Uint8Array>} A promise that resolves to the data read from flash memory as a Uint8Array.
+   * @throws {ESPError} If the read operation fails or an unexpected response is received.
    */
   async readFlash(addr: number, size: number, onPacketReceived: FlashReadCallback = null) {
     let pkt = this._appendArray(this._intToByteArray(addr), this._intToByteArray(size));
@@ -1275,14 +1470,19 @@ export class ESPLoader {
       return this.chip;
     }
 
-    this.info("Uploading stub...");
+    if (this.secureDownloadMode) {
+      this.info("Stub flasher is not supported in Secure Download Mode, it has been disabled.");
+      return this.chip;
+    }
+
     const chipRevision = this.chip.getChipRevision ? await this.chip.getChipRevision(this) : undefined;
     const stubFlasher = await getStubJsonByChipName(this.chip.CHIP_NAME, chipRevision);
     if (stubFlasher === undefined) {
-      this.debug("Error loading Stub json");
-      throw new Error("Error loading Stub json");
+      this.info(`Stub flasher is not yet supported on ${this.chip.CHIP_NAME}, it has been disabled.`);
+      return this.chip;
     }
 
+    this.info("Uploading stub...");
     const stub = [stubFlasher.decodedText, stubFlasher.decodedData];
 
     for (let i = 0; i < stub.length; i++) {
@@ -1318,6 +1518,10 @@ export class ESPLoader {
    * Change the chip baudrate.
    */
   async changeBaud() {
+    if (this.secureDownloadMode) {
+      this.info("Baud rate change is not supported in secure download mode. Keeping 115200 baud.");
+      return;
+    }
     this.info("Changing baudrate to " + this.baudrate);
     const secondArg = this.IS_STUB ? this.romBaudrate : 0;
     const pkt = this._appendArray(this._intToByteArray(this.baudrate), this._intToByteArray(secondArg));
@@ -1326,6 +1530,7 @@ export class ESPLoader {
     this.info("If the chip does not respond to any further commands, consider using a lower baud rate.");
     await sleep(50);
     await this.transport.disconnect();
+    this.securityInfoCache = null;
     await sleep(50);
     await this.transport.connect(this.baudrate, this.serialOptions);
     await sleep(50);
@@ -1340,19 +1545,29 @@ export class ESPLoader {
   async main(mode: Before = "default_reset") {
     await this.detectChip(mode);
 
-    const chip = await this.chip.getChipDescription(this);
-    if (this.chip.getChipRevision) {
-      const chipRevision = await this.chip.getChipRevision(this);
-      this.info("Chip Revision: " + chipRevision);
-    }
-    this.info("Chip is " + chip);
-    this.info("Features: " + (await this.chip.getChipFeatures(this)));
-    this.info("Crystal is " + (await this.chip.getCrystalFreq(this)) + "MHz");
-    this.info("MAC: " + (await this.chip.readMac(this)));
-    await this.chip.readMac(this);
+    let chip: string;
+    if (this.secureDownloadMode) {
+      this.info(
+        "WARNING: Connected chip is in Secure Download Mode. " +
+          "Register reads (chip description, features, MAC) are not supported.",
+      );
+      chip = this.chip.CHIP_NAME;
+      this.info("Chip is " + chip);
+    } else {
+      chip = await this.chip.getChipDescription(this);
+      if (this.chip.getChipRevision) {
+        const chipRevision = await this.chip.getChipRevision(this);
+        this.info("Chip Revision: " + chipRevision);
+      }
+      this.info("Chip is " + chip);
+      this.info("Features: " + (await this.chip.getChipFeatures(this)));
+      this.info("Crystal is " + (await this.chip.getCrystalFreq(this)) + "MHz");
+      this.info("MAC: " + (await this.chip.readMac(this)));
+      await this.chip.readMac(this);
 
-    if (typeof this.chip.postConnect != "undefined") {
-      await this.chip.postConnect(this);
+      if (typeof this.chip.postConnect != "undefined") {
+        await this.chip.postConnect(this);
+      }
     }
 
     await this.runStub();
@@ -1361,17 +1576,19 @@ export class ESPLoader {
       await this.changeBaud();
     }
 
-    // Check flash chip connection
-    try {
-      const flashId = await this.readFlashId();
-      this.info("Flash ID: " + flashId.toString(16));
-      if (flashId === 0xffffff || flashId === 0x000000) {
-        this.info(
-          `WARNING: Failed to communicate with the flash chip,\nread/write operations will fail.\nTry checking the chip connections or removing\nany other hardware connected to IOs.`,
-        );
+    if (!this.secureDownloadMode) {
+      // Check flash chip connection (SPI register ops are unsupported in SDM)
+      try {
+        const flashId = await this.readFlashId();
+        this.info("Flash ID: " + flashId.toString(16));
+        if (flashId === 0xffffff || flashId === 0x000000) {
+          this.info(
+            `WARNING: Failed to communicate with the flash chip,\nread/write operations will fail.\nTry checking the chip connections or removing\nany other hardware connected to IOs.`,
+          );
+        }
+      } catch (error) {
+        throw new ESPError("Unable to verify flash chip connection " + error);
       }
-    } catch (error) {
-      throw new ESPError("Unable to verify flash chip connection " + error);
     }
     return chip;
   }

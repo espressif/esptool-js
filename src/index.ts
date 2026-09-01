@@ -1,5 +1,14 @@
 export { ESPLoader, FlashReadCallback } from "./esploader.js";
 export {
+  ESPError,
+  TimeoutError,
+  UnsupportedCommandError,
+  UnexpectedChipIdError,
+  UnexpectedChipMagicError,
+  MissingChipIdError,
+} from "./types/error.js";
+export { SecurityInfo, SECURITY_INFO_FLAG_MAP, ParsedSecurityFlags } from "./types/securityInfo.js";
+export {
   ClassicReset,
   CustomReset,
   HardReset,

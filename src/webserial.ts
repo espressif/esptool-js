@@ -99,6 +99,14 @@ class Transport {
   }
 
   /**
+   * Request the serial device vendor id from SerialPortInfo.
+   * @returns {number | undefined} Return the vendor ID.
+   */
+  getVid(): number | undefined {
+    return this.device.getInfo().usbVendorId;
+  }
+
+  /**
    * Request the serial device product id from SerialPortInfo.
    * @returns {number | undefined} Return the product ID.
    */

@@ -171,9 +171,9 @@ export class ESP32P4ROM extends ESP32ROM {
   public async getStubJsonPath(loader: ESPLoader): Promise<string> {
     const chipRevision = await this.getChipRevision(loader);
     if (chipRevision < 300) {
-      return "./targets/stub_flasher/stub_flasher_32p4rc1.json";
+      return "./targets/stub_flasher/esp32p4-rev1.json";
     } else {
-      return "./targets/stub_flasher/stub_flasher_32p4.json";
+      return "./targets/stub_flasher/esp32p4.json";
     }
   }
 
@@ -271,11 +271,9 @@ export class ESP32P4ROM extends ESP32ROM {
    * @returns {boolean} True if USB-JTAG/Serial is being used, false otherwise.
    */
   public async usesUsbJtagSerial(loader: ESPLoader): Promise<boolean> {
-    // Can't detect USB-JTAG/Serial in secure download mode
-    // Note: secure_download_mode check would need to be added to ESPLoader if needed
-    // if (loader.secureDownloadMode) {
-    //   return false;
-    // }
+    if (loader.secureDownloadMode) {
+      return false;
+    }
     const uartBufNoAddr = await this.getUartdevBufNo(loader);
     const uartNo = (await loader.readReg(uartBufNoAddr)) & 0xff;
     return uartNo === this.UARTDEV_BUF_NO_USB_JTAG_SERIAL;
@@ -399,10 +397,9 @@ export class ESP32P4ROM extends ESP32ROM {
    * @param {ESPLoader} loader - Loader class to communicate with chip.
    */
   public async powerOnFlash(loader: ESPLoader) {
-    // Note: secure_download_mode check would need to be added to ESPLoader if needed
-    // if (loader.secureDownloadMode) {
-    //   throw new Error("Powering on flash in secure download mode");
-    // }
+    if (loader.secureDownloadMode) {
+      throw new Error("Powering on flash in secure download mode is not allowed.");
+    }
 
     const chipRev = await this.getChipRevision(loader);
     if (chipRev <= 300) {
