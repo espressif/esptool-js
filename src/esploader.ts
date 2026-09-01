@@ -6,10 +6,7 @@ import {
   UnsupportedCommandError,
 } from "./types/error.js";
 import { Data, deflate, Inflate } from "pako";
-import {
-  Transport,
-  SerialOptions,
-} from "./webserial.js";
+import { Transport, SerialOptions } from "./webserial.js";
 import { ROM } from "./targets/rom.js";
 import { ClassicReset, CustomReset, HardReset, ResetConstructors, ResetStrategy, UsbJtagSerialReset } from "./reset.js";
 import { getStubJsonByChipName } from "./stubFlasher.js";
