@@ -65,7 +65,8 @@ async function magic2Chip(magic: number): Promise<ROM | null> {
     }
     case 0x1101406f:
     case 0x63e1406f:
-    case 0x5fd1406f: {
+    case 0x5fd1406f:
+    case 0x30e1706f: {
       const { ESP32C5ROM } = await import("./targets/esp32c5.js");
       return new ESP32C5ROM();
     }
