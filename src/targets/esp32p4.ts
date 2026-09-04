@@ -331,7 +331,7 @@ export class ESP32P4ROM extends ESP32ROM {
    * @param {ESPLoader} loader - Loader class to communicate with chip.
    */
   public async postConnect(loader: ESPLoader) {
-    if (await this.usesUsbOtg(loader)) {
+    if (await loader.usesUsbOtg()) {
       loader.ESP_RAM_BLOCK = this.USB_RAM_BLOCK;
     }
     // Disable watchdogs if not in stub mode (stub manages its own watchdogs)

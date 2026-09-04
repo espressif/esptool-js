@@ -1,6 +1,7 @@
 /* global SerialPort, ParityType, FlowControlType */
 
 import { sleep } from "./util";
+
 /**
  * Options for device serialPort.
  * @interface SerialOptions

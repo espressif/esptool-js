@@ -1,4 +1,4 @@
-export { ESPLoader, FlashReadCallback } from "./esploader.js";
+export { ESPLoader, FlashReadCallback, ESPRESSIF_VID, USB_JTAG_SERIAL_PID } from "./esploader.js";
 export {
   ESPError,
   TimeoutError,
