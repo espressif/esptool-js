@@ -79,13 +79,11 @@ export class ClassicReset implements ResetStrategy {
   }
 
   async reset() {
-    await this.transport.setDTR(false);
-    await this.transport.setRTS(true);
+    await this.transport.setSignals(false, true);
     await sleep(100);
-    await this.transport.setDTR(true);
-    await this.transport.setRTS(false);
+    await this.transport.setSignals(true, false);
     await sleep(this.resetDelay);
-    await this.transport.setDTR(false);
+    await this.transport.setSignals(false, false);
   }
 }
 
