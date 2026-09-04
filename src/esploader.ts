@@ -406,7 +406,9 @@ export class ESPLoader {
         if (op == null || opRet == op) {
           return [val, data];
         } else if (data[0] != 0 && data[1] == this.ROM_INVALID_RECV_MSG) {
-          this.transport.flushInput();
+          // The ROM repeats an unsupported command response 8 times; flushing
+          // alone leaves the rest in flight, desyncing the next command.
+          await this.transport.drainInput();
           throw new UnsupportedCommandError();
         }
       }
@@ -810,7 +812,11 @@ export class ESPLoader {
         0,
         20,
       )) as Uint8Array;
-    } catch {
+    } catch (error) {
+      if (error instanceof UnsupportedCommandError) {
+        // ESP8266 and ESP32 have no such command, let the caller fall back
+        throw error;
+      }
       res = (await this.checkCommand(
         "get security info",
         this.ESP_GET_SECURITY_INFO,
