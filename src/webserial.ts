@@ -1,5 +1,6 @@
 /* global SerialPort, ParityType, FlowControlType */
 
+import { ESPError } from "./types/error";
 import { sleep } from "./util";
 /**
  * Options for device serialPort.
@@ -268,6 +269,26 @@ class Transport {
     this.buffer = new Uint8Array(0);
   }
 
+  /**
+   * Actively drain the input buffer: wait for in-flight bytes to arrive
+   * (the ROM repeats an unsupported command response 8 times) and discard them.
+   * Flushing alone only drops the bytes already buffered.
+   * @param {number} quietMs Time without new bytes before considering the stream drained
+   * @param {number} maxMs Upper bound on the total wait
+   */
+  async drainInput(quietMs = 100, maxMs = 400) {
+    const deadline = Date.now() + maxMs;
+    let lastLength = -1;
+    while (Date.now() < deadline && this.buffer.length !== lastLength) {
+      lastLength = this.buffer.length;
+      await sleep(quietMs);
+    }
+    if (this.tracing) {
+      this.trace(`Drained ${this.buffer.length} bytes from serial buffer`);
+    }
+    this.flushInput();
+  }
+
   async flushOutput() {
     try {
       if (this.device.writable) {
@@ -346,7 +367,7 @@ class Transport {
         if (this.tracing) {
           this.trace(msg);
         }
-        throw new Error(msg);
+        throw new ESPError(msg);
       }
 
       if (this.tracing) {
@@ -367,7 +388,7 @@ class Transport {
               this.trace(`Remaining data in serial buffer: ${this.hexConvert(remainingData)}`);
             }
             this.detectPanicHandler(new Uint8Array([...readBytes, ...(remainingData || [])]));
-            throw new Error(`Invalid head of packet (0x${byte.toString(16)}): Possible serial noise or corruption.`);
+            throw new ESPError(`Invalid head of packet (0x${byte.toString(16)}): Possible serial noise or corruption.`);
           }
         } else if (isEscaping) {
           isEscaping = false;
@@ -384,7 +405,7 @@ class Transport {
               this.trace(`Remaining data in serial buffer: ${this.hexConvert(remainingData)}`);
             }
             this.detectPanicHandler(new Uint8Array([...readBytes, ...(remainingData || [])]));
-            throw new Error(`Invalid SLIP escape (0xdb, 0x${byte.toString(16)})`);
+            throw new ESPError(`Invalid SLIP escape (0xdb, 0x${byte.toString(16)})`);
           }
         } else if (byte === this.SLIP_ESC) {
           isEscaping = true;
