@@ -1556,19 +1556,29 @@ export class ESPLoader {
     this.info("Changed");
     this.info("If the chip does not respond to any further commands, consider using a lower baud rate.");
     await sleep(50);
-    await this.transport.disconnect();
     this.securityInfoCache = null;
-    await sleep(50);
-    await this.transport.connect(this.baudrate, this.serialOptions, true);
-    await sleep(50);
-    this.transport.readLoop();
+
+    let portReopened = false;
+    let baudChangeError: unknown;
+    try {
+      portReopened = await this.transport.changeBaudrate(this.baudrate, this.serialOptions);
+    } catch (error) {
+      baudChangeError = error;
+      this.debug(`Host baud-rate change failed: ${error}`);
+    }
     await this.transport.drainInput();
 
-    if (await this.isResponsive()) {
+    if (!baudChangeError && (await this.isResponsive())) {
       return;
     }
 
-    this.info(`The board reset while the serial port was reopened. Continuing at ${this.romBaudrate} baud.`);
+    if (baudChangeError) {
+      this.info(`Unable to use ${this.baudrate} baud. Continuing at ${this.romBaudrate} baud.`);
+    } else if (portReopened) {
+      this.info(`The board reset while the serial port was reopened. Continuing at ${this.romBaudrate} baud.`);
+    } else {
+      this.info(`The board stopped responding after changing baud rate. Continuing at ${this.romBaudrate} baud.`);
+    }
     await this.transport.disconnect();
     await sleep(50);
     this.baudrate = this.romBaudrate;
