@@ -6,9 +6,14 @@
 
 - `detectFlashSize()` now returns `undefined` when the SPI flash ID cannot be read or mapped, instead of silently defaulting to `"4MB"`. TypeScript callers must handle `undefined`; JavaScript callers no longer always receive a string.
 
+### Added
+
+- `LoaderOptions.romBaudrate` (default 115200). Set it equal to `baudrate` to skip the post-stub port reopen.
+
 ### Fixed
 
 - `writeFlash` throws if `fileArray[].data` is not a `Uint8Array`, instead of passing a binary string into `deflate` and corrupting the image ([#266](https://github.com/espressif/esptool-js/issues/266)).
+- After a baud-rate change, drain leftover serial data and probe the chip. If reopening the Web Serial port reset the board (common on CH340-class adapters), fall back to the ROM baud rate and re-run the stub instead of failing with `Invalid head of packet`. Control lines are restored after reopen as a best-effort measure.
 - `writeFlash({ flashSize: "detect" })` resolves the flash size (via `detectFlashSize()`) before the bounds check, so `"detect"` is no longer treated as size `-1` ([#254](https://github.com/espressif/esptool-js/issues/254)). Detection runs for every file in the write, not only a boot image at `BOOTLOADER_FLASH_OFFSET`.
 - ESP32-C6, C5, C61, and H2 use `SPI_REG_BASE = 0x60003000`, matching esptool. Flash ID reads on those chips no longer return `0` ([#217](https://github.com/espressif/esptool-js/issues/217)).
 - ESP32-P4: `postConnect()` now runs `powerOnFlash()`, which was implemented but never called. On ECO6/ECO7 silicon (revisions v3.1 and v3.2) the flash is powered off by default, so the flash ID read returned garbage and the first flash command hung the stub. ECO7 parts with the `DOWNLOAD_MODE_XPD_ON` eFuse programmed release the ROM's flash force-on state instead of repeating the power-up sequence, matching esptool.

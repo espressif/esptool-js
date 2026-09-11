@@ -206,6 +206,9 @@ export class ESPLoader {
 
     this.transport = options.transport;
     this.baudrate = options.baudrate;
+    if (typeof options.romBaudrate !== "undefined") {
+      this.romBaudrate = options.romBaudrate;
+    }
     this.resetConstructors = {
       classicReset: (transport, resetDelay) => new ClassicReset(transport, resetDelay),
       customReset: (transport, sequenceString) => new CustomReset(transport, sequenceString),
@@ -1521,6 +1524,24 @@ export class ESPLoader {
   }
 
   /**
+   * Probe whether the chip still answers a register read.
+   * Used after a baud-rate port reopen; sync() is unsuitable because the stub
+   * answers SYNC once, not eight times like the ROM.
+   */
+  private async isResponsive(attempts = 2): Promise<boolean> {
+    for (let i = 0; i < attempts; i++) {
+      try {
+        await this.readReg(this.CHIP_DETECT_MAGIC_REG_ADDR, 500);
+        return true;
+      } catch (error) {
+        this.debug(`Responsiveness probe failed: ${error}`);
+        this.transport.flushInput();
+      }
+    }
+    return false;
+  }
+
+  /**
    * Change the chip baudrate.
    */
   async changeBaud() {
@@ -1538,9 +1559,22 @@ export class ESPLoader {
     await this.transport.disconnect();
     this.securityInfoCache = null;
     await sleep(50);
-    await this.transport.connect(this.baudrate, this.serialOptions);
+    await this.transport.connect(this.baudrate, this.serialOptions, true);
     await sleep(50);
     this.transport.readLoop();
+    await this.transport.drainInput();
+
+    if (await this.isResponsive()) {
+      return;
+    }
+
+    this.info(`The board reset while the serial port was reopened. Continuing at ${this.romBaudrate} baud.`);
+    await this.transport.disconnect();
+    await sleep(50);
+    this.baudrate = this.romBaudrate;
+    this.IS_STUB = false;
+    await this.connect("default_reset", 7, false);
+    await this.runStub();
   }
 
   /**
