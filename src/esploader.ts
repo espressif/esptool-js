@@ -310,16 +310,6 @@ export class ESPLoader {
   }
 
   /**
-   * Convert a byte array to short integer.
-   * @param {number} i - Number to convert.
-   * @param {number} j - Number to convert.
-   * @returns {number} Return a short integer number.
-   */
-  _byteArrayToShort(i: number, j: number) {
-    return i | (j >> 8);
-  }
-
-  /**
    * Convert a byte array to integer.
    * @param {number} i - Number to convert.
    * @param {number} j - Number to convert.
@@ -333,19 +323,6 @@ export class ESPLoader {
 
   /**
    * Append a buffer array after another buffer array
-   * @param {ArrayBuffer} buffer1 - First array buffer.
-   * @param {ArrayBuffer} buffer2 - magic hex number to select ROM.
-   * @returns {ArrayBufferLike} Return an array buffer.
-   */
-  _appendBuffer(buffer1: ArrayBuffer, buffer2: ArrayBuffer) {
-    const tmp = new Uint8Array(buffer1.byteLength + buffer2.byteLength);
-    tmp.set(new Uint8Array(buffer1), 0);
-    tmp.set(new Uint8Array(buffer2), buffer1.byteLength);
-    return tmp.buffer;
-  }
-
-  /**
-   * Append a buffer array after another buffer array
    * @param {Uint8Array} arr1 - First array buffer.
    * @param {Uint8Array} arr2 - magic hex number to select ROM.
    * @returns {Uint8Array} Return a 8 bit unsigned array.
@@ -355,32 +332,6 @@ export class ESPLoader {
     c.set(arr1, 0);
     c.set(arr2, arr1.length);
     return c;
-  }
-
-  /**
-   * Convert a unsigned 8 bit integer array to byte string.
-   * @param {Uint8Array} u8Array - magic hex number to select ROM.
-   * @returns {string} Return the equivalent string.
-   */
-  ui8ToBstr(u8Array: Uint8Array) {
-    let bStr = "";
-    for (let i = 0; i < u8Array.length; i++) {
-      bStr += String.fromCharCode(u8Array[i]);
-    }
-    return bStr;
-  }
-
-  /**
-   * Convert a byte string to unsigned 8 bit integer array.
-   * @param {string} bStr - binary string input
-   * @returns {Uint8Array} Return a 8 bit unsigned integer array.
-   */
-  bstrToUi8(bStr: string) {
-    const u8Array = new Uint8Array(bStr.length);
-    for (let i = 0; i < bStr.length; i++) {
-      u8Array[i] = bStr.charCodeAt(i);
-    }
-    return u8Array;
   }
 
   /**
@@ -1770,6 +1721,12 @@ export class ESPLoader {
    */
   async writeFlash(options: FlashOptions) {
     this.debug("EspLoader program");
+
+    for (let i = 0; i < options.fileArray.length; i++) {
+      if (!(options.fileArray[i].data instanceof Uint8Array)) {
+        throw new ESPError(`File ${i + 1} data must be a Uint8Array`);
+      }
+    }
 
     let resolvedFlashSize: FlashSizeValues = options.flashSize;
     if (options.flashSize === "detect") {

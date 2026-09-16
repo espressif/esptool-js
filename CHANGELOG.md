@@ -8,6 +8,7 @@
 
 ### Fixed
 
+- `writeFlash` throws if `fileArray[].data` is not a `Uint8Array`, instead of passing a binary string into `deflate` and corrupting the image ([#266](https://github.com/espressif/esptool-js/issues/266)).
 - `writeFlash({ flashSize: "detect" })` resolves the flash size (via `detectFlashSize()`) before the bounds check, so `"detect"` is no longer treated as size `-1` ([#254](https://github.com/espressif/esptool-js/issues/254)). Detection runs for every file in the write, not only a boot image at `BOOTLOADER_FLASH_OFFSET`.
 - ESP32-C6, C5, C61, and H2 use `SPI_REG_BASE = 0x60003000`, matching esptool. Flash ID reads on those chips no longer return `0` ([#217](https://github.com/espressif/esptool-js/issues/217)).
 
