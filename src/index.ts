@@ -25,4 +25,4 @@ export { FlashOptions } from "./types/flashOptions.js";
 export { IEspLoaderTerminal } from "./types/loaderTerminal.js";
 export { Before, After } from "./types/resetModes.js";
 export { FlashModeValues, FlashSizeValues, FlashFreqValues } from "./types/arguments.js";
-export { bstrToUi8 } from "./util.js"
+export { bstrToUi8 } from "./util.js";
