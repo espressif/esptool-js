@@ -268,9 +268,7 @@ export class ESP32S2ROM extends ESP32ROM {
   }
 
   public async postConnect(loader: ESPLoader) {
-    const usingUsbOtg = await this.usingUsbOtg(loader);
-    loader.debug("In _post_connect using USB OTG ?" + usingUsbOtg);
-    if (usingUsbOtg) {
+    if (await loader.usesUsbOtg()) {
       loader.ESP_RAM_BLOCK = this.USB_RAM_BLOCK;
     }
   }

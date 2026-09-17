@@ -173,7 +173,7 @@ export class ESP32E22ROM extends ESP32ROM {
   }
 
   public async postConnect(loader: ESPLoader): Promise<void> {
-    if (loader.isEspressifUsb(this.IMAGE_CHIP_ID)) {
+    if (await loader.usesUsbOtg()) {
       loader.ESP_RAM_BLOCK = this.USB_RAM_BLOCK;
     }
   }

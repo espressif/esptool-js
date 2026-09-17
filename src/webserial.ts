@@ -2,6 +2,7 @@
 
 import { ESPError } from "./types/error";
 import { sleep } from "./util";
+
 /**
  * Options for device serialPort.
  * @interface SerialOptions
