@@ -52,6 +52,16 @@ export interface SerialOptions {
 }
 
 /**
+ * Optional capability exposed by serial-port implementations which can change
+ * baud rate without closing the port. This is not part of the Web Serial API,
+ * but can be implemented by WebUSB adapters using device-specific control
+ * transfers.
+ */
+export interface BaudRateConfigurablePort extends SerialPort {
+  setBaudRate?: (baudRate: number) => Promise<void>;
+}
+
+/**
  * Wrapper class around Webserial API to communicate with the serial device.
  * @param {typeof import("w3c-web-serial").SerialPort} device - Requested device prompted by the browser.
  *
@@ -471,12 +481,14 @@ class Transport {
   }
 
   _DTR_state = false;
+  _RTS_state = false;
   /**
    * Send the RequestToSend (RTS) signal to given state
    * # True for EN=LOW, chip in reset and False EN=HIGH, chip out of reset
    * @param {boolean} state Boolean state to set the signal
    */
   async setRTS(state: boolean) {
+    this._RTS_state = state;
     await this.device.setSignals({ requestToSend: state });
     // # Work-around for adapters on Windows using the usbser.sys driver:
     // # generate a dummy change to DTR so that the set-control-line-state
@@ -499,8 +511,11 @@ class Transport {
    * Connect to serial device using the Webserial open method.
    * @param {number} baud Number baud rate for serial connection. Default is 115200.
    * @param {typeof import("w3c-web-serial").SerialOptions} serialOptions Serial Options for WebUSB SerialPort class.
+   * @param {boolean} restoreSignals Re-apply last DTR/RTS after open. macOS/Linux assert
+   *   both on open, which can pulse EN/IO0; this is best-effort and does not prevent
+   *   reboot on every adapter.
    */
-  async connect(baud = 115200, serialOptions: SerialOptions = {}) {
+  async connect(baud = 115200, serialOptions: SerialOptions = {}, restoreSignals = false) {
     await this.device.open({
       baudRate: baud,
       dataBits: serialOptions?.dataBits,
@@ -510,6 +525,45 @@ class Transport {
       flowControl: serialOptions?.flowControl,
     });
     this.baudrate = baud;
+    if (restoreSignals) {
+      try {
+        await this.device.setSignals({
+          dataTerminalReady: this._DTR_state,
+          requestToSend: this._RTS_state,
+        });
+      } catch (error) {
+        this.trace(`Could not restore control signals after reopen: ${error}`);
+      }
+    }
+  }
+
+  /**
+   * Change the host-side baud rate, preferring an in-place capability when the
+   * serial-port implementation provides one.
+   * @param {number} baud New baud rate.
+   * @param {SerialOptions} serialOptions Options to preserve when a reopen is required.
+   * @returns {boolean} True when the port had to be closed and reopened.
+   */
+  async changeBaudrate(baud: number, serialOptions: SerialOptions = {}): Promise<boolean> {
+    const configurableDevice = this.device as BaudRateConfigurablePort;
+    if (typeof configurableDevice.setBaudRate === "function") {
+      if (this.tracing) {
+        this.trace(`Changing host baud rate to ${baud} in place`);
+      }
+      await configurableDevice.setBaudRate(baud);
+      this.baudrate = baud;
+      return false;
+    }
+
+    if (this.tracing) {
+      this.trace(`Reopening serial port at ${baud} baud`);
+    }
+    await this.disconnect();
+    await sleep(50);
+    await this.connect(baud, serialOptions, true);
+    await sleep(50);
+    this.readLoop();
+    return true;
   }
 
   /**
