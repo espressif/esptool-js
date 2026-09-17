@@ -11,6 +11,7 @@
 - `writeFlash` throws if `fileArray[].data` is not a `Uint8Array`, instead of passing a binary string into `deflate` and corrupting the image ([#266](https://github.com/espressif/esptool-js/issues/266)).
 - `writeFlash({ flashSize: "detect" })` resolves the flash size (via `detectFlashSize()`) before the bounds check, so `"detect"` is no longer treated as size `-1` ([#254](https://github.com/espressif/esptool-js/issues/254)). Detection runs for every file in the write, not only a boot image at `BOOTLOADER_FLASH_OFFSET`.
 - ESP32-C6, C5, C61, and H2 use `SPI_REG_BASE = 0x60003000`, matching esptool. Flash ID reads on those chips no longer return `0` ([#217](https://github.com/espressif/esptool-js/issues/217)).
+- ESP32-P4: `postConnect()` now runs `powerOnFlash()`, which was implemented but never called. On ECO6/ECO7 silicon (revisions v3.1 and v3.2) the flash is powered off by default, so the flash ID read returned garbage and the first flash command hung the stub. ECO7 parts with the `DOWNLOAD_MODE_XPD_ON` eFuse programmed release the ROM's flash force-on state instead of repeating the power-up sequence, matching esptool.
 
 ## [v0.6.1](https://github.com/espressif/esptool-js/releases/tag/v0.6.1) - 2026-08-06
 

@@ -55,8 +55,10 @@ export class ESP32P4ROM extends ESP32ROM {
   public EFUSE_DIS_DOWNLOAD_MANUAL_ENCRYPT_REG = this.EFUSE_RD_REG_BASE;
   public EFUSE_DIS_DOWNLOAD_MANUAL_ENCRYPT = 1 << 20;
 
-  public EFUSE_SPI_BOOT_CRYPT_CNT_REG = this.EFUSE_BASE + 0x034;
+  public EFUSE_RD_REPEAT_DATA1_REG = this.EFUSE_BASE + 0x034;
+  public EFUSE_SPI_BOOT_CRYPT_CNT_REG = this.EFUSE_RD_REPEAT_DATA1_REG;
   public EFUSE_SPI_BOOT_CRYPT_CNT_MASK = 0x7 << 18;
+  public EFUSE_DOWNLOAD_MODE_XPD_ON_MASK = 0x1 << 16;
 
   public EFUSE_SECURE_BOOT_EN_REG = this.EFUSE_BASE + 0x038;
   public EFUSE_SECURE_BOOT_EN_MASK = 1 << 20;
@@ -87,6 +89,8 @@ export class ESP32P4ROM extends ESP32ROM {
   public PMU_0P1A_TARGET0_0 = 0xff << 23;
   public PMU_0P1A_FORCE_TIEH_SEL_0 = 1 << 7;
   public PMU_DATE_REG = this.DR_REG_PMU_BASE + 0x3fc;
+  // Flash "force on" (XPD) control bits inside PMU_DATE_REG
+  public PMU_DATE_FLASH_FORCE_ON = 0x3;
 
   // The value from UARTDEV_BUF_NO when USB-OTG is used
   public UARTDEV_BUF_NO_USB_OTG = 5;
@@ -340,6 +344,9 @@ export class ESP32P4ROM extends ESP32ROM {
     if (!loader.IS_STUB) {
       await this.disableWatchdogs(loader);
     }
+    if (!loader.secureDownloadMode) {
+      await this.powerOnFlash(loader); // Needs to be powered on before the flash is attached
+    }
   }
 
   /**
@@ -402,11 +409,30 @@ export class ESP32P4ROM extends ESP32ROM {
     }
 
     const chipRev = await this.getChipRevision(loader);
-    if (chipRev <= 300) {
-      // <=ECO5: The flash chip is powered off by default on >=ECO6, when the default flash
-      // voltage changed from 1.8V to 3.3V. This is to prevent damage to 1.8V flash
-      // chips. Board designers must set the appropriate voltage level in eFuse.
+    // Flash defaults off on ECO6/ECO7 after the 1.8V -> 3.3V default change, to prevent
+    // damage to 1.8V flash chips. Board designers must set the appropriate voltage level
+    // in eFuse. Other silicon revisions do not need this sequence.
+    if (chipRev !== 301 && chipRev !== 302) {
       return;
+    }
+
+    if (chipRev === 302) {
+      const efuseRepeatData1 = await loader.readReg(this.EFUSE_RD_REPEAT_DATA1_REG);
+      if (efuseRepeatData1 & this.EFUSE_DOWNLOAD_MODE_XPD_ON_MASK) {
+        // ECO7 ROM bug: on a cold power-on, ROM can assert flash XPD (force the flash
+        // supply/pads on) and the first download session works. A subsequent entry into
+        // ROM download mode over USB-UART reset leaves the flash already powered, but ROM
+        // still runs the same "turn flash XPD on" path. That path is not safe to run twice
+        // while flash is already on, so the second attach/download can fail.
+        //
+        // Release the force-on state before the loader attaches the SPI flash, leaving the
+        // rest of the register intact.
+        const date = await loader.readReg(this.PMU_DATE_REG);
+        if ((date & this.PMU_DATE_FLASH_FORCE_ON) === this.PMU_DATE_FLASH_FORCE_ON) {
+          await loader.writeReg(this.PMU_DATE_REG, date & ~this.PMU_DATE_FLASH_FORCE_ON);
+        }
+        return;
+      }
     }
 
     // Power up pad group
@@ -421,8 +447,8 @@ export class ESP32P4ROM extends ESP32ROM {
     await loader.writeReg(this.PMU_EXT_LDO_P0_0P1A_REG, regValue | this.PMU_0P1A_FORCE_TIEH_SEL_0);
 
     regValue = await loader.readReg(this.PMU_DATE_REG);
-    await loader.writeReg(this.PMU_DATE_REG, regValue | (3 << 0));
-    await new Promise((resolve) => setTimeout(resolve, 50)); // 0.05 seconds = 50ms
+    await loader.writeReg(this.PMU_DATE_REG, regValue | this.PMU_DATE_FLASH_FORCE_ON);
+    await new Promise((resolve) => setTimeout(resolve, 1)); // esptool waits 50us, 1ms is the shortest timer here
 
     regValue = await loader.readReg(this.PMU_EXT_LDO_P0_0P1A_ANA_REG);
     await loader.writeReg(this.PMU_EXT_LDO_P0_0P1A_ANA_REG, regValue & ~this.PMU_ANA_0P1A_EN_CUR_LIM_0);
@@ -436,6 +462,6 @@ export class ESP32P4ROM extends ESP32ROM {
 
     regValue = await loader.readReg(this.PMU_EXT_LDO_P0_0P1A_REG);
     await loader.writeReg(this.PMU_EXT_LDO_P0_0P1A_REG, regValue & ~this.PMU_0P1A_FORCE_TIEH_SEL_0);
-    await new Promise((resolve) => setTimeout(resolve, 1800)); // 1.8 seconds = 1800ms
+    await new Promise((resolve) => setTimeout(resolve, 2)); // 1.8ms for the supply to settle
   }
 }
