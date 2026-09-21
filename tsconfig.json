@@ -1,6 +1,6 @@
 {
   "compilerOptions": {
-    "module": "ES2020",
+    "module": "ESNext",
     "target": "ES2019",
     "declaration": true,
     "allowSyntheticDefaultImports": true,
