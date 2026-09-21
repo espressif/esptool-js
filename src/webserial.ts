@@ -481,14 +481,12 @@ class Transport {
   }
 
   _DTR_state = false;
-  _RTS_state = false;
   /**
    * Send the RequestToSend (RTS) signal to given state
    * # True for EN=LOW, chip in reset and False EN=HIGH, chip out of reset
    * @param {boolean} state Boolean state to set the signal
    */
   async setRTS(state: boolean) {
-    this._RTS_state = state;
     await this.device.setSignals({ requestToSend: state });
     // # Work-around for adapters on Windows using the usbser.sys driver:
     // # generate a dummy change to DTR so that the set-control-line-state
@@ -511,11 +509,8 @@ class Transport {
    * Connect to serial device using the Webserial open method.
    * @param {number} baud Number baud rate for serial connection. Default is 115200.
    * @param {typeof import("w3c-web-serial").SerialOptions} serialOptions Serial Options for WebUSB SerialPort class.
-   * @param {boolean} restoreSignals Re-apply last DTR/RTS after open. macOS/Linux assert
-   *   both on open, which can pulse EN/IO0; this is best-effort and does not prevent
-   *   reboot on every adapter.
    */
-  async connect(baud = 115200, serialOptions: SerialOptions = {}, restoreSignals = false) {
+  async connect(baud = 115200, serialOptions: SerialOptions = {}) {
     await this.device.open({
       baudRate: baud,
       dataBits: serialOptions?.dataBits,
@@ -525,16 +520,6 @@ class Transport {
       flowControl: serialOptions?.flowControl,
     });
     this.baudrate = baud;
-    if (restoreSignals) {
-      try {
-        await this.device.setSignals({
-          dataTerminalReady: this._DTR_state,
-          requestToSend: this._RTS_state,
-        });
-      } catch (error) {
-        this.trace(`Could not restore control signals after reopen: ${error}`);
-      }
-    }
   }
 
   /**
@@ -560,7 +545,7 @@ class Transport {
     }
     await this.disconnect();
     await sleep(50);
-    await this.connect(baud, serialOptions, true);
+    await this.connect(baud, serialOptions);
     await sleep(50);
     this.readLoop();
     return true;
