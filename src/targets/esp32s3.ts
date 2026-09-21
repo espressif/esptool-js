@@ -5,6 +5,7 @@ import { MemoryMapEntry } from "./rom.js";
 export class ESP32S3ROM extends ESP32ROM {
   public CHIP_NAME = "ESP32-S3";
   public IMAGE_CHIP_ID = 9;
+  public USES_MAGIC_VALUE = false;
   public EFUSE_BASE = 0x60007000;
   public MAC_EFUSE_REG = this.EFUSE_BASE + 0x044;
   public EFUSE_BLOCK1_ADDR = this.EFUSE_BASE + 0x44;
@@ -200,11 +201,14 @@ export class ESP32S3ROM extends ESP32ROM {
   }
 
   public async postConnect(loader: ESPLoader) {
-    const bufNo = (await loader.readReg(this.UARTDEV_BUF_NO)) & 0xff;
-    loader.debug("In _post_connect " + bufNo);
-    if (bufNo == this.UARTDEV_BUF_NO_USB) {
+    if (await loader.usesUsbOtg()) {
       loader.ESP_RAM_BLOCK = this.USB_RAM_BLOCK;
     }
+  }
+
+  public async usesUsbJtagSerial(loader: ESPLoader): Promise<boolean> {
+    const bufNo = (await loader.readReg(this.UARTDEV_BUF_NO)) & 0xff;
+    return bufNo === this.UARTDEV_BUF_NO_USB;
   }
 
   public async readMac(loader: ESPLoader) {

@@ -68,6 +68,21 @@ export abstract class ROM {
   postConnect?(loader: ESPLoader): Promise<void>;
 
   /**
+   * True if the ROM is talking over USB-OTG (UARTDEV_BUF_NO fallback).
+   */
+  usesUsbOtg?(loader: ESPLoader): Promise<boolean>;
+
+  /**
+   * True if the ROM is talking over USB-OTG (ESP32-S2 naming).
+   */
+  usingUsbOtg?(loader: ESPLoader): Promise<boolean>;
+
+  /**
+   * True if the ROM is talking over USB-Serial/JTAG (UARTDEV_BUF_NO fallback).
+   */
+  usesUsbJtagSerial?(loader: ESPLoader): Promise<boolean>;
+
+  /**
    * Get the chip erase size.
    * @param {number} offset - Offset to start erase.
    * @param {number} size - Size to erase.
@@ -101,7 +116,14 @@ export abstract class ROM {
   // abstract EFUSE_RD_REG_BASE: number; //esp32
 
   abstract FLASH_WRITE_SIZE: number;
-  // abstract IMAGE_CHIP_ID: number; // not in esp8266
+  IMAGE_CHIP_ID?: number; // not in esp8266, optional for other chips
+  /**
+   * True when chip type is identified from the magic register, not GET_SECURITY_INFO chip-id.
+   * ESP8266/ESP32 do not support the command; ESP32-S2 supports it but omits chip-id.
+   */
+  USES_MAGIC_VALUE = false;
+  SPI_ADDR_REG_MSB?: boolean;
+  USB_RAM_BLOCK?: number; // max SLIP payload over native USB (USB-OTG / USB-Serial/JTAG)
   abstract SPI_MOSI_DLEN_OFFS: number; // not in esp8266
   abstract SPI_MISO_DLEN_OFFS: number; // not in esp8266
   abstract SPI_REG_BASE: number;

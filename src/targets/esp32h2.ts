@@ -15,7 +15,7 @@ export class ESP32H2ROM extends ESP32C6ROM {
   public FLASH_WRITE_SIZE = 0x400;
   public BOOTLOADER_FLASH_OFFSET = 0x0;
 
-  public SPI_REG_BASE = 0x60002000;
+  public SPI_REG_BASE = 0x60003000;
   public SPI_USR_OFFS = 0x18;
   public SPI_USR1_OFFS = 0x1c;
   public SPI_USR2_OFFS = 0x20;
@@ -92,6 +92,11 @@ export class ESP32H2ROM extends ESP32C6ROM {
     if (bufNo == this.UARTDEV_BUF_NO_USB) {
       loader.ESP_RAM_BLOCK = this.USB_RAM_BLOCK;
     }
+  }
+
+  public async usesUsbJtagSerial(loader: ESPLoader): Promise<boolean> {
+    const bufNo = (await loader.readReg(this.UARTDEV_BUF_NO)) & 0xff;
+    return bufNo === this.UARTDEV_BUF_NO_USB;
   }
 
   public async readMac(loader: ESPLoader) {

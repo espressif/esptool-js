@@ -4,6 +4,7 @@ import { MemoryMapEntry, ROM } from "./rom.js";
 export class ESP32ROM extends ROM {
   public CHIP_NAME = "ESP32";
   public IMAGE_CHIP_ID = 0;
+  public USES_MAGIC_VALUE = true;
   public EFUSE_RD_REG_BASE = 0x3ff5a000;
   public DR_REG_SYSCON_BASE = 0x3ff66000;
   public UART_CLKDIV_REG = 0x3ff40014;

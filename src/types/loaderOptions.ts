@@ -34,6 +34,14 @@ export interface LoaderOptions {
   baudrate: number;
 
   /**
+   * Baud rate used to talk to the ROM bootloader before the stub is running.
+   * Set equal to `baudrate` to skip the port reopen entirely, which avoids
+   * rebooting boards whose EN/IO0 lines are disturbed by reopening the port.
+   * @type {number}
+   */
+  romBaudrate?: number;
+
+  /**
    * An optional terminal interface to interact with the loader during the process.
    * @type {IEspLoaderTerminal}
    */

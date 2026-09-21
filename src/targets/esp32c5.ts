@@ -35,10 +35,10 @@ export class ESP32C5ROM extends ESP32C6ROM {
   public EFUSE_DIS_DOWNLOAD_MANUAL_ENCRYPT = 1 << 20;
 
   public EFUSE_SPI_BOOT_CRYPT_CNT_REG = this.EFUSE_BASE + 0x034;
-  public EFUSE_SPI_BOOT_CRYPT_CNT_MASK = 0x7 << 18;
+  public EFUSE_SPI_BOOT_CRYPT_CNT_MASK = 0x7 << 16;
 
   public EFUSE_SECURE_BOOT_EN_REG = this.EFUSE_BASE + 0x038;
-  public EFUSE_SECURE_BOOT_EN_MASK = 1 << 20;
+  public EFUSE_SECURE_BOOT_EN_MASK = 1 << 25;
 
   public IROM_MAP_START = 0x42000000;
   public IROM_MAP_END = 0x44000000;
@@ -54,7 +54,7 @@ export class ESP32C5ROM extends ESP32C6ROM {
   public UARTDEV_BUF_NO = 0x4085f514; // Variable in ROM .bss which indicates the port in use
 
   // Magic value for ESP32C5
-  public CHIP_DETECT_MAGIC_VALUE = [0x1101406f, 0x63e1406f, 0x5fd1406f];
+  public CHIP_DETECT_MAGIC_VALUE = [0x1101406f, 0x63e1406f, 0x5fd1406f, 0x30e1706f];
 
   public FLASH_FREQUENCY = {
     "80m": 0xf,
@@ -221,13 +221,10 @@ export class ESP32C5ROM extends ESP32C6ROM {
   }
 
   public async changeBaud(loader: ESPLoader): Promise<void> {
-    // Note: secure_download_mode check would need to be added to ESPLoader if needed
-    // if (loader.secureDownloadMode) {
-    //   loader.info(
-    //     "Baud rate change is not supported in secure download mode. " + "Keeping 115200 baud.",
-    //   );
-    //   return;
-    // }
+    if (loader.secureDownloadMode) {
+      loader.info("Baud rate change is not supported in secure download mode. " + "Keeping 115200 baud.");
+      return;
+    }
     if (!loader.IS_STUB) {
       const crystalFreqRomExpect = await this.getCrystalFreqRomExpect(loader);
       const crystalFreqDetect = await this.getCrystalFreq(loader);

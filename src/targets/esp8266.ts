@@ -3,6 +3,7 @@ import { MemoryMapEntry, ROM } from "./rom.js";
 
 export class ESP8266ROM extends ROM {
   public CHIP_NAME = "ESP8266";
+  public USES_MAGIC_VALUE = true;
   public CHIP_DETECT_MAGIC_VALUE = [0xfff0c101];
   public EFUSE_RD_REG_BASE = 0x3ff00050;
   public UART_CLKDIV_REG = 0x60000014;
