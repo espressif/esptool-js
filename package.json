@@ -41,6 +41,7 @@
     "@types/atob-lite": "^2.0.2",
     "@types/pako": "^2.0.0",
     "@types/w3c-web-serial": "^1.0.3",
+    "@types/w3c-web-usb": "^1.0.10",
     "@typescript-eslint/eslint-plugin": "^5.43.0",
     "@typescript-eslint/parser": "^5.43.0",
     "babel-loader": "^9.1.0",

@@ -206,6 +206,9 @@ export class ESPLoader {
 
     this.transport = options.transport;
     this.baudrate = options.baudrate;
+    if (typeof options.romBaudrate !== "undefined") {
+      this.romBaudrate = options.romBaudrate;
+    }
     this.resetConstructors = {
       classicReset: (transport, resetDelay) => new ClassicReset(transport, resetDelay),
       customReset: (transport, sequenceString) => new CustomReset(transport, sequenceString),
@@ -1521,6 +1524,24 @@ export class ESPLoader {
   }
 
   /**
+   * Probe whether the chip still answers a register read.
+   * Used after a baud-rate port reopen; sync() is unsuitable because the stub
+   * answers SYNC once, not eight times like the ROM.
+   */
+  private async isResponsive(attempts = 2): Promise<boolean> {
+    for (let i = 0; i < attempts; i++) {
+      try {
+        await this.readReg(this.CHIP_DETECT_MAGIC_REG_ADDR, 500);
+        return true;
+      } catch (error) {
+        this.debug(`Responsiveness probe failed: ${error}`);
+        this.transport.flushInput();
+      }
+    }
+    return false;
+  }
+
+  /**
    * Change the chip baudrate.
    */
   async changeBaud() {
@@ -1535,12 +1556,35 @@ export class ESPLoader {
     this.info("Changed");
     this.info("If the chip does not respond to any further commands, consider using a lower baud rate.");
     await sleep(50);
-    await this.transport.disconnect();
     this.securityInfoCache = null;
+
+    let portReopened = false;
+    let baudChangeError: unknown;
+    try {
+      portReopened = await this.transport.changeBaudrate(this.baudrate, this.serialOptions);
+    } catch (error) {
+      baudChangeError = error;
+      this.debug(`Host baud-rate change failed: ${error}`);
+    }
+    await this.transport.drainInput();
+
+    if (!baudChangeError && (await this.isResponsive())) {
+      return;
+    }
+
+    if (baudChangeError) {
+      this.info(`Unable to use ${this.baudrate} baud. Continuing at ${this.romBaudrate} baud.`);
+    } else if (portReopened) {
+      this.info(`The board reset while the serial port was reopened. Continuing at ${this.romBaudrate} baud.`);
+    } else {
+      this.info(`The board stopped responding after changing baud rate. Continuing at ${this.romBaudrate} baud.`);
+    }
+    await this.transport.disconnect();
     await sleep(50);
-    await this.transport.connect(this.baudrate, this.serialOptions);
-    await sleep(50);
-    this.transport.readLoop();
+    this.baudrate = this.romBaudrate;
+    this.IS_STUB = false;
+    await this.connect("default_reset", 7, false);
+    await this.runStub();
   }
 
   /**

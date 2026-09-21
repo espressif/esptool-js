@@ -27,6 +27,14 @@
                 <input class="form-check-input" type="checkbox" id="debugLogging" value="">
                 <label class="form-check-label" for="debugLogging">Show Debug log</label>
             </div>
+            <div class="form-check form-check-inline">
+                <input class="form-check-input" type="checkbox" id="useWebUsb" value="">
+                <label class="form-check-label" for="useWebUsb">WebUSB (CH340)</label>
+            </div>
+            <p style="max-width:720px;margin:8px auto 0;font-size:12px;color:#555">
+              On macOS, Windows, and Linux the kernel usbserial driver often claims CH340, so WebUSB
+              <code>claimInterface</code> fails unless the driver is unbound. Android/Chrome OTG is the reliable WebUSB case.
+            </p>
           </div>
         <div class="container" id="main">
             <hr/>
