@@ -1,7 +1,7 @@
 /* global SerialPort, ParityType, FlowControlType */
 
-import { ESPError } from "./types/error";
-import { sleep } from "./util";
+import { ESPError } from "./types/error.js";
+import { sleep } from "./util.js";
 
 /**
  * Options for device serialPort.

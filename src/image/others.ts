@@ -1,17 +1,17 @@
-import { ESP32C2ROM } from "../targets/esp32c2";
-import { ESP32C3ROM } from "../targets/esp32c3";
-import { ESP32C5ROM } from "../targets/esp32c5";
-import { ESP32C6ROM } from "../targets/esp32c6";
-import { ESP32C61ROM } from "../targets/esp32c61";
-import { ESP32E22ROM } from "../targets/esp32e22";
-import { ESP32H2ROM } from "../targets/esp32h2";
-import { ESP32H21ROM } from "../targets/esp32h21";
-import { ESP32H4ROM } from "../targets/esp32h4";
-import { ESP32P4ROM } from "../targets/esp32p4";
-import { ESP32S2ROM } from "../targets/esp32s2";
-import { ESP32S3ROM } from "../targets/esp32s3";
-import { ESP32S31ROM } from "../targets/esp32s31";
-import { ESP32FirmwareImage } from "./esp32";
+import { ESP32C2ROM } from "../targets/esp32c2.js";
+import { ESP32C3ROM } from "../targets/esp32c3.js";
+import { ESP32C5ROM } from "../targets/esp32c5.js";
+import { ESP32C6ROM } from "../targets/esp32c6.js";
+import { ESP32C61ROM } from "../targets/esp32c61.js";
+import { ESP32E22ROM } from "../targets/esp32e22.js";
+import { ESP32H2ROM } from "../targets/esp32h2.js";
+import { ESP32H21ROM } from "../targets/esp32h21.js";
+import { ESP32H4ROM } from "../targets/esp32h4.js";
+import { ESP32P4ROM } from "../targets/esp32p4.js";
+import { ESP32S2ROM } from "../targets/esp32s2.js";
+import { ESP32S3ROM } from "../targets/esp32s3.js";
+import { ESP32S31ROM } from "../targets/esp32s31.js";
+import { ESP32FirmwareImage } from "./esp32.js";
 
 export class ESP32S2FirmwareImage extends ESP32FirmwareImage {
   ROM_LOADER: ESP32S2ROM;

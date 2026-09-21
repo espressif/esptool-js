@@ -1,6 +1,6 @@
-import { ESPLoader } from "../esploader";
-import { ESP32C6ROM } from "./esp32c6";
-import { MemoryMapEntry } from "./rom";
+import { ESPLoader } from "../esploader.js";
+import { ESP32C6ROM } from "./esp32c6.js";
+import { MemoryMapEntry } from "./rom.js";
 
 export class ESP32C61ROM extends ESP32C6ROM {
   public CHIP_NAME = "ESP32-C61";

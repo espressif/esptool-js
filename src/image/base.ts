@@ -1,7 +1,7 @@
-import { ESP8266ROM } from "../targets/esp8266";
-import { ROM } from "../targets/rom";
-import { ESPError } from "../types/error";
-import { checksum, ESP_CHECKSUM_MAGIC, padTo } from "../util";
+import { ESP8266ROM } from "../targets/esp8266.js";
+import { ROM } from "../targets/rom.js";
+import { ESPError } from "../types/error.js";
+import { checksum, ESP_CHECKSUM_MAGIC, padTo } from "../util.js";
 
 export const ESP_IMAGE_MAGIC = 0xe9;
 

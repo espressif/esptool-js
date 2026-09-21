@@ -1,6 +1,6 @@
-import { ESP8266ROM } from "../targets/esp8266";
-import { bstrToUi8 } from "../util";
-import { BaseFirmwareImage, ESP_IMAGE_MAGIC } from "./base";
+import { ESP8266ROM } from "../targets/esp8266.js";
+import { bstrToUi8 } from "../util.js";
+import { BaseFirmwareImage, ESP_IMAGE_MAGIC } from "./base.js";
 
 export class ESP8266ROMFirmwareImage extends BaseFirmwareImage {
   version = 1;
