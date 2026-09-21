@@ -2,6 +2,26 @@
 
 ## Unreleased
 
+## [v0.7.0](https://github.com/espressif/esptool-js/releases/tag/v0.7.0) - 2026-09-21
+
+### Features
+
+- [Add GET_SECURITY_INFO for chip detection](https://github.com/espressif/esptool-js/pull/197)
+- [ESP32-C5 1.2 Revision Magic](https://github.com/espressif/esptool-js/pull/261) Thanks @AWOK559 !
+- [ESP32-S3 ESP32-H2 USB_RAM_BLOCK ](https://github.com/espressif/esptool-js/pull/259)
+- [Add writeFlash file data type validation](https://github.com/espressif/esptool-js/pull/267)
+- [Add .js extension and types for modules re import](https://github.com/espressif/esptool-js/pull/260) Thanks @gronke !
+- [Add setSignals in transport to set signals at the same time](https://github.com/espressif/esptool-js/pull/225)
+
+### Bug fixes
+
+- [fix SPI_REG_BASE and efuse masks for esp32c5 esp32c6 esp32c61](https://github.com/espressif/esptool-js/pull/253)
+- [Drain stale input before sending command](https://github.com/espressif/esptool-js/pull/258) Thanks @gronke !
+- [Fix DevKitC Security Info](https://github.com/espressif/esptool-js/pull/264)
+- [Fix Power on Flash for ESP32-P4](https://github.com/espressif/esptool-js/pull/268)
+- [Add WebUSBSerialPort to fix CH340 change baud rate issues](https://github.com/espressif/esptool-js/pull/265)
+- [ESM Module fixes and remove restoreSignals from connect](https://github.com/espressif/esptool-js/pull/270)
+
 ### Breaking
 
 - `detectFlashSize()` now returns `undefined` when the SPI flash ID cannot be read or mapped, instead of silently defaulting to `"4MB"`. TypeScript callers must handle `undefined`; JavaScript callers no longer always receive a string.
@@ -10,7 +30,7 @@
 
 - `LoaderOptions.romBaudrate` (default 115200). Set it equal to `baudrate` to skip the post-stub port reopen.
 - Serial-port implementations can provide an optional `setBaudRate()` capability to change baud in place. Custom WebUSB transports can use device-specific control transfers and avoid closing the port.
-- `WebUSBSerialPort` CH340/CH341 adapter: in-place baud via vendor request `0x9A`. The TypeScript example has an opt-in **WebUSB (CH340)** checkbox. On desktop OS the kernel `usbserial` driver often owns the device; Android/Chrome OTG is the reliable WebUSB case.
+- `WebUSBSerialPort` CH340/CH341 adapter: in-place baud via vendor request `0x9A`. The TypeScript example has an opt-in **WebUSB (CH340)** checkbox. On desktop OS the kernel `usbserial` driver often owns the device; Android/Chrome OTG is the reliable WebUSB case. See [PR #265](https://github.com/espressif/esptool-js/pull/265)
 
 ### Fixed
 
