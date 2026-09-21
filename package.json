@@ -30,8 +30,7 @@
   },
   "dependencies": {
     "atob-lite": "^2.0.0",
-    "pako": "^2.1.0",
-    "tslib": "^2.4.1"
+    "pako": "^2.1.0"
   },
   "devDependencies": {
     "@rollup/plugin-babel": "^6.0.2",

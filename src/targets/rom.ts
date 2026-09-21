@@ -1,5 +1,8 @@
 import { ESPLoader } from "../esploader.js";
 
+/**
+ * One ROM memory-map region: `[start, end, name]`.
+ */
 export type MemoryMapEntry = [number, number, string];
 
 /**

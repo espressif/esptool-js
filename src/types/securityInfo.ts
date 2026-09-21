@@ -13,6 +13,9 @@ export const SECURITY_INFO_FLAG_MAP = {
   DIS_DOWNLOAD_ICACHE: 1 << 10,
 } as const;
 
+/**
+ * Name of a flag in {@link SECURITY_INFO_FLAG_MAP}.
+ */
 export type SecurityInfoFlagName = keyof typeof SECURITY_INFO_FLAG_MAP;
 
 export type ParsedSecurityFlags = Record<SecurityInfoFlagName, boolean>;

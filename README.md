@@ -10,7 +10,20 @@ This repository contains a Javascript implementation of [esptool](https://github
 
 **CDN**
 
-`https://unpkg.com/esptool-js/lib/index.js` or `https://unpkg.com/esptool-js/bundle.js` to use the single bundle JavaScript file.
+Use `https://unpkg.com/esptool-js/bundle.js` for a single-file browser load. Dependencies such as [pako](https://www.npmjs.com/package/pako) are inlined, so no import map is required.
+
+Unbundled `https://unpkg.com/esptool-js/lib/index.js` is for Node and bundlers. A browser loading `lib/` as native ESM must map bare specifiers, for example:
+
+```html
+<script type="importmap">
+  {
+    "imports": {
+      "pako": "https://unpkg.com/pako@2.1.0/dist/pako.esm.mjs",
+      "atob-lite": "https://unpkg.com/atob-lite@2.0.0/atob-browser.js"
+    }
+  }
+</script>
+```
 
 **NPM**
 
