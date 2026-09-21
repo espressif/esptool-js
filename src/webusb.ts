@@ -1,5 +1,5 @@
-import { BaudRateConfigurablePort, SerialOptions } from "./webserial";
-import { sleep } from "./util";
+import { BaudRateConfigurablePort, SerialOptions } from "./webserial.js";
+import { sleep } from "./util.js";
 
 const WCH_VID = 0x1a86;
 const CH343_PID = 0x55d3;

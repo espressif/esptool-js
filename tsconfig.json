@@ -1,6 +1,6 @@
 {
   "compilerOptions": {
-    "module": "ES2020",
+    "module": "ESNext",
     "target": "ES2019",
     "declaration": true,
     "allowSyntheticDefaultImports": true,
@@ -11,7 +11,6 @@
     "noImplicitReturns": true,
     "forceConsistentCasingInFileNames": true,
     "lib": ["ES2020", "DOM"],
-    "importHelpers": true,
     "resolveJsonModule": true,
     "strict": true
   },

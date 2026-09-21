@@ -1,6 +1,7 @@
 {
   "name": "esptool-js",
   "version": "0.6.1",
+  "type": "module",
   "module": "lib/index.js",
   "main": "lib/index.js",
   "types": "lib/index.d.ts",
@@ -17,7 +18,7 @@
     "lint": "eslint . --ext .ts",
     "lintAndFix": "eslint . --ext .ts --fix",
     "prepare": "npm run build",
-    "test": "echo \"Error: no test specified\"",
+    "test": "node --test test/esm-load.test.js",
     "prepublishOnly": "npm run test && npm run lint"
   },
   "repository": {
@@ -29,8 +30,7 @@
   },
   "dependencies": {
     "atob-lite": "^2.0.0",
-    "pako": "^2.1.0",
-    "tslib": "^2.4.1"
+    "pako": "^2.1.0"
   },
   "devDependencies": {
     "@rollup/plugin-babel": "^6.0.2",
@@ -42,8 +42,8 @@
     "@types/pako": "^2.0.0",
     "@types/w3c-web-serial": "^1.0.3",
     "@types/w3c-web-usb": "^1.0.10",
-    "@typescript-eslint/eslint-plugin": "^5.43.0",
-    "@typescript-eslint/parser": "^5.43.0",
+    "@typescript-eslint/eslint-plugin": "^6.21.0",
+    "@typescript-eslint/parser": "^6.21.0",
     "babel-loader": "^9.1.0",
     "eslint": "^8.28.0",
     "eslint-config-prettier": "^8.5.0",
@@ -52,7 +52,7 @@
     "prettier": "^2.7.1",
     "rimraf": "^3.0.2",
     "rollup": "^3.3.0",
-    "typedoc": "^0.25.2",
-    "typescript": "^4.8.4"
+    "typedoc": "^0.25.13",
+    "typescript": "^5.3.3"
   }
 }
