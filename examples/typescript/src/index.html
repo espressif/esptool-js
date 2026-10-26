@@ -75,6 +75,8 @@
                         </tbody>
                     </table>
                     <input class="btn btn-info btn-sm" type="button" id="addFile" value="Add File" />
+                    <input class="btn btn-info btn-sm" type="button" id="addHexFile" value="Add HEX File" />
+                    <input type="file" id="hexFileInput" accept=".hex" style="display:none" />
                     <br><br>
                     <label for="flashMode" id="lblFlashMode">Flash Mode:</label>
                     <select name="flashMode" id="flashMode">
@@ -95,6 +97,9 @@
                         <option value="detect">detect</option>
                         <option value="keep">keep</option>
                     </select>
+                    <br><br>
+                    <input type="checkbox" id="eraseAll" />
+                    <label for="eraseAll" id="lblEraseAll">Erase all</label>
                     <br><br>
                     <input class="btn btn-info btn-sm" type="button" id="programButton" value="Program" />
                 </div>

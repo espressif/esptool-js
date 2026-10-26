@@ -18,7 +18,7 @@
     "lint": "eslint . --ext .ts",
     "lintAndFix": "eslint . --ext .ts --fix",
     "prepare": "npm run build",
-    "test": "node --test test/esm-load.test.js",
+    "test": "node --test test/esm-load.test.js test/intel-hex.test.js",
     "prepublishOnly": "npm run test && npm run lint"
   },
   "repository": {

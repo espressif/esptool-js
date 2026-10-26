@@ -26,6 +26,8 @@ export { decodeBase64Data, getStubJsonByChipName } from "./stubFlasher.js";
 export type { Stub } from "./stubFlasher.js";
 export type { LoaderOptions } from "./types/loaderOptions.js";
 export type { FlashOptions } from "./types/flashOptions.js";
+export { parseIntelHex } from "./image/intelHex.js";
+export type { IntelHexSegment } from "./image/intelHex.js";
 export type { IEspLoaderTerminal } from "./types/loaderTerminal.js";
 export type { Before, After } from "./types/resetModes.js";
 export type { FlashModeValues, FlashSizeValues, FlashFreqValues } from "./types/arguments.js";
