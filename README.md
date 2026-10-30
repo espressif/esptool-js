@@ -157,6 +157,30 @@ await esploader.writeFlash(flashOptions);
 await esploader.after("hard_reset");
 ```
 
+### Flashing an Intel HEX file
+
+A merged `.bin` is one contiguous image. The bytes between partitions are `0xFF`, so `writeFlash` erases every sector from the start of that image through its end. NVS and factory partitions inside that span are erased with it.
+
+A sparse Intel HEX file leaves those gaps out. `idf.py merge-bin --format hex` and `esptool merge-bin --format hex` produce that kind of file. `parseIntelHex` splits it into one `{ data, address }` entry per contiguous region. The addresses are the offsets stored in the HEX records (extended linear and extended segment address records included). Pass the segments straight to `writeFlash`.
+
+Keep `eraseAll: false` so only the sectors covered by those regions are erased. Keep `compress: true` so each region is programmed at its real length. Sectors with no HEX records stay on the device.
+
+`parseIntelHex` throws if two regions share a 4 KiB flash sector, because the erase for each region is rounded to that sector. A HEX file built by encoding a padded `merged.bin` still contains the gap bytes, and flashing it erases the same partitions as the binary.
+
+```typescript
+import { parseIntelHex } from "esptool-js";
+
+const segments = parseIntelHex(await file.text());
+await esploader.writeFlash({
+  fileArray: segments,
+  eraseAll: false,
+  compress: true,
+  flashMode: "dio" as FlashModeValues,
+  flashFreq: "40m" as FlashFreqValues,
+  flashSize: "4MB" as FlashSizeValues,
+});
+```
+
 ### 5. Read Flash Memory
 
 Read data from flash memory:

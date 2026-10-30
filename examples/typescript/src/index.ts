@@ -10,6 +10,9 @@ const consoleStartButton = document.getElementById("consoleStartButton") as HTML
 const consoleStopButton = document.getElementById("consoleStopButton") as HTMLButtonElement;
 const eraseButton = document.getElementById("eraseButton") as HTMLButtonElement;
 const addFileButton = document.getElementById("addFile") as HTMLButtonElement;
+const addHexFileButton = document.getElementById("addHexFile") as HTMLButtonElement;
+const hexFileInput = document.getElementById("hexFileInput") as HTMLInputElement;
+const eraseAllCheckbox = document.getElementById("eraseAll") as HTMLInputElement;
 const programButton = document.getElementById("programButton");
 const filesDiv = document.getElementById("files");
 const terminal = document.getElementById("terminal");
@@ -42,6 +45,7 @@ import {
   LoaderOptions,
   Transport,
   WebUSBSerialPort,
+  parseIntelHex,
 } from "../../../lib";
 import { serial } from "web-serial-polyfill";
 
@@ -80,22 +84,95 @@ lblFlashSize.style.display = "none";
  * @see {@link https://developer.mozilla.org/en-US/docs/Web/API/Event}
  */
 
+/** File input that stores the selected binary image and its name. */
+type SelectedFileInput = HTMLInputElement & { data?: Uint8Array; fileName?: string };
+
+/** Table row that may hold a parsed HEX region. */
+type ImageRow = HTMLTableRowElement & { imageData?: Uint8Array };
+
 /**
- * File reader handler to read given local file.
- * @param {Event} evt File Select event
+ * Show the program alert.
+ * @param {string} message Alert text.
+ * @returns {void}
  */
-function handleFileSelect(evt) {
-  const file = evt.target.files[0];
+function showAlert(message: string) {
+  const alertMsg = document.getElementById("alertmsg");
+  if (alertMsg) alertMsg.textContent = message;
+  if (alertDiv) alertDiv.style.display = "block";
+}
 
-  if (!file) return;
+/**
+ * Hide the program alert.
+ * @returns {void}
+ */
+function hideAlert() {
+  if (alertDiv) alertDiv.style.display = "none";
+}
 
+/**
+ * Format a flash offset for the address field.
+ * @param {number} address Flash offset.
+ * @returns {string} Hex address text.
+ */
+function formatAddress(address: number): string {
+  return "0x" + address.toString(16);
+}
+
+/**
+ * True when the row was created from an Intel HEX region.
+ * @param {HTMLTableRowElement} row Flash table row.
+ * @returns {boolean} Whether the row is a read-only HEX region.
+ */
+function isHexRow(row: HTMLTableRowElement): boolean {
+  return row.dataset.kind === "hex";
+}
+
+/**
+ * Read the address and image stored on a flash table row.
+ * An empty BIN row has no image data.
+ * @param {ImageRow} row Flash table row.
+ * @returns {{ address: number, data: Uint8Array | undefined }} Address and image bytes.
+ */
+function imageFromRow(row: ImageRow): { address: number; data: Uint8Array | undefined } {
+  const offsetInput = row.cells[0].querySelector("input");
+  const address = offsetInput instanceof HTMLInputElement ? parseInt(offsetInput.value) : NaN;
+  if (isHexRow(row)) return { address, data: row.imageData };
+  const fileInput = row.cells[1].querySelector('input[type="file"]') as SelectedFileInput | null;
+  return { address, data: fileInput?.data };
+}
+
+/**
+ * File reader handler for a .bin row.
+ * @param {Event} evt File select event.
+ * @returns {void}
+ */
+function handleFileSelect(evt: Event) {
+  const input = evt.target as SelectedFileInput;
+  const file = input.files?.[0];
+
+  if (!file) {
+    input.data = undefined;
+    input.fileName = undefined;
+    return;
+  }
+
+  if (!file.name.toLowerCase().endsWith(".bin")) {
+    input.value = "";
+    input.data = undefined;
+    input.fileName = undefined;
+    showAlert("Add File only accepts .bin files. Use Add HEX File for a .hex file.");
+    return;
+  }
+
+  input.fileName = file.name;
   const reader = new FileReader();
 
   reader.onload = (ev: ProgressEvent<FileReader>) => {
-    if (ev.target.result instanceof ArrayBuffer) {
-      evt.target.data = new Uint8Array(ev.target.result);
+    if (ev.target?.result instanceof ArrayBuffer) {
+      input.data = new Uint8Array(ev.target.result);
+      hideAlert();
     } else {
-      evt.target.data = ev.target.result;
+      input.data = undefined;
     }
   };
 
@@ -262,6 +339,38 @@ eraseButton.onclick = async () => {
   }
 };
 
+/**
+ * Add the progress cell used while programming a row.
+ * @param {HTMLTableRowElement} row Flash table row.
+ * @returns {void}
+ */
+function addProgressCell(row: HTMLTableRowElement) {
+  const cell = row.insertCell(2);
+  cell.classList.add("progress-cell");
+  cell.style.display = "none";
+  cell.innerHTML = `<progress value="0" max="100"></progress>`;
+}
+
+/**
+ * Add the remove-button cell. The first BIN row has no button.
+ * @param {HTMLTableRowElement} row Flash table row.
+ * @param {boolean} includeButton Whether to show Remove.
+ * @returns {void}
+ */
+function addRemoveCell(row: HTMLTableRowElement, includeButton: boolean) {
+  const cell = row.insertCell(3);
+  cell.classList.add("action-cell");
+  if (!includeButton) return;
+  const button = document.createElement("input");
+  button.type = "button";
+  button.className = "btn";
+  button.value = "Remove";
+  button.onclick = function () {
+    removeRow(row);
+  };
+  cell.appendChild(button);
+}
+
 addFileButton.onclick = () => {
   const rowCount = table.rows.length;
   const row = table.insertRow(rowCount);
@@ -278,33 +387,80 @@ addFileButton.onclick = () => {
   const cell2 = row.insertCell(1);
   const element2 = document.createElement("input");
   element2.type = "file";
+  element2.accept = ".bin";
   element2.id = "selectFile" + rowCount;
   element2.name = "selected_File" + rowCount;
   element2.addEventListener("change", handleFileSelect, false);
   cell2.appendChild(element2);
 
-  // Column 3  - Progress
-  const cell3 = row.insertCell(2);
-  cell3.classList.add("progress-cell");
-  cell3.style.display = "none";
-  cell3.innerHTML = `<progress value="0" max="100"></progress>`;
-
-  // Column 4  - Remove File
-  const cell4 = row.insertCell(3);
-  cell4.classList.add("action-cell");
-  if (rowCount > 1) {
-    const element4 = document.createElement("input");
-    element4.type = "button";
-    const btnName = "button" + rowCount;
-    element4.name = btnName;
-    element4.setAttribute("class", "btn");
-    element4.setAttribute("value", "Remove"); // or element1.value = "button";
-    element4.onclick = function () {
-      removeRow(row);
-    };
-    cell4.appendChild(element4);
-  }
+  addProgressCell(row);
+  addRemoveCell(row, rowCount > 1);
 };
+
+/**
+ * Append one read-only row for a contiguous HEX region.
+ * @param {string} fileName Source HEX file name.
+ * @param {number} address Flash offset from the HEX file.
+ * @param {Uint8Array} data Region bytes.
+ * @returns {void}
+ */
+function appendHexRow(fileName: string, address: number, data: Uint8Array) {
+  const row = table.insertRow(table.rows.length) as ImageRow;
+  row.dataset.kind = "hex";
+  row.imageData = data;
+
+  const addressCell = row.insertCell(0);
+  const addressInput = document.createElement("input");
+  addressInput.type = "text";
+  addressInput.readOnly = true;
+  addressInput.value = formatAddress(address);
+  addressCell.appendChild(addressInput);
+
+  const fileCell = row.insertCell(1);
+  fileCell.textContent = fileName + " (" + data.length + " bytes)";
+
+  addProgressCell(row);
+  addRemoveCell(row, true);
+}
+
+addHexFileButton.onclick = () => {
+  hexFileInput.click();
+};
+
+hexFileInput.addEventListener("change", (evt: Event) => {
+  const input = evt.target as HTMLInputElement;
+  const file = input.files?.[0];
+  input.value = "";
+  if (!file) return;
+
+  if (!file.name.toLowerCase().endsWith(".hex")) {
+    showAlert("Add HEX File only accepts .hex files.");
+    return;
+  }
+
+  const reader = new FileReader();
+  reader.onload = (ev: ProgressEvent<FileReader>) => {
+    if (!(ev.target?.result instanceof ArrayBuffer)) {
+      showAlert("Could not read HEX file.");
+      return;
+    }
+    try {
+      const segments = parseIntelHex(new Uint8Array(ev.target.result));
+      if (segments.length === 0) {
+        showAlert("Intel HEX file contains no data.");
+        return;
+      }
+      for (const segment of segments) {
+        appendHexRow(file.name, segment.address, segment.data);
+      }
+      eraseAllCheckbox.checked = false;
+      hideAlert();
+    } catch (e) {
+      showAlert(e instanceof Error ? e.message : String(e));
+    }
+  };
+  reader.readAsArrayBuffer(file);
+});
 
 /**
  * The built in HTMLTableRowElement object.
@@ -525,75 +681,59 @@ consoleStopButton.onclick = async () => {
 };
 
 /**
- * Validate the provided files images and offset to see if they're valid.
- * @returns {string} Program input validation result
+ * Rows that will be flashed. An empty BIN row is the placeholder added at startup
+ * and is skipped so a HEX-only program can run.
+ * @returns {{ row: ImageRow, address: number, data: Uint8Array }[] | string} Images, or an error message.
  */
-function validateProgramInputs() {
-  const offsetArr = [];
-  const rowCount = table.rows.length;
-  let row;
-  let offset = 0;
-  let fileData = null;
+function imagesToFlash(): { row: ImageRow; address: number; data: Uint8Array }[] | string {
+  const images: { row: ImageRow; address: number; data: Uint8Array }[] = [];
+  const offsetArr: number[] = [];
 
-  // check for mandatory fields
-  for (let index = 1; index < rowCount; index++) {
-    row = table.rows[index];
-
-    //offset fields checks
-    const offSetObj = row.cells[0].childNodes[0];
-    offset = parseInt(offSetObj.value);
-
-    // Non-numeric or blank offset
-    if (Number.isNaN(offset)) return "Offset field in row " + index + " is not a valid address!";
-    // Repeated offset used
-    else if (offsetArr.includes(offset)) return "Offset field in row " + index + " is already in use!";
-    else offsetArr.push(offset);
-
-    const fileObj = row.cells[1].childNodes[0];
-    fileData = fileObj.data;
-    if (fileData == null) return "No file selected for row " + index + "!";
+  for (let index = 1; index < table.rows.length; index++) {
+    const row = table.rows[index] as ImageRow;
+    const image = imageFromRow(row);
+    if (!isHexRow(row) && image.data == null) {
+      const addedByUser = row.cells[3].querySelector("input") != null;
+      if (addedByUser) return "No file selected for row " + index + "!";
+      continue;
+    }
+    if (image.data == null) return "No file selected for row " + index + "!";
+    if (Number.isNaN(image.address)) return "Offset field in row " + index + " is not a valid address!";
+    if (offsetArr.includes(image.address)) return "Offset field in row " + index + " is already in use!";
+    offsetArr.push(image.address);
+    images.push({ row, address: image.address, data: image.data });
   }
-  return "success";
+
+  if (images.length === 0) return "No file selected!";
+  return images;
 }
 
 programButton.onclick = async () => {
-  const alertMsg = document.getElementById("alertmsg");
-  const err = validateProgramInputs();
+  const images = imagesToFlash();
 
-  if (err != "success") {
-    alertMsg.innerHTML = "<strong>" + err + "</strong>";
-    alertDiv.style.display = "block";
+  if (typeof images === "string") {
+    showAlert(images);
     return;
   }
 
-  // Hide error message
-  alertDiv.style.display = "none";
+  hideAlert();
 
   const fileArray = [];
   const progressBars = [];
 
-  for (let index = 1; index < table.rows.length; index++) {
-    const row = table.rows[index];
-
-    const offSetObj = row.cells[0].childNodes[0] as HTMLInputElement;
-    const offset = parseInt(offSetObj.value);
-
-    const fileObj = row.cells[1].childNodes[0] as ChildNode & { data: Uint8Array };
-    const progressBar = row.cells[2].childNodes[0];
-
+  for (const image of images) {
+    const progressBar = image.row.cells[2].childNodes[0] as HTMLProgressElement;
     progressBar.textContent = "0";
+    image.row.cells[2].style.display = "initial";
+    image.row.cells[3].style.display = "none";
+    fileArray.push({ data: image.data, address: image.address });
     progressBars.push(progressBar);
-
-    row.cells[2].style.display = "initial";
-    row.cells[3].style.display = "none";
-
-    fileArray.push({ data: fileObj.data, address: offset });
   }
 
   try {
     const flashOptions: FlashOptions = {
       fileArray: fileArray,
-      eraseAll: false,
+      eraseAll: eraseAllCheckbox.checked,
       compress: true,
       flashMode: flashMode.value as FlashModeValues,
       flashFreq: flashFreq.value as FlashFreqValues,
@@ -613,10 +753,10 @@ programButton.onclick = async () => {
     console.error(e);
     term.writeln(`Error: ${e.message}`);
   } finally {
-    // Hide progress bars and show erase buttons
-    for (let index = 1; index < table.rows.length; index++) {
-      table.rows[index].cells[2].style.display = "none";
-      table.rows[index].cells[3].style.display = "initial";
+    // Hide progress bars and show remove buttons
+    for (const image of images) {
+      image.row.cells[2].style.display = "none";
+      image.row.cells[3].style.display = "initial";
     }
   }
 };

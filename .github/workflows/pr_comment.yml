@@ -57,6 +57,27 @@ jobs:
               body += `\n* [${art.name}.zip](https://nightly.link/${owner}/${repo}/actions/artifacts/${art.id}.zip)`;
             }
 
+            body += "\n\n## Testing it locally\n\n";
+            body += "Check out this pull request, then run:\n\n";
+            body += "```sh\n";
+            body += "npm install\n";
+            body += "npm run build\n";
+            body += "cd examples/typescript\n";
+            body += "npm install\n";
+            body += "npm run dev\n";
+            body += "```\n\n";
+            body += "Open `http://localhost:1234` in Chrome. `npm run build` produces the `lib` the example loads.\n";
+
+            body += "\n## Test from Pull Request artifact\n\n";
+            body += "Each link above is a `.zip` from nightly.link that contains the `.tgz` package.\n\n";
+            body += "1. Add the package to your project's `dependencies`:\n\n";
+            body += "```json\n";
+            body += "\"dependencies\": {\n";
+            body += "  \"esptool-js\": \"file:../path/to/esptool-js-<version>.tgz\"\n";
+            body += "}\n";
+            body += "```\n\n";
+            body += "2. Import it as `esptool-js/lib/index.js`.\n";
+
             core.info("Review thread message body:", body);
 
             for (const pr of pull_requests) {
