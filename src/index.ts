@@ -33,9 +33,5 @@ export type { Before, After } from "./types/resetModes.js";
 export type { FlashModeValues, FlashSizeValues, FlashFreqValues } from "./types/arguments.js";
 export { WebUSBSerialPort } from "./webusb.js";
 export { bstrToUi8 } from "./util.js";
-export {
-  Partitions,
-  TYPES as PARTITION_TYPES,
-  SUBTYPES as PARTITION_SUBTYPES,
-} from "./gen_esp32part.py.js";
+export { Partitions, TYPES as PARTITION_TYPES, SUBTYPES as PARTITION_SUBTYPES } from "./gen_esp32part.py.js";
 export { PartitionDefinition } from "./gen_esp32part.py.js";

@@ -620,7 +620,7 @@ function populatePartitionTable(partitionTableCSV: string) {
 
   // Add headers dynamically
   if (rows.length > 0) {
-    let headers = rows[0].split(",");
+    const headers = rows[0].split(",");
     headers.push("(Encrypted/ReadOnly)");
     // headers[0] = headers[0].replace("# ", "");
     const headerRow = document.createElement("tr");
@@ -687,12 +687,20 @@ function initializePartitionTable() {
   `;
 }
 
+/**
+ *
+ * @param str
+ */
 function logToTerm(str: string) {
   term.writeln(str);
   console.log(str);
 }
 
 // Mock function for download action
+/**
+ *
+ * @param row
+ */
 function downloadPartitionRow(row: string[]) {
   logToTerm(`Downloading partition/row: ${row}`);
   try {
@@ -912,18 +920,29 @@ consoleStopButton.onclick = async () => {
   cleanUp();
 };
 
+/**
+ *
+ * @param row
+ * @param data
+ */
 function generateDownloadLinkFromTableRow(row: string[], data: Uint8Array<ArrayBufferLike>) {
   const type = row[0] === "user_fs" ? `${row[0]}_${row[2]}` : row[0];
   const fileName = `${chip}_${type}_${row[3]}_${row[4]}b.bin`;
   initiateFileDownload(data, fileName, row);
 }
 
+/**
+ *
+ * @param data
+ * @param fileName
+ * @param downloadMsgName
+ */
 function initiateFileDownload(
   data: Uint8Array<ArrayBufferLike>,
   fileName: string,
   downloadMsgName: string[] | string = "",
 ) {
-  const blob = new Blob([data], { type: 'application/octet-stream' });
+  const blob = new Blob([data], { type: "application/octet-stream" });
   const url = window.URL.createObjectURL(blob);
   const a = document.createElement("a");
   a.style.display = "none";
