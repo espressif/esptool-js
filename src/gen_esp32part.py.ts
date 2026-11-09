@@ -246,11 +246,15 @@ export class PartitionDefinition {
   }
 
   toCSV(): string {
+    // Custom partition types/subtypes have no name in the lookup maps; emit them as hex.
+    const subtypes = SUBTYPES[this.type ?? 0] ?? {};
     return [
       this.name,
-      this.type !== null ? Object.keys(TYPES).find((key) => TYPES[key] === this.type) : "",
+      this.type !== null
+        ? Object.keys(TYPES).find((key) => TYPES[key] === this.type) ?? `0x${this.type.toString(16)}`
+        : "",
       this.subtype !== null
-        ? Object.keys(SUBTYPES[this.type ?? 0]).find((key) => SUBTYPES[this.type ?? 0][key] === this.subtype)
+        ? Object.keys(subtypes).find((key) => subtypes[key] === this.subtype) ?? `0x${this.subtype.toString(16)}`
         : "",
       `0x${this.offset?.toString(16) ?? "0"}`,
       `0x${this.size?.toString(16) ?? "0"}`,
