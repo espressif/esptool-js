@@ -1629,8 +1629,21 @@ export class ESPLoader {
     if (!this.secureDownloadMode) {
       // Check flash chip connection (SPI register ops are unsupported in SDM)
       try {
-        const flashId = await this.readFlashId();
-        this.info("Flash ID: " + flashId.toString(16));
+        let firstTry = true;
+        let flashId;
+        for (let attempt = 0; attempt < 3; attempt++) {
+          flashId = await this.readFlashId();
+          if (flashId !== 0xffffff && flashId !== 0x000000) {
+            break;
+          }
+          if (firstTry) {
+            this.info("Warning: Unable to read flash chip ID, retrying...");
+            firstTry = false;
+          }
+          this.transport.flushInput();
+          await sleep(100);
+        }
+        this.info("Flash ID: " + flashId?.toString(16));
         if (flashId === 0xffffff || flashId === 0x000000) {
           this.info(
             `WARNING: Failed to communicate with the flash chip,\nread/write operations will fail.\nTry checking the chip connections or removing\nany other hardware connected to IOs.`,
