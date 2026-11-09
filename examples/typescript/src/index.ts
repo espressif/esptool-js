@@ -542,7 +542,9 @@ readFlashData.onclick = async () => {
   }
   const offset = parseInt(hexOffset, 16);
   const readAll = readFlashAllInput.checked;
-  const flashSize = ((await esploader.getFlashSize()) || 0) * 1024;
+  // getFlashSize() (kilobytes) was replaced by detectFlashSize() (size string) in esptool-js 0.7.x.
+  const detectedSize = await esploader.detectFlashSize();
+  const flashSize = detectedSize ? esploader.flashSizeBytes(detectedSize as FlashSizeValues) : 0;
   const size = readAll ? flashSize - offset : parseInt(readFlashSizeInput.value, 16) || 0;
   if (size <= 0) {
     term.writeln("Invalid size received (" + size + "), impossible to read flash of 0bytes");
