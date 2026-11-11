@@ -30,6 +30,7 @@
   },
   "dependencies": {
     "atob-lite": "^2.0.0",
+    "esp-flasher-stub": "^1.5.0",
     "pako": "^2.1.0"
   },
   "devDependencies": {

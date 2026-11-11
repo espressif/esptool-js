@@ -5,6 +5,7 @@
 ### Bug fixes
 
 - Run the chip's `postConnect()` again when `changeBaud()` reconnects after the board reset during the port reopen (fixes flashing ESP32-P4 v3.1/v3.2 above 115200 baud)
+- Load flasher stubs from the [`esp-flasher-stub`](https://www.npmjs.com/package/esp-flasher-stub) package (`^1.5.0`) instead of vendored JSON. This upgrades the stub binaries from v1.2.2 to v1.5.0 and adds an ESP32-H21 stub. ESP32-E22 still has no published stub.
 
 ## [v0.7.0](https://github.com/espressif/esptool-js/releases/tag/v0.7.0) - 2026-09-21
 
