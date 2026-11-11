@@ -31,6 +31,17 @@ export class ESP32S31ROM extends ESP32C5ROM {
 
   public SPI_ADDR_REG_MSB = false;
 
+  public DR_REG_LP_WDT_BASE = 0x20801000;
+  public RTC_CNTL_WDTCONFIG0_REG = this.DR_REG_LP_WDT_BASE + 0x0;
+  public RTC_CNTL_WDTCONFIG1_REG = this.DR_REG_LP_WDT_BASE + 0x4;
+  public RTC_CNTL_WDTWPROTECT_REG = this.DR_REG_LP_WDT_BASE + 0x18;
+  public RTC_CNTL_WDT_WKEY = 0x50d83aa1;
+  // SWD addresses are not the C6 defaults. USB-Serial/JTAG leaves these watchdogs running.
+  public RTC_CNTL_SWD_WPROTECT_REG = this.DR_REG_LP_WDT_BASE + 0x20;
+  public RTC_CNTL_SWD_CONF_REG = this.DR_REG_LP_WDT_BASE + 0x1c;
+  public RTC_CNTL_SWD_AUTO_FEED_EN = 1 << 18;
+  public RTC_CNTL_SWD_WKEY = 0x50d83aa1;
+
   public EFUSE_RD_REG_BASE = this.EFUSE_BASE + 0x030;
 
   public EFUSE_PURPOSE_KEY0_REG = this.EFUSE_BASE + 0x38;
@@ -64,6 +75,7 @@ export class ESP32S31ROM extends ESP32C5ROM {
   public FLASH_ENCRYPTED_WRITE_ALIGN = 16;
 
   public USB_RAM_BLOCK = 0x800;
+  public USB_OTG_SUPPORTED = true;
 
   public MEMORY_MAP: MemoryMapEntry[] = [
     [0x00000000, 0x00010000, "PADDING"],
@@ -197,6 +209,45 @@ export class ESP32S31ROM extends ESP32C5ROM {
     if (await loader.usesUsbOtg()) {
       loader.ESP_RAM_BLOCK = this.USB_RAM_BLOCK;
     }
+    // C3 _post_connect disables watchdogs on USB-Serial/JTAG. Skip when a stub
+    // is already running or register reads are refused in secure download mode.
+    if (!loader.IS_STUB && !loader.detectedRunningStub() && !loader.secureDownloadMode) {
+      await this.disableWatchdogs(loader);
+    }
+  }
+
+  /**
+   * USB-Serial/JTAG does not reset the RTC watchdog or super watchdog, so they
+   * can reset the board during flashing. Detect the port by VID/PID, not the
+   * inherited C5 UARTDEV_BUF_NO address.
+   * @param {ESPLoader} loader - Loader class to communicate with chip.
+   */
+  public async disableWatchdogs(loader: ESPLoader): Promise<void> {
+    if (!loader.usesUsbJtagSerial()) {
+      return;
+    }
+
+    await loader.writeReg(this.RTC_CNTL_WDTWPROTECT_REG, this.RTC_CNTL_WDT_WKEY);
+    await loader.writeReg(this.RTC_CNTL_WDTCONFIG0_REG, 0);
+    await loader.writeReg(this.RTC_CNTL_WDTWPROTECT_REG, 0);
+
+    await loader.writeReg(this.RTC_CNTL_SWD_WPROTECT_REG, this.RTC_CNTL_SWD_WKEY);
+    const swdConfReg = await loader.readReg(this.RTC_CNTL_SWD_CONF_REG);
+    await loader.writeReg(this.RTC_CNTL_SWD_CONF_REG, swdConfReg | this.RTC_CNTL_SWD_AUTO_FEED_EN);
+    await loader.writeReg(this.RTC_CNTL_SWD_WPROTECT_REG, 0);
+  }
+
+  /**
+   * Reset via the LP watchdog. RTS does not reset the chip in USB-OTG mode.
+   * @param {ESPLoader} loader - Loader class to communicate with chip.
+   */
+  public async watchdogReset(loader: ESPLoader): Promise<void> {
+    loader.info("Hard resetting with a watchdog...");
+    await loader.writeReg(this.RTC_CNTL_WDTWPROTECT_REG, this.RTC_CNTL_WDT_WKEY);
+    await loader.writeReg(this.RTC_CNTL_WDTCONFIG1_REG, 2000);
+    await loader.writeReg(this.RTC_CNTL_WDTCONFIG0_REG, (1 << 31) | (5 << 28) | (1 << 8) | 2);
+    await loader.writeReg(this.RTC_CNTL_WDTWPROTECT_REG, 0);
+    await new Promise((resolve) => setTimeout(resolve, 500));
   }
 
   public async changeBaud(loader: ESPLoader): Promise<void> {

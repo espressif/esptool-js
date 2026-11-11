@@ -69,6 +69,7 @@ export class ESP32S2ROM extends ESP32ROM {
   public UARTDEV_BUF_NO_USB_OTG = 2; // Value of the above indicating that USB-OTG is in use
 
   public USB_RAM_BLOCK = 0x800; // Max block size USB-OTG is used
+  public USB_OTG_SUPPORTED = true;
 
   public GPIO_STRAP_REG = 0x3f404038;
   public GPIO_STRAP_SPI_BOOT_MASK = 1 << 3; // Not download mode
