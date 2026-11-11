@@ -5,7 +5,7 @@
     "declaration": true,
     "allowSyntheticDefaultImports": true,
     "outDir": "./lib",
-    "moduleResolution": "node",
+    "moduleResolution": "bundler",
     "noUnusedLocals": true,
     "noFallthroughCasesInSwitch": true,
     "noImplicitReturns": true,

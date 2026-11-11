@@ -16,6 +16,23 @@
   "parcelIgnore": [
     "./docs/.+"
   ],
+  "alias": {
+    "esp-flasher-stub/esp32.json": "../../node_modules/esp-flasher-stub/stubs/esp32.json",
+    "esp-flasher-stub/esp32c2.json": "../../node_modules/esp-flasher-stub/stubs/esp32c2.json",
+    "esp-flasher-stub/esp32c3.json": "../../node_modules/esp-flasher-stub/stubs/esp32c3.json",
+    "esp-flasher-stub/esp32c5.json": "../../node_modules/esp-flasher-stub/stubs/esp32c5.json",
+    "esp-flasher-stub/esp32c6.json": "../../node_modules/esp-flasher-stub/stubs/esp32c6.json",
+    "esp-flasher-stub/esp32c61.json": "../../node_modules/esp-flasher-stub/stubs/esp32c61.json",
+    "esp-flasher-stub/esp32h2.json": "../../node_modules/esp-flasher-stub/stubs/esp32h2.json",
+    "esp-flasher-stub/esp32h4.json": "../../node_modules/esp-flasher-stub/stubs/esp32h4.json",
+    "esp-flasher-stub/esp32h21.json": "../../node_modules/esp-flasher-stub/stubs/esp32h21.json",
+    "esp-flasher-stub/esp32p4.json": "../../node_modules/esp-flasher-stub/stubs/esp32p4.json",
+    "esp-flasher-stub/esp32p4-rev1.json": "../../node_modules/esp-flasher-stub/stubs/esp32p4-rev1.json",
+    "esp-flasher-stub/esp32s2.json": "../../node_modules/esp-flasher-stub/stubs/esp32s2.json",
+    "esp-flasher-stub/esp32s3.json": "../../node_modules/esp-flasher-stub/stubs/esp32s3.json",
+    "esp-flasher-stub/esp32s31.json": "../../node_modules/esp-flasher-stub/stubs/esp32s31.json",
+    "esp-flasher-stub/esp8266.json": "../../node_modules/esp-flasher-stub/stubs/esp8266.json"
+  },
   "author": "",
   "license": "ISC",
   "devDependencies": {
