@@ -1461,6 +1461,7 @@ export class ESPLoader {
    * Read data from flash memory of the chip.
    * This function reads a specified amount of data from the flash memory starting at a given address.
    * It sends a read command to the chip and processes the response packets until the requested size is read.
+   * The stub then sends a raw 16-byte MD5 SLIP frame, which is consumed here so it cannot desync the next command.
    * @param {number} addr - The starting address in flash memory to read from.
    * @param {number} size - The number of bytes to read from flash memory.
    * @param {FlashReadCallback} onPacketReceived - Optional callback function to handle each received packet.
@@ -1495,6 +1496,14 @@ export class ESPLoader {
         throw new ESPError("Failed to read memory: " + packet);
       }
     }
+
+    // The stub always finishes READ_FLASH with a raw 16-byte MD5 SLIP frame.
+    // The final data packet is already ACKed above; do not ACK the digest.
+    const digest = await this.transport.read(this.FLASH_READ_TIMEOUT);
+    if (!(digest instanceof Uint8Array) || digest.length !== 16) {
+      throw new ESPError("Expected 16-byte readFlash digest, got: " + digest);
+    }
+    this.debug("readFlash digest " + this.toHex(digest));
 
     return resp;
   }
