@@ -562,9 +562,22 @@ export class ESPLoader {
   /**
    * True when Web Serial reports Espressif USB-Serial/JTAG VID/PID.
    * Safe before chip identify/sync (no register reads).
+   * @returns {boolean} True when the port VID/PID is Espressif USB-Serial/JTAG.
    */
-  private isUsbJtagSerialPort(): boolean {
+  usesUsbJtagSerial(): boolean {
     return this.transport.getVid() === ESPRESSIF_VID && this.transport.getPid() === USB_JTAG_SERIAL_PID;
+  }
+
+  private isUsbJtagSerialPort(): boolean {
+    return this.usesUsbJtagSerial();
+  }
+
+  /**
+   * True when sync() talked to a flasher stub that was already running.
+   * @returns {boolean} True when the stub was already running at connect time.
+   */
+  detectedRunningStub(): boolean {
+    return this.syncStubDetected;
   }
 
   /**
@@ -591,6 +604,26 @@ export class ESPLoader {
       return await this.chip.usingUsbOtg(this);
     }
     return false;
+  }
+
+  /**
+   * Cap ROM stub upload to 0x800 on USB-OTG chips.
+   * Applied when USB-OTG is detected, and when the host reports no VID/PID,
+   * because USB-OTG cannot be ruled out. UART bridges accept the smaller
+   * blocks. Flash writes after the stub is running are not changed here.
+   */
+  private async applyUsbOtgRomBlock(): Promise<void> {
+    if (this.IS_STUB || !this.chip.USB_OTG_SUPPORTED) {
+      return;
+    }
+    const vid = this.transport.getVid();
+    const pid = this.transport.getPid();
+    const noVidPid = vid === undefined && pid === undefined;
+    if (!noVidPid && !(await this.usesUsbOtg())) {
+      return;
+    }
+    this.ESP_RAM_BLOCK = 0x800;
+    this.debug("Using 0x800 ROM block size for USB-OTG stub upload");
   }
 
   /**
@@ -1490,6 +1523,8 @@ export class ESPLoader {
       return this.chip;
     }
 
+    await this.applyUsbOtgRomBlock();
+
     this.info("Uploading stub...");
     const stub = [stubFlasher.decodedText, stubFlasher.decodedData];
 
@@ -1736,8 +1771,14 @@ export class ESPLoader {
     }
     let aFlashFreq = flashSizeFreq & 0x0f;
     if (flashFreq !== "keep") {
-      const flashFreqs: { [key: string]: number } = { "40m": 0, "26m": 1, "20m": 2, "80m": 0xf };
-      aFlashFreq = flashFreqs[flashFreq];
+      const encoded = this.chip.FLASH_FREQUENCY[flashFreq];
+      if (encoded === undefined) {
+        throw new ESPError(
+          `Flash frequency ${flashFreq} is not supported by ${this.chip.CHIP_NAME}. ` +
+            `Supported frequencies: ${Object.keys(this.chip.FLASH_FREQUENCY).join(", ")}`,
+        );
+      }
+      aFlashFreq = encoded;
     }
     let aFlashSize = flashSizeFreq & 0xf0;
     if (flashSize !== "keep") {
@@ -2057,14 +2098,24 @@ export class ESPLoader {
    */
   async after(mode: After = "hard_reset", usingUsbOtg?: boolean, sequenceString?: string) {
     switch (mode) {
-      case "hard_reset":
+      case "hard_reset": {
+        const usbOtg = usingUsbOtg ?? (await this.usesUsbOtg());
+        if (
+          usbOtg &&
+          !this.secureDownloadMode &&
+          this.chip.USB_OTG_SUPPORTED &&
+          typeof this.chip.watchdogReset === "function"
+        ) {
+          await this.chip.watchdogReset(this);
+          break;
+        }
         if (this.resetConstructors.hardReset) {
           this.info("Hard resetting via RTS pin...");
-          const usbOtg = usingUsbOtg ?? (await this.usesUsbOtg());
           const hardReset = this.resetConstructors.hardReset(this.transport, usbOtg);
           await hardReset.reset();
         }
         break;
+      }
       case "soft_reset":
         this.info("Soft resetting...");
         await this.softReset(false);

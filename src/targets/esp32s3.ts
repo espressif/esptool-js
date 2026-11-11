@@ -26,6 +26,7 @@ export class ESP32S3ROM extends ESP32ROM {
   public SPI_W0_OFFS = 0x58;
 
   public USB_RAM_BLOCK = 0x800;
+  public USB_OTG_SUPPORTED = true;
   public UARTDEV_BUF_NO_USB = 3;
   public UARTDEV_BUF_NO = 0x3fcef14c;
 
