@@ -46,10 +46,4 @@ export interface FlashOptions {
    * @type {(fileIndex: number, written: number, total: number) => void}
    */
   reportProgress?: (fileIndex: number, written: number, total: number) => void;
-
-  /**
-   * A function to calculate the MD5 hash of the firmware image (optional).
-   * @type {(image: Uint8Array) => string}
-   */
-  calculateMD5Hash?: (image: Uint8Array) => string;
 }

@@ -139,7 +139,7 @@ try {
 
 ### 4. Flash Firmware
 
-Flash firmware images to the device:
+Flash firmware images to the device. `writeFlash` checks each image's MD5 against the digest read back from the chip.
 
 ```typescript
 // Read your firmware file (e.g., from a File input or fetch)
@@ -159,11 +159,6 @@ const flashOptions: FlashOptions = {
   reportProgress: (fileIndex, written, total) => {
     const percent = (written / total) * 100;
     console.log(`Progress: ${percent.toFixed(1)}%`);
-  },
-  // Optional: MD5 hash calculation for verification
-  calculateMD5Hash: (image: Uint8Array) => {
-    // Implement your MD5 calculation here
-    return "your-md5-hash";
   },
 };
 
