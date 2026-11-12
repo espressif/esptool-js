@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+### Bug fixes
+
+- Run the chip's `postConnect()` again when `changeBaud()` reconnects after the board reset during the port reopen (fixes flashing ESP32-P4 v3.1/v3.2 above 115200 baud)
+
 ## [v0.7.0](https://github.com/espressif/esptool-js/releases/tag/v0.7.0) - 2026-09-21
 
 ### Features

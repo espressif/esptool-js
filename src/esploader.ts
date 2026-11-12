@@ -1584,6 +1584,10 @@ export class ESPLoader {
     this.baudrate = this.romBaudrate;
     this.IS_STUB = false;
     await this.connect("default_reset", 7, false);
+    // The reset dropped whatever main() set up before the stub; redo it as main() does.
+    if (typeof this.chip.postConnect != "undefined") {
+      await this.chip.postConnect(this);
+    }
     await this.runStub();
   }
 
