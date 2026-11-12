@@ -127,6 +127,17 @@ export abstract class ROM {
   USES_MAGIC_VALUE = false;
   SPI_ADDR_REG_MSB?: boolean;
   USB_RAM_BLOCK?: number; // max SLIP payload over native USB (USB-OTG / USB-Serial/JTAG)
+  /**
+   * Chip has native USB-OTG. ROM stub upload is capped to 0x800 when that
+   * function is in use, or when the host cannot report a VID/PID.
+   */
+  USB_OTG_SUPPORTED = false;
+
+  /**
+   * Hard-reset the chip by triggering the RTC watchdog.
+   * Used for USB-OTG, where toggling RTS does not reset the SoC.
+   */
+  watchdogReset?(loader: ESPLoader): Promise<void>;
   abstract SPI_MOSI_DLEN_OFFS: number; // not in esp8266
   abstract SPI_MISO_DLEN_OFFS: number; // not in esp8266
   abstract SPI_REG_BASE: number;

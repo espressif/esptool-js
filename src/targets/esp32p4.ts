@@ -72,6 +72,7 @@ export class ESP32P4ROM extends ESP32ROM {
   public FLASH_ENCRYPTED_WRITE_ALIGN = 16;
 
   public USB_RAM_BLOCK = 0x800; // Max block size USB-OTG is used
+  public USB_OTG_SUPPORTED = true;
 
   public GPIO_STRAP_REG = 0x500e0038;
   public GPIO_STRAP_SPI_BOOT_MASK = 0x8; // Not download mode
@@ -175,9 +176,9 @@ export class ESP32P4ROM extends ESP32ROM {
   public async getStubJsonPath(loader: ESPLoader): Promise<string> {
     const chipRevision = await this.getChipRevision(loader);
     if (chipRevision < 300) {
-      return "./targets/stub_flasher/esp32p4-rev1.json";
+      return "esp-flasher-stub/esp32p4-rev1.json";
     } else {
-      return "./targets/stub_flasher/esp32p4.json";
+      return "esp-flasher-stub/esp32p4.json";
     }
   }
 
@@ -409,10 +410,10 @@ export class ESP32P4ROM extends ESP32ROM {
     }
 
     const chipRev = await this.getChipRevision(loader);
-    // Flash defaults off on ECO6/ECO7 after the 1.8V -> 3.3V default change, to prevent
+    // Flash defaults off on ECO6 and later after the 1.8V -> 3.3V default change, to prevent
     // damage to 1.8V flash chips. Board designers must set the appropriate voltage level
-    // in eFuse. Other silicon revisions do not need this sequence.
-    if (chipRev !== 301 && chipRev !== 302) {
+    // in eFuse. Earlier silicon revisions do not need this sequence.
+    if (chipRev < 301) {
       return;
     }
 

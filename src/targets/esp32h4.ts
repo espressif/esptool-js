@@ -8,9 +8,9 @@ export class ESP32H4ROM extends ESP32C3ROM {
   public USES_MAGIC_VALUE = false;
 
   public IROM_MAP_START = 0x42000000;
-  public IROM_MAP_END = 0x42800000;
-  public DROM_MAP_START = 0x42800000;
-  public DROM_MAP_END = 0x43000000;
+  public IROM_MAP_END = 0x44000000;
+  public DROM_MAP_START = 0x42000000;
+  public DROM_MAP_END = 0x44000000;
 
   public BOOTLOADER_FLASH_OFFSET = 0x2000;
 
@@ -22,7 +22,7 @@ export class ESP32H4ROM extends ESP32C3ROM {
   public SPI_MISO_DLEN_OFFS = 0x28;
   public SPI_W0_OFFS = 0x58;
 
-  public UART_DATE_REG_ADDR = 0x60012000 + 0x7c;
+  public UART_DATE_REG_ADDR = 0x60012000 + 0x8c;
 
   public EFUSE_BASE = 0x600b1800;
   public EFUSE_BLOCK1_ADDR = this.EFUSE_BASE + 0x044;
@@ -63,10 +63,10 @@ export class ESP32H4ROM extends ESP32C3ROM {
   public FLASH_ENCRYPTED_WRITE_ALIGN = 16;
 
   public FLASH_FREQUENCY: { [key: string]: number } = {
+    // Second-stage bootloader uses a 64 MHz source: 0xF is 64 MHz, 0x0 is 32 MHz.
+    // Names stay 48m/24m because ESP-IDF remaps 64M/32M onto those labels.
     "48m": 0xf,
     "24m": 0x0,
-    "16m": 0x1,
-    "12m": 0x2,
   };
 
   public MEMORY_MAP: MemoryMapEntry[] = [
@@ -74,13 +74,11 @@ export class ESP32H4ROM extends ESP32C3ROM {
     [0x42000000, 0x44000000, "DROM"],
     [0x40810000, 0x40860000, "DRAM"],
     [0x40810000, 0x40860000, "BYTE_ACCESSIBLE"],
-    [0x40000000, 0x40050000, "DROM_MASK"],
-    [0x40000000, 0x40050000, "IROM_MASK"],
+    [0x40000000, 0x40020000, "DROM_MASK"],
+    [0x40000000, 0x40020000, "IROM_MASK"],
     [0x42000000, 0x44000000, "IROM"],
     [0x40810000, 0x40860000, "IRAM"],
-    [0x50000000, 0x50004000, "RTC_IRAM"],
-    [0x50000000, 0x50004000, "RTC_DRAM"],
-    [0x60000000, 0x60100000, "MEM_INTERNAL2"],
+    [0x40810000, 0x40860000, "MEM_INTERNAL"],
   ];
 
   public UF2_FAMILY_ID = 0x9e0baa8a;

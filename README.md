@@ -10,16 +10,31 @@ This repository contains a Javascript implementation of [esptool](https://github
 
 **CDN**
 
-Use `https://unpkg.com/esptool-js/bundle.js` for a single-file browser load. Dependencies such as [pako](https://www.npmjs.com/package/pako) are inlined, so no import map is required.
+Use `https://unpkg.com/esptool-js/bundle.js` for a single-file browser load. Dependencies such as [pako](https://www.npmjs.com/package/pako) and the [esp-flasher-stub](https://www.npmjs.com/package/esp-flasher-stub) JSON files are inlined, so no import map is required.
 
-Unbundled `https://unpkg.com/esptool-js/lib/index.js` is for Node and bundlers. A browser loading `lib/` as native ESM must map bare specifiers, for example:
+Unbundled `https://unpkg.com/esptool-js/lib/index.js` is for Node and bundlers. A browser loading `lib/` as native ESM must map bare specifiers. Import maps have no wildcard, so each flasher stub the loader may request needs its own entry:
 
 ```html
 <script type="importmap">
   {
     "imports": {
       "pako": "https://unpkg.com/pako@2.1.0/dist/pako.esm.mjs",
-      "atob-lite": "https://unpkg.com/atob-lite@2.0.0/atob-browser.js"
+      "atob-lite": "https://unpkg.com/atob-lite@2.0.0/atob-browser.js",
+      "esp-flasher-stub/esp32.json": "https://unpkg.com/esp-flasher-stub@1.5.0/stubs/esp32.json",
+      "esp-flasher-stub/esp32c2.json": "https://unpkg.com/esp-flasher-stub@1.5.0/stubs/esp32c2.json",
+      "esp-flasher-stub/esp32c3.json": "https://unpkg.com/esp-flasher-stub@1.5.0/stubs/esp32c3.json",
+      "esp-flasher-stub/esp32c5.json": "https://unpkg.com/esp-flasher-stub@1.5.0/stubs/esp32c5.json",
+      "esp-flasher-stub/esp32c6.json": "https://unpkg.com/esp-flasher-stub@1.5.0/stubs/esp32c6.json",
+      "esp-flasher-stub/esp32c61.json": "https://unpkg.com/esp-flasher-stub@1.5.0/stubs/esp32c61.json",
+      "esp-flasher-stub/esp32h2.json": "https://unpkg.com/esp-flasher-stub@1.5.0/stubs/esp32h2.json",
+      "esp-flasher-stub/esp32h4.json": "https://unpkg.com/esp-flasher-stub@1.5.0/stubs/esp32h4.json",
+      "esp-flasher-stub/esp32h21.json": "https://unpkg.com/esp-flasher-stub@1.5.0/stubs/esp32h21.json",
+      "esp-flasher-stub/esp32p4.json": "https://unpkg.com/esp-flasher-stub@1.5.0/stubs/esp32p4.json",
+      "esp-flasher-stub/esp32p4-rev1.json": "https://unpkg.com/esp-flasher-stub@1.5.0/stubs/esp32p4-rev1.json",
+      "esp-flasher-stub/esp32s2.json": "https://unpkg.com/esp-flasher-stub@1.5.0/stubs/esp32s2.json",
+      "esp-flasher-stub/esp32s3.json": "https://unpkg.com/esp-flasher-stub@1.5.0/stubs/esp32s3.json",
+      "esp-flasher-stub/esp32s31.json": "https://unpkg.com/esp-flasher-stub@1.5.0/stubs/esp32s31.json",
+      "esp-flasher-stub/esp8266.json": "https://unpkg.com/esp-flasher-stub@1.5.0/stubs/esp8266.json"
     }
   }
 </script>
@@ -106,6 +121,8 @@ const loaderOptions: LoaderOptions = {
 const esploader = new ESPLoader(loaderOptions);
 ```
 
+`Transport.connect()` opens the Web Serial port with a 64 KiB buffer. Chrome otherwise uses 255 bytes, which drops bytes during large transfers at high baud rates, and the transfer then waits until it times out. Set `serialOptions.bufferSize` on `LoaderOptions` to choose a different size. Those options are reused when the port is reopened for a baud-rate change.
+
 ### 3. Connect to Device
 
 Connect to the ESP device and detect the chip:
@@ -122,7 +139,7 @@ try {
 
 ### 4. Flash Firmware
 
-Flash firmware images to the device:
+Flash firmware images to the device. `writeFlash` checks each image's MD5 against the digest read back from the chip.
 
 ```typescript
 // Read your firmware file (e.g., from a File input or fetch)
@@ -142,11 +159,6 @@ const flashOptions: FlashOptions = {
   reportProgress: (fileIndex, written, total) => {
     const percent = (written / total) * 100;
     console.log(`Progress: ${percent.toFixed(1)}%`);
-  },
-  // Optional: MD5 hash calculation for verification
-  calculateMD5Hash: (image: Uint8Array) => {
-    // Implement your MD5 calculation here
-    return "your-md5-hash";
   },
 };
 
@@ -200,6 +212,8 @@ const data = await esploader.readFlash(
 
 console.log("Read data:", data);
 ```
+
+`readFlash` compares the stub's 16-byte MD5 with the MD5 of the bytes it received and throws `Digest mismatch` when they differ. A small serial `bufferSize` drops bytes on large high-baud reads; the loader options above set the default.
 
 ### 6. Erase Flash
 

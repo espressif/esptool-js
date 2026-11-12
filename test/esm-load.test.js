@@ -52,9 +52,19 @@ test("stub JSON imports use import attributes", async () => {
     "utf8",
   );
   assert.match(stubFlasher, /with:\s*\{\s*type:\s*["']json["']/);
+  assert.match(stubFlasher, /esp-flasher-stub\/esp32\.json/);
+  assert.doesNotMatch(stubFlasher, /targets\/stub_flasher/);
   const stub = await getStubJsonByChipName("ESP32");
   assert.ok(stub);
   assert.equal(typeof stub.entry, "number");
   assert.ok(stub.decodedText instanceof Uint8Array);
   assert.ok(stub.decodedText.length > 0);
+
+  const h21 = await getStubJsonByChipName("ESP32-H21");
+  assert.ok(h21);
+  assert.equal(typeof h21.entry, "number");
+  assert.ok(h21.decodedText.length > 0);
+
+  const e22 = await getStubJsonByChipName("ESP32-E22");
+  assert.equal(e22, undefined);
 });

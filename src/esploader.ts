@@ -10,6 +10,7 @@ import { Transport, SerialOptions } from "./webserial.js";
 import { ROM } from "./targets/rom.js";
 import { ClassicReset, CustomReset, HardReset, ResetConstructors, ResetStrategy, UsbJtagSerialReset } from "./reset.js";
 import { getStubJsonByChipName } from "./stubFlasher.js";
+import { md5 } from "./md5.js";
 import { padTo, sleep } from "./util.js";
 import { IEspLoaderTerminal } from "./types/loaderTerminal.js";
 import { LoaderOptions } from "./types/loaderOptions.js";
@@ -562,9 +563,22 @@ export class ESPLoader {
   /**
    * True when Web Serial reports Espressif USB-Serial/JTAG VID/PID.
    * Safe before chip identify/sync (no register reads).
+   * @returns {boolean} True when the port VID/PID is Espressif USB-Serial/JTAG.
    */
-  private isUsbJtagSerialPort(): boolean {
+  usesUsbJtagSerial(): boolean {
     return this.transport.getVid() === ESPRESSIF_VID && this.transport.getPid() === USB_JTAG_SERIAL_PID;
+  }
+
+  private isUsbJtagSerialPort(): boolean {
+    return this.usesUsbJtagSerial();
+  }
+
+  /**
+   * True when sync() talked to a flasher stub that was already running.
+   * @returns {boolean} True when the stub was already running at connect time.
+   */
+  detectedRunningStub(): boolean {
+    return this.syncStubDetected;
   }
 
   /**
@@ -591,6 +605,26 @@ export class ESPLoader {
       return await this.chip.usingUsbOtg(this);
     }
     return false;
+  }
+
+  /**
+   * Cap ROM stub upload to 0x800 on USB-OTG chips.
+   * Applied when USB-OTG is detected, and when the host reports no VID/PID,
+   * because USB-OTG cannot be ruled out. UART bridges accept the smaller
+   * blocks. Flash writes after the stub is running are not changed here.
+   */
+  private async applyUsbOtgRomBlock(): Promise<void> {
+    if (this.IS_STUB || !this.chip.USB_OTG_SUPPORTED) {
+      return;
+    }
+    const vid = this.transport.getVid();
+    const pid = this.transport.getPid();
+    const noVidPid = vid === undefined && pid === undefined;
+    if (!noVidPid && !(await this.usesUsbOtg())) {
+      return;
+    }
+    this.ESP_RAM_BLOCK = 0x800;
+    this.debug("Using 0x800 ROM block size for USB-OTG stub upload");
   }
 
   /**
@@ -1397,10 +1431,11 @@ export class ESPLoader {
   }
 
   /**
-   * Calculate the MD5 Checksum command
+   * Calculate the MD5 checksum of flash contents.
+   * The stub returns 16 raw digest bytes. The ROM returns 32 ASCII hex characters.
    * @param {number} addr Address number
    * @param {number} size Package size
-   * @returns {string} MD5 Checksum string
+   * @returns {string} Lowercase MD5 hex string
    */
   async flashMd5sum(addr: number, size: number): Promise<string> {
     const timeout = this.timeoutPerMb(this.MD5_TIMEOUT_PER_MB, size);
@@ -1420,24 +1455,38 @@ export class ESPLoader {
       timeout,
     );
 
-    const strmd5 = this.toHex(res);
-    return strmd5;
+    if (!(res instanceof Uint8Array)) {
+      throw new ESPError("Expected MD5 digest bytes, got: " + res);
+    }
+    // Stub: 16 raw digest bytes. ROM: 32 ASCII hex characters.
+    if (res.length === 16) {
+      return this.toHex(res);
+    }
+    if (res.length === 32) {
+      return String.fromCharCode(...res).toLowerCase();
+    }
+    throw new ESPError("Expected 16-byte or 32-byte MD5 digest, got " + res.length + " bytes");
   }
 
   /**
    * Read data from flash memory of the chip.
    * This function reads a specified amount of data from the flash memory starting at a given address.
    * It sends a read command to the chip and processes the response packets until the requested size is read.
+   * The stub then sends a raw 16-byte MD5 SLIP frame. That digest is compared with the MD5 of the received bytes.
    * @param {number} addr - The starting address in flash memory to read from.
    * @param {number} size - The number of bytes to read from flash memory.
    * @param {FlashReadCallback} onPacketReceived - Optional callback function to handle each received packet.
    * @returns {Promise<Uint8Array>} A promise that resolves to the data read from flash memory as a Uint8Array.
-   * @throws {ESPError} If the read operation fails or an unexpected response is received.
+   * @throws {ESPError} If the read fails, the length is wrong, or the MD5 digest does not match.
    */
   async readFlash(addr: number, size: number, onPacketReceived: FlashReadCallback = null) {
+    // Four blocks in flight stay inside the 64 KiB Web Serial buffer, including SLIP escapes.
+    // A larger window lets the stub burst faster than the browser can drain, and Chrome drops bytes.
+    const blockSize = 0x1000;
+    const maxInFlight = 4;
     let pkt = this._appendArray(this._intToByteArray(addr), this._intToByteArray(size));
-    pkt = this._appendArray(pkt, this._intToByteArray(0x1000));
-    pkt = this._appendArray(pkt, this._intToByteArray(1024));
+    pkt = this._appendArray(pkt, this._intToByteArray(blockSize));
+    pkt = this._appendArray(pkt, this._intToByteArray(maxInFlight));
 
     const res = await this.checkCommand("read flash", this.ESP_READ_FLASH, pkt);
 
@@ -1449,19 +1498,51 @@ export class ESPLoader {
     while (resp.length < size) {
       const packet = await this.transport.read(this.FLASH_READ_TIMEOUT);
 
-      if (packet instanceof Uint8Array) {
-        if (packet.length > 0) {
-          resp = this._appendArray(resp, packet);
-          await this.transport.write(this._intToByteArray(resp.length));
-
-          if (onPacketReceived) {
-            onPacketReceived(packet, resp.length, size);
-          }
-        }
-      } else {
+      if (!(packet instanceof Uint8Array)) {
         throw new ESPError("Failed to read memory: " + packet);
       }
+      // A short frame is the tail of a read that is not a multiple of the block size.
+      // A short frame before that means bytes were dropped. An empty frame is a spare SLIP end.
+      if (packet.length > 0 && packet.length < blockSize && resp.length + packet.length < size) {
+        throw new ESPError(
+          `Corrupt data, expected 0x${blockSize.toString(16)} bytes but received 0x${packet.length.toString(
+            16,
+          )} bytes.`,
+        );
+      }
+      if (packet.length > 0) {
+        resp = this._appendArray(resp, packet);
+        await this.transport.write(this._intToByteArray(resp.length));
+
+        if (onPacketReceived) {
+          onPacketReceived(packet, resp.length, size);
+        }
+      }
     }
+
+    if (resp.length > size) {
+      throw new ESPError("Read more than expected.");
+    }
+
+    // The stub always finishes READ_FLASH with a raw 16-byte MD5 SLIP frame.
+    // The final data packet is already ACKed above; do not ACK the digest.
+    const digest = await this.transport.read(this.FLASH_READ_TIMEOUT);
+    if (!(digest instanceof Uint8Array) || digest.length !== 16) {
+      throw new ESPError("Expected 16-byte readFlash digest, got: " + digest);
+    }
+    const calculated = md5(resp);
+    let digestMatches = true;
+    for (let i = 0; i < digest.length; i++) {
+      if (digest[i] !== calculated[i]) {
+        digestMatches = false;
+        break;
+      }
+    }
+    const deviceHex = this.toHex(digest).toUpperCase();
+    if (!digestMatches) {
+      throw new ESPError(`Digest mismatch: expected ${deviceHex}, got ${this.toHex(calculated).toUpperCase()}`);
+    }
+    this.debug("readFlash digest " + deviceHex);
 
     return resp;
   }
@@ -1489,6 +1570,8 @@ export class ESPLoader {
       this.info(`Stub flasher is not yet supported on ${this.chip.CHIP_NAME}, it has been disabled.`);
       return this.chip;
     }
+
+    await this.applyUsbOtgRomBlock();
 
     this.info("Uploading stub...");
     const stub = [stubFlasher.decodedText, stubFlasher.decodedData];
@@ -1736,8 +1819,14 @@ export class ESPLoader {
     }
     let aFlashFreq = flashSizeFreq & 0x0f;
     if (flashFreq !== "keep") {
-      const flashFreqs: { [key: string]: number } = { "40m": 0, "26m": 1, "20m": 2, "80m": 0xf };
-      aFlashFreq = flashFreqs[flashFreq];
+      const encoded = this.chip.FLASH_FREQUENCY[flashFreq];
+      if (encoded === undefined) {
+        throw new ESPError(
+          `Flash frequency ${flashFreq} is not supported by ${this.chip.CHIP_NAME}. ` +
+            `Supported frequencies: ${Object.keys(this.chip.FLASH_FREQUENCY).join(", ")}`,
+        );
+      }
+      aFlashFreq = encoded;
     }
     let aFlashSize = flashSizeFreq & 0xf0;
     if (flashSize !== "keep") {
@@ -1809,6 +1898,7 @@ export class ESPLoader {
    * When `options.flashSize` is `"detect"`, the flash ID is read before any file is written
    * (including images that are not at `BOOTLOADER_FLASH_OFFSET`) so the bounds check can
    * use a concrete size. Throws if the flash ID cannot be read or mapped.
+   * After each image is written, its MD5 is checked against the digest read from the chip.
    * @param {FlashOptions} options FlashOptions to configure how and what to write into flash.
    */
   async writeFlash(options: FlashOptions) {
@@ -1868,11 +1958,8 @@ export class ESPLoader {
         options.flashFreq,
         resolvedFlashSize,
       );
-      let calcmd5: string | null = null;
-      if (options.calculateMD5Hash) {
-        calcmd5 = options.calculateMD5Hash(image);
-        this.debug("Image MD5 " + calcmd5);
-      }
+      const calcmd5 = this.toHex(md5(image));
+      this.debug("Image MD5 " + calcmd5);
       const uncsize = image.length;
       let blocks: number;
       if (options.compress) {
@@ -1978,16 +2065,13 @@ export class ESPLoader {
       } else {
         this.info("Wrote " + bytesSent + " bytes at 0x" + address.toString(16) + " in " + t / 1000 + " seconds.");
       }
-      if (calcmd5) {
-        this.info("File  md5: " + calcmd5);
-        const res = await this.flashMd5sum(address, uncsize);
-        this.info("Flash md5: " + res);
-        if (new String(res).valueOf() != new String(calcmd5).valueOf()) {
-          throw new ESPError("MD5 of file does not match data in flash!");
-        } else {
-          this.info("Hash of data verified.");
-        }
+      this.info("File  md5: " + calcmd5);
+      const flashMd5 = await this.flashMd5sum(address, uncsize);
+      this.info("Flash md5: " + flashMd5);
+      if (flashMd5 !== calcmd5) {
+        throw new ESPError("MD5 of file does not match data in flash!");
       }
+      this.info("Hash of data verified.");
     }
     this.info("Leaving...");
   }
@@ -2057,14 +2141,24 @@ export class ESPLoader {
    */
   async after(mode: After = "hard_reset", usingUsbOtg?: boolean, sequenceString?: string) {
     switch (mode) {
-      case "hard_reset":
+      case "hard_reset": {
+        const usbOtg = usingUsbOtg ?? (await this.usesUsbOtg());
+        if (
+          usbOtg &&
+          !this.secureDownloadMode &&
+          this.chip.USB_OTG_SUPPORTED &&
+          typeof this.chip.watchdogReset === "function"
+        ) {
+          await this.chip.watchdogReset(this);
+          break;
+        }
         if (this.resetConstructors.hardReset) {
           this.info("Hard resetting via RTS pin...");
-          const usbOtg = usingUsbOtg ?? (await this.usesUsbOtg());
           const hardReset = this.resetConstructors.hardReset(this.transport, usbOtg);
           await hardReset.reset();
         }
         break;
+      }
       case "soft_reset":
         this.info("Soft resetting...");
         await this.softReset(false);

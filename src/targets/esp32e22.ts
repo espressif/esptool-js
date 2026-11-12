@@ -56,6 +56,7 @@ export class ESP32E22ROM extends ESP32ROM {
   public FLASH_ENCRYPTED_WRITE_ALIGN = 16;
 
   public USB_RAM_BLOCK = 0x800;
+  public USB_OTG_SUPPORTED = true;
 
   public MEMORY_MAP: MemoryMapEntry[] = [
     [0x00000000, 0x00010000, "PADDING"],
