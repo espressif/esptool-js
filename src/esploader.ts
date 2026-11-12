@@ -1431,10 +1431,11 @@ export class ESPLoader {
   }
 
   /**
-   * Calculate the MD5 Checksum command
+   * Calculate the MD5 checksum of flash contents.
+   * The stub returns 16 raw digest bytes. The ROM returns 32 ASCII hex characters.
    * @param {number} addr Address number
    * @param {number} size Package size
-   * @returns {string} MD5 Checksum string
+   * @returns {string} Lowercase MD5 hex string
    */
   async flashMd5sum(addr: number, size: number): Promise<string> {
     const timeout = this.timeoutPerMb(this.MD5_TIMEOUT_PER_MB, size);
@@ -1454,8 +1455,17 @@ export class ESPLoader {
       timeout,
     );
 
-    const strmd5 = this.toHex(res);
-    return strmd5;
+    if (!(res instanceof Uint8Array)) {
+      throw new ESPError("Expected MD5 digest bytes, got: " + res);
+    }
+    // Stub: 16 raw digest bytes. ROM: 32 ASCII hex characters.
+    if (res.length === 16) {
+      return this.toHex(res);
+    }
+    if (res.length === 32) {
+      return String.fromCharCode(...res).toLowerCase();
+    }
+    throw new ESPError("Expected 16-byte or 32-byte MD5 digest, got " + res.length + " bytes");
   }
 
   /**
@@ -1888,6 +1898,7 @@ export class ESPLoader {
    * When `options.flashSize` is `"detect"`, the flash ID is read before any file is written
    * (including images that are not at `BOOTLOADER_FLASH_OFFSET`) so the bounds check can
    * use a concrete size. Throws if the flash ID cannot be read or mapped.
+   * After each image is written, its MD5 is checked against the digest read from the chip.
    * @param {FlashOptions} options FlashOptions to configure how and what to write into flash.
    */
   async writeFlash(options: FlashOptions) {
@@ -1947,11 +1958,8 @@ export class ESPLoader {
         options.flashFreq,
         resolvedFlashSize,
       );
-      let calcmd5: string | null = null;
-      if (options.calculateMD5Hash) {
-        calcmd5 = options.calculateMD5Hash(image);
-        this.debug("Image MD5 " + calcmd5);
-      }
+      const calcmd5 = this.toHex(md5(image));
+      this.debug("Image MD5 " + calcmd5);
       const uncsize = image.length;
       let blocks: number;
       if (options.compress) {
@@ -2057,16 +2065,13 @@ export class ESPLoader {
       } else {
         this.info("Wrote " + bytesSent + " bytes at 0x" + address.toString(16) + " in " + t / 1000 + " seconds.");
       }
-      if (calcmd5) {
-        this.info("File  md5: " + calcmd5);
-        const res = await this.flashMd5sum(address, uncsize);
-        this.info("Flash md5: " + res);
-        if (new String(res).valueOf() != new String(calcmd5).valueOf()) {
-          throw new ESPError("MD5 of file does not match data in flash!");
-        } else {
-          this.info("Hash of data verified.");
-        }
+      this.info("File  md5: " + calcmd5);
+      const flashMd5 = await this.flashMd5sum(address, uncsize);
+      this.info("Flash md5: " + flashMd5);
+      if (flashMd5 !== calcmd5) {
+        throw new ESPError("MD5 of file does not match data in flash!");
       }
+      this.info("Hash of data verified.");
     }
     this.info("Leaving...");
   }
