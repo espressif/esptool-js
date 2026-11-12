@@ -121,6 +121,8 @@ const loaderOptions: LoaderOptions = {
 const esploader = new ESPLoader(loaderOptions);
 ```
 
+`Transport.connect()` opens the Web Serial port with a 64 KiB buffer. Chrome otherwise uses 255 bytes, which drops bytes during large transfers at high baud rates, and the transfer then waits until it times out. Set `serialOptions.bufferSize` on `LoaderOptions` to choose a different size. Those options are reused when the port is reopened for a baud-rate change.
+
 ### 3. Connect to Device
 
 Connect to the ESP device and detect the chip:
@@ -215,6 +217,8 @@ const data = await esploader.readFlash(
 
 console.log("Read data:", data);
 ```
+
+`readFlash` compares the stub's 16-byte MD5 with the MD5 of the bytes it received and throws `Digest mismatch` when they differ. A small serial `bufferSize` drops bytes on large high-baud reads; the loader options above set the default.
 
 ### 6. Erase Flash
 

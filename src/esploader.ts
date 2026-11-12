@@ -10,6 +10,7 @@ import { Transport, SerialOptions } from "./webserial.js";
 import { ROM } from "./targets/rom.js";
 import { ClassicReset, CustomReset, HardReset, ResetConstructors, ResetStrategy, UsbJtagSerialReset } from "./reset.js";
 import { getStubJsonByChipName } from "./stubFlasher.js";
+import { md5 } from "./md5.js";
 import { padTo, sleep } from "./util.js";
 import { IEspLoaderTerminal } from "./types/loaderTerminal.js";
 import { LoaderOptions } from "./types/loaderOptions.js";
@@ -1461,17 +1462,21 @@ export class ESPLoader {
    * Read data from flash memory of the chip.
    * This function reads a specified amount of data from the flash memory starting at a given address.
    * It sends a read command to the chip and processes the response packets until the requested size is read.
-   * The stub then sends a raw 16-byte MD5 SLIP frame, which is consumed here so it cannot desync the next command.
+   * The stub then sends a raw 16-byte MD5 SLIP frame. That digest is compared with the MD5 of the received bytes.
    * @param {number} addr - The starting address in flash memory to read from.
    * @param {number} size - The number of bytes to read from flash memory.
    * @param {FlashReadCallback} onPacketReceived - Optional callback function to handle each received packet.
    * @returns {Promise<Uint8Array>} A promise that resolves to the data read from flash memory as a Uint8Array.
-   * @throws {ESPError} If the read operation fails or an unexpected response is received.
+   * @throws {ESPError} If the read fails, the length is wrong, or the MD5 digest does not match.
    */
   async readFlash(addr: number, size: number, onPacketReceived: FlashReadCallback = null) {
+    // Four blocks in flight stay inside the 64 KiB Web Serial buffer, including SLIP escapes.
+    // A larger window lets the stub burst faster than the browser can drain, and Chrome drops bytes.
+    const blockSize = 0x1000;
+    const maxInFlight = 4;
     let pkt = this._appendArray(this._intToByteArray(addr), this._intToByteArray(size));
-    pkt = this._appendArray(pkt, this._intToByteArray(0x1000));
-    pkt = this._appendArray(pkt, this._intToByteArray(1024));
+    pkt = this._appendArray(pkt, this._intToByteArray(blockSize));
+    pkt = this._appendArray(pkt, this._intToByteArray(maxInFlight));
 
     const res = await this.checkCommand("read flash", this.ESP_READ_FLASH, pkt);
 
@@ -1483,18 +1488,30 @@ export class ESPLoader {
     while (resp.length < size) {
       const packet = await this.transport.read(this.FLASH_READ_TIMEOUT);
 
-      if (packet instanceof Uint8Array) {
-        if (packet.length > 0) {
-          resp = this._appendArray(resp, packet);
-          await this.transport.write(this._intToByteArray(resp.length));
-
-          if (onPacketReceived) {
-            onPacketReceived(packet, resp.length, size);
-          }
-        }
-      } else {
+      if (!(packet instanceof Uint8Array)) {
         throw new ESPError("Failed to read memory: " + packet);
       }
+      // A short frame is the tail of a read that is not a multiple of the block size.
+      // A short frame before that means bytes were dropped. An empty frame is a spare SLIP end.
+      if (packet.length > 0 && packet.length < blockSize && resp.length + packet.length < size) {
+        throw new ESPError(
+          `Corrupt data, expected 0x${blockSize.toString(16)} bytes but received 0x${packet.length.toString(
+            16,
+          )} bytes.`,
+        );
+      }
+      if (packet.length > 0) {
+        resp = this._appendArray(resp, packet);
+        await this.transport.write(this._intToByteArray(resp.length));
+
+        if (onPacketReceived) {
+          onPacketReceived(packet, resp.length, size);
+        }
+      }
+    }
+
+    if (resp.length > size) {
+      throw new ESPError("Read more than expected.");
     }
 
     // The stub always finishes READ_FLASH with a raw 16-byte MD5 SLIP frame.
@@ -1503,7 +1520,19 @@ export class ESPLoader {
     if (!(digest instanceof Uint8Array) || digest.length !== 16) {
       throw new ESPError("Expected 16-byte readFlash digest, got: " + digest);
     }
-    this.debug("readFlash digest " + this.toHex(digest));
+    const calculated = md5(resp);
+    let digestMatches = true;
+    for (let i = 0; i < digest.length; i++) {
+      if (digest[i] !== calculated[i]) {
+        digestMatches = false;
+        break;
+      }
+    }
+    const deviceHex = this.toHex(digest).toUpperCase();
+    if (!digestMatches) {
+      throw new ESPError(`Digest mismatch: expected ${deviceHex}, got ${this.toHex(calculated).toUpperCase()}`);
+    }
+    this.debug("readFlash digest " + deviceHex);
 
     return resp;
   }

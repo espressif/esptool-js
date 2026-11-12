@@ -40,6 +40,7 @@ export interface SerialOptions {
 
   /**
    * A positive, non-zero value indicating the size of the read and write buffers that should be created.
+   * `Transport.connect` uses 65536 when this is omitted.
    * @type {number | undefined}
    */
   bufferSize?: number | undefined;
@@ -61,6 +62,42 @@ export interface BaudRateConfigurablePort extends SerialPort {
   setBaudRate?: (baudRate: number) => Promise<void>;
 }
 
+/** Web Serial buffer used when the caller does not set `bufferSize`. Chrome's own default is 255 bytes. */
+const DEFAULT_SERIAL_BUFFER_SIZE = 65536;
+
+/** Recoverable Web Serial read errors. A new readable stream is created after each one. */
+const RECOVERABLE_SERIAL_ERRORS = ["BufferOverrunError", "FramingError", "BreakError", "ParityError"];
+
+/**
+ * Decoded SLIP payload. Grows by doubling so each byte is copied a few times, not once per byte.
+ */
+class SlipPayload {
+  private data = new Uint8Array(64);
+  private length = 0;
+
+  /**
+   * Append one decoded byte.
+   * @param {number} byte Decoded payload byte.
+   */
+  push(byte: number) {
+    if (this.length === this.data.length) {
+      const grown = new Uint8Array(this.data.length * 2);
+      grown.set(this.data);
+      this.data = grown;
+    }
+    this.data[this.length] = byte;
+    this.length++;
+  }
+
+  /**
+   * Copy out the bytes pushed so far.
+   * @returns {Uint8Array} Decoded payload.
+   */
+  bytes(): Uint8Array {
+    return this.data.slice(0, this.length);
+  }
+}
+
 /**
  * Wrapper class around Webserial API to communicate with the serial device.
  * @param {typeof import("w3c-web-serial").SerialPort} device - Requested device prompted by the browser.
@@ -77,6 +114,8 @@ class Transport {
   private reader: ReadableStreamDefaultReader<Uint8Array> | undefined;
   private buffer: Uint8Array = new Uint8Array(0);
   private onDeviceLostCallback: (() => void) | null = null;
+  /** Cleared by disconnect() so a stream close does not start another read. */
+  private reading = false;
 
   constructor(public device: SerialPort, public tracing = false, enableSlipReader = true) {
     this.slipReaderEnabled = enableSlipReader;
@@ -227,52 +266,56 @@ class Transport {
   }
 
   /**
-   * Read from serial device and append to buffer
+   * Read from serial device and append to buffer.
+   * One reader is held across chunks. After a non-fatal stream close, the loop
+   * opens the replacement stream while `reading` is set. disconnect() clears it.
    */
   async readLoop() {
-    while (this.device.readable) {
-      this.reader = this.device.readable?.getReader();
+    this.reading = true;
+    while (this.reading && this.device.readable) {
+      const reader = this.device.readable.getReader();
+      this.reader = reader;
+      let fatal = false;
       try {
-        const { value, done } = await this.reader.read();
-        if (done) {
-          this.trace(`Serial port done`);
-          break;
-        }
-        // The following test is purely precautionary because .read()
-        // is not supposed to return empty data when done is false
-        if (value && value.length) {
-          const newValue = Uint8Array.from(value);
-          this.buffer = this.appendArray(this.buffer, newValue);
+        while (this.reading) {
+          const { value, done } = await reader.read();
+          if (done) {
+            this.trace(`Serial port done`);
+            break;
+          }
+          // .read() is not supposed to return empty data when done is false
+          if (value && value.length) {
+            this.buffer = this.appendArray(this.buffer, Uint8Array.from(value));
+          }
         }
       } catch (error) {
         if (error instanceof Error) {
-          // Read retry is possible for the following errors
-          const nonFatal = ["BufferOverrunError", "FramingError", "BreakError", "ParityError"];
-          if (nonFatal.includes(error.name)) {
+          if (RECOVERABLE_SERIAL_ERRORS.includes(error.name)) {
             this.trace(`Recoverable serial port error: ${error.message}`);
             continue;
           }
-          // Otherwise the read loop cannot continue
           this.trace(`Unrecoverable serial port error: ${error.message}`);
-          break;
-        }
-        if (error instanceof DOMException) {
+        } else if (error instanceof DOMException) {
           // The read loop cannot continue after a DOMException error
           if (this.onDeviceLostCallback) {
             this.onDeviceLostCallback();
           } else {
             this.trace(`Unrecoverable serial port error: ${error.message}`);
           }
-          break;
+        } else {
+          this.trace(`Unrecoverable serial port error: ${error}`);
         }
-        // The read loop cannot continue after an error whose class is unknown
-        this.trace(`Unrecoverable serial port error: ${error}`);
-        break;
+        fatal = true;
       } finally {
-        this.reader.releaseLock();
+        reader.releaseLock();
+        if (this.reader === reader) {
+          this.reader = undefined;
+        }
+      }
+      if (fatal || !this.reading) {
+        break;
       }
     }
-    // Fatal error or serial port stream ended
     this.trace(`readLoop exited`);
   }
 
@@ -352,7 +395,7 @@ class Transport {
    * @returns {Uint8Array} Formatted packet using SLIP escape sequences.
    */
   async read(timeout: number) {
-    let partialPacket: Uint8Array | null = null;
+    let payload: SlipPayload | null = null;
     let isEscaping = false;
     let readBytes: Uint8Array | null = null;
     // eslint-disable-next-line no-constant-condition
@@ -372,7 +415,7 @@ class Transport {
       }
       if (!readBytes || readBytes.length === 0) {
         const msg =
-          partialPacket === null
+          payload === null
             ? "Serial data stream stopped: Possible serial noise or corruption."
             : "No serial data received.";
         if (this.tracing) {
@@ -387,9 +430,9 @@ class Transport {
 
       for (let i = 0; i < readBytes.length; i++) {
         const byte = readBytes[i];
-        if (partialPacket === null) {
+        if (payload === null) {
           if (byte === this.SLIP_END) {
-            partialPacket = new Uint8Array(0); // Start of a new packet
+            payload = new SlipPayload();
           } else {
             if (this.tracing) {
               this.trace(`Read invalid data: ${this.hexConvert(readBytes)}`);
@@ -404,9 +447,9 @@ class Transport {
         } else if (isEscaping) {
           isEscaping = false;
           if (byte === this.SLIP_ESC_END) {
-            partialPacket = this.appendArray(partialPacket, new Uint8Array([this.SLIP_END]));
+            payload.push(this.SLIP_END);
           } else if (byte === this.SLIP_ESC_ESC) {
-            partialPacket = this.appendArray(partialPacket, new Uint8Array([this.SLIP_ESC]));
+            payload.push(this.SLIP_ESC);
           } else {
             if (this.tracing) {
               this.trace(`Read invalid data: ${this.hexConvert(readBytes)}`);
@@ -421,17 +464,18 @@ class Transport {
         } else if (byte === this.SLIP_ESC) {
           isEscaping = true;
         } else if (byte === this.SLIP_END) {
+          const packet = payload.bytes();
           if (this.tracing) {
-            this.trace(`Received full packet: ${this.hexConvert(partialPacket)}`);
+            this.trace(`Received full packet: ${this.hexConvert(packet)}`);
           }
           // Put any remaining bytes after SLIP_END back into the buffer
           if (i + 1 < readBytes.length) {
-            const remainingBytes = readBytes.slice(i + 1);
+            const remainingBytes = readBytes.subarray(i + 1);
             this.buffer = this.appendArray(remainingBytes, this.buffer);
           }
-          return partialPacket;
+          return packet;
         } else {
-          partialPacket = this.appendArray(partialPacket, new Uint8Array([byte]));
+          payload.push(byte);
         }
       }
     }
@@ -521,15 +565,17 @@ class Transport {
 
   /**
    * Connect to serial device using the Webserial open method.
+   * When `serialOptions.bufferSize` is omitted, the port opens with a 64 KiB buffer.
+   * Chrome's default of 255 bytes drops bytes on large high-baud transfers.
    * @param {number} baud Number baud rate for serial connection. Default is 115200.
-   * @param {typeof import("w3c-web-serial").SerialOptions} serialOptions Serial Options for WebUSB SerialPort class.
+   * @param {SerialOptions} serialOptions Serial options. `bufferSize` overrides the 64 KiB default.
    */
   async connect(baud = 115200, serialOptions: SerialOptions = {}) {
     await this.device.open({
       baudRate: baud,
       dataBits: serialOptions?.dataBits,
       stopBits: serialOptions?.stopBits,
-      bufferSize: serialOptions?.bufferSize,
+      bufferSize: serialOptions?.bufferSize ?? DEFAULT_SERIAL_BUFFER_SIZE,
       parity: serialOptions?.parity,
       flowControl: serialOptions?.flowControl,
     });
@@ -582,6 +628,7 @@ class Transport {
    * Disconnect from serial device by running SerialPort.close() after streams unlock.
    */
   async disconnect() {
+    this.reading = false;
     if (this.device.readable?.locked) {
       await this.reader?.cancel();
     }

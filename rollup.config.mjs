@@ -1,15 +1,60 @@
-import { dirname, join } from "node:path";
+import { existsSync, readFileSync } from "node:fs";
+import { dirname, isAbsolute, join } from "node:path";
 import { fileURLToPath } from "node:url";
-import resolve from '@rollup/plugin-node-resolve';
 import babel from "@rollup/plugin-babel";
-import commonjs from '@rollup/plugin-commonjs';
-import terser from '@rollup/plugin-terser';
-import json from '@rollup/plugin-json';
+import commonjs from "@rollup/plugin-commonjs";
+import terser from "@rollup/plugin-terser";
+import json from "@rollup/plugin-json";
 
-const stubDir = join(dirname(fileURLToPath(import.meta.url)), "node_modules/esp-flasher-stub/stubs");
+const rootDir = dirname(fileURLToPath(import.meta.url));
+const stubDir = join(rootDir, "node_modules/esp-flasher-stub/stubs");
 
-// @rollup/plugin-node-resolve 15 only expands export patterns that end in "*".
-// esp-flasher-stub publishes "./*.json" -> "./stubs/*.json", so map those specifiers directly.
+/**
+ * Package name for a bare specifier, or null when this resolver should skip it.
+ * Subpaths are left unresolved; the stub plugin handles esp-flasher-stub JSON.
+ * @param {string} source Import specifier.
+ * @returns {string | null} Package name.
+ */
+function packageName(source) {
+  if (source.startsWith(".") || source.startsWith("\0") || isAbsolute(source)) return null;
+  if (source.startsWith("@")) {
+    const parts = source.split("/");
+    if (parts.length !== 2) return null;
+    return source;
+  }
+  if (source.includes("/")) return null;
+  return source;
+}
+
+/**
+ * Resolve bare node_modules imports for the browser bundle.
+ * A string `browser` field wins, matching the previous mainFields: ["browser"] setting.
+ * Otherwise the ESM export, `module`, or `main` entry is used.
+ * @returns {import('rollup').Plugin} Rollup plugin.
+ */
+function resolveNodeModule() {
+  return {
+    name: "resolve-node-module",
+    resolveId(source) {
+      const name = packageName(source);
+      if (!name) return null;
+      const pkgDir = join(rootDir, "node_modules", name);
+      const pkgPath = join(pkgDir, "package.json");
+      if (!existsSync(pkgPath)) return null;
+      const pkg = JSON.parse(readFileSync(pkgPath, "utf8"));
+      const exportImport = pkg.exports?.["."]?.import;
+      const target =
+        (typeof pkg.browser === "string" ? pkg.browser : null) ||
+        (typeof exportImport === "string" ? exportImport : null) ||
+        pkg.module ||
+        pkg.main;
+      if (typeof target !== "string") return null;
+      return join(pkgDir, target);
+    },
+  };
+}
+
+// esp-flasher-stub publishes "./*.json" -> "./stubs/*.json". Map those specifiers directly.
 function resolveEspFlasherStub() {
   return {
     name: "resolve-esp-flasher-stub",
@@ -21,25 +66,24 @@ function resolveEspFlasherStub() {
   };
 }
 
-// rollup.config.js
 /**
  * @type {import('rollup').RollupOptions}
  */
 const config = {
-  input: 'lib/index.js',
+  input: "lib/index.js",
   output: {
     name: "esptooljs",
-    file: 'bundle.js',
-    format: 'es',
-    inlineDynamicImports: true
+    file: "bundle.js",
+    format: "es",
+    inlineDynamicImports: true,
   },
   plugins: [
     resolveEspFlasherStub(),
-    resolve({ preferBuiltins: false, mainFields: ["browser"]}),
+    resolveNodeModule(),
     commonjs(),
-    babel({ exclude: 'node_modules/**', babelHelpers: "runtime", skipPreflightCheck: true }),
+    babel({ exclude: "node_modules/**", babelHelpers: "runtime", skipPreflightCheck: true }),
     json({ namedExports: true, preferConst: true }),
-    terser()
+    terser(),
   ],
 };
 
