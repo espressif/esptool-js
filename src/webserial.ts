@@ -272,10 +272,12 @@ class Transport {
    */
   async readLoop() {
     this.reading = true;
+    let consecutiveEmptyStreams = 0;
     while (this.reading && this.device.readable) {
       const reader = this.device.readable.getReader();
       this.reader = reader;
       let fatal = false;
+      let receivedData = false;
       try {
         while (this.reading) {
           const { value, done } = await reader.read();
@@ -285,6 +287,7 @@ class Transport {
           }
           // .read() is not supposed to return empty data when done is false
           if (value && value.length) {
+            receivedData = true;
             this.buffer = this.appendArray(this.buffer, Uint8Array.from(value));
           }
         }
@@ -314,6 +317,18 @@ class Transport {
       }
       if (fatal || !this.reading) {
         break;
+      }
+      // A stream that ends at once, while readable keeps handing back a new one,
+      // would spin this loop with no await. Back off, then stop.
+      if (receivedData) {
+        consecutiveEmptyStreams = 0;
+      } else {
+        consecutiveEmptyStreams++;
+        if (consecutiveEmptyStreams >= 100) {
+          this.trace(`readLoop stopped after ${consecutiveEmptyStreams} empty streams`);
+          break;
+        }
+        await sleep(1);
       }
     }
     this.trace(`readLoop exited`);

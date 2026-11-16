@@ -1507,7 +1507,7 @@ export class ESPLoader {
         throw new ESPError(
           `Corrupt data, expected 0x${blockSize.toString(16)} bytes but received 0x${packet.length.toString(
             16,
-          )} bytes.`,
+          )} bytes. Reset the chip before retrying.`,
         );
       }
       if (packet.length > 0) {
@@ -1540,7 +1540,10 @@ export class ESPLoader {
     }
     const deviceHex = this.toHex(digest).toUpperCase();
     if (!digestMatches) {
-      throw new ESPError(`Digest mismatch: expected ${deviceHex}, got ${this.toHex(calculated).toUpperCase()}`);
+      throw new ESPError(
+        `Digest mismatch: expected ${deviceHex}, got ${this.toHex(calculated).toUpperCase()}.` +
+          " Reset the chip before retrying.",
+      );
     }
     this.debug("readFlash digest " + deviceHex);
 
@@ -1894,11 +1897,28 @@ export class ESPLoader {
   }
 
   /**
+   * True when SPI_FLASH_MD5 can confirm a write.
+   * Secure Download Mode refuses the command. The ESP8266 ROM does not implement it;
+   * the stub does. Matches esptool.py's secure-download guard and NotImplementedInROMError catch.
+   * @returns {boolean} True when post-write MD5 verification should run.
+   */
+  private canVerifyWrittenFlashMd5(): boolean {
+    if (this.secureDownloadMode) {
+      return false;
+    }
+    if (!this.IS_STUB && this.chip.CHIP_NAME === "ESP8266") {
+      return false;
+    }
+    return true;
+  }
+
+  /**
    * Write set of file images into given address based on given FlashOptions object.
    * When `options.flashSize` is `"detect"`, the flash ID is read before any file is written
    * (including images that are not at `BOOTLOADER_FLASH_OFFSET`) so the bounds check can
    * use a concrete size. Throws if the flash ID cannot be read or mapped.
    * After each image is written, its MD5 is checked against the digest read from the chip.
+   * Verification is skipped in Secure Download Mode and on ESP8266 ROM without the stub.
    * @param {FlashOptions} options FlashOptions to configure how and what to write into flash.
    */
   async writeFlash(options: FlashOptions) {
@@ -1958,7 +1978,7 @@ export class ESPLoader {
         options.flashFreq,
         resolvedFlashSize,
       );
-      const calcmd5 = this.toHex(md5(image));
+      const calcmd5 = options.calculateMD5Hash ? options.calculateMD5Hash(image) : this.toHex(md5(image));
       this.debug("Image MD5 " + calcmd5);
       const uncsize = image.length;
       let blocks: number;
@@ -2066,12 +2086,20 @@ export class ESPLoader {
         this.info("Wrote " + bytesSent + " bytes at 0x" + address.toString(16) + " in " + t / 1000 + " seconds.");
       }
       this.info("File  md5: " + calcmd5);
-      const flashMd5 = await this.flashMd5sum(address, uncsize);
-      this.info("Flash md5: " + flashMd5);
-      if (flashMd5 !== calcmd5) {
-        throw new ESPError("MD5 of file does not match data in flash!");
+      if (!this.canVerifyWrittenFlashMd5()) {
+        if (this.secureDownloadMode) {
+          this.info("Cannot verify written data if encrypted or in secure download mode.");
+        } else {
+          this.debug("Skipping MD5 verification: SPI_FLASH_MD5 is not supported by the ESP8266 ROM.");
+        }
+      } else {
+        const flashMd5 = await this.flashMd5sum(address, uncsize);
+        this.info("Flash md5: " + flashMd5);
+        if (flashMd5 !== calcmd5) {
+          throw new ESPError("MD5 of file does not match data in flash!");
+        }
+        this.info("Hash of data verified.");
       }
-      this.info("Hash of data verified.");
     }
     this.info("Leaving...");
   }
