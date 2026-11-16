@@ -46,4 +46,13 @@ export interface FlashOptions {
    * @type {(fileIndex: number, written: number, total: number) => void}
    */
   reportProgress?: (fileIndex: number, written: number, total: number) => void;
+
+  /**
+   * Optional custom digest of the image that will be written.
+   * Verification still runs whenever the loader supports SPI_FLASH_MD5.
+   * When omitted, the built-in MD5 of the image is used.
+   * @deprecated Ignored for whether verification runs. Provide it only to supply a custom digest.
+   * @type {(image: Uint8Array) => string}
+   */
+  calculateMD5Hash?: (image: Uint8Array) => string;
 }

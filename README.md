@@ -139,7 +139,7 @@ try {
 
 ### 4. Flash Firmware
 
-Flash firmware images to the device. `writeFlash` checks each image's MD5 against the digest read back from the chip.
+Flash firmware images to the device. `writeFlash` checks each image's MD5 against the digest read back from the chip. Verification is skipped in Secure Download Mode, where the ROM refuses `SPI_FLASH_MD5`, and on ESP8266 when the stub is not running.
 
 ```typescript
 // Read your firmware file (e.g., from a File input or fetch)
