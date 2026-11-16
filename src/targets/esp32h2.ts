@@ -27,6 +27,13 @@ export class ESP32H2ROM extends ESP32C6ROM {
   public UARTDEV_BUF_NO_USB = 3;
   public UARTDEV_BUF_NO = 0x3fcef14c;
 
+  public FLASH_FREQUENCY: { [key: string]: number } = {
+    "48m": 0xf,
+    "24m": 0x0,
+    "16m": 0x1,
+    "12m": 0x2,
+  };
+
   IROM_MAP_START = 0x42000000;
   IROM_MAP_END = 0x42800000;
 

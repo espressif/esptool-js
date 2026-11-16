@@ -1,5 +1,6 @@
 import { ESPLoader } from "../esploader.js";
 import { ESP32H2ROM } from "./esp32h2.js";
+import { MemoryMapEntry } from "./rom.js";
 
 export class ESP32H21ROM extends ESP32H2ROM {
   public CHIP_NAME = "ESP32-H21";
@@ -7,6 +8,32 @@ export class ESP32H21ROM extends ESP32H2ROM {
   public USES_MAGIC_VALUE = false;
 
   public UF2_FAMILY_ID = 0xb6dd00af;
+
+  public IROM_MAP_START = 0x42000000;
+  public IROM_MAP_END = 0x43000000;
+  public DROM_MAP_START = 0x42000000;
+  public DROM_MAP_END = 0x43000000;
+
+  public UART_DATE_REG_ADDR = 0x60000000 + 0x8c;
+
+  public FLASH_FREQUENCY: { [key: string]: number } = {
+    "48m": 0xf,
+    "24m": 0x0,
+  };
+
+  public MEMORY_MAP: MemoryMapEntry[] = [
+    [0x00000000, 0x00010000, "PADDING"],
+    [0x42000000, 0x43000000, "DROM"],
+    [0x40800000, 0x40850000, "DRAM"],
+    [0x40800000, 0x40850000, "BYTE_ACCESSIBLE"],
+    [0x40000000, 0x40020000, "DROM_MASK"],
+    [0x40000000, 0x40020000, "IROM_MASK"],
+    [0x42000000, 0x43000000, "IROM"],
+    [0x40800000, 0x40850000, "IRAM"],
+    [0x50000000, 0x50001000, "RTC_IRAM"],
+    [0x50000000, 0x50001000, "RTC_DRAM"],
+    [0x40800000, 0x40850000, "MEM_INTERNAL"],
+  ];
 
   public DR_REG_LP_WDT_BASE = 0x600b1c00;
   public RTC_CNTL_WDTCONFIG0_REG = this.DR_REG_LP_WDT_BASE + 0x0;

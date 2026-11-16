@@ -53,7 +53,6 @@ const serialLib = !navigator.serial && navigator.usb ? serial : navigator.serial
 const useWebUsb = document.getElementById("useWebUsb") as HTMLInputElement;
 
 declare let Terminal; // Terminal is imported in HTML script
-declare let CryptoJS; // CryptoJS is imported in HTML script
 
 const term = new Terminal({ cols: 120, rows: 40 });
 term.open(terminal);
@@ -740,10 +739,6 @@ programButton.onclick = async () => {
       flashSize: flashSize.value as FlashSizeValues,
       reportProgress: (fileIndex, written, total) => {
         progressBars[fileIndex].value = (written / total) * 100;
-      },
-      calculateMD5Hash: (image: Uint8Array) => {
-        const latin1String = Array.from(image, (byte) => String.fromCharCode(byte)).join("");
-        return CryptoJS.MD5(CryptoJS.enc.Latin1.parse(latin1String)).toString();
       },
     };
     await esploader.writeFlash(flashOptions);
