@@ -513,7 +513,7 @@ class Transport {
    * @param {boolean} breakSignal break signal boolean state
    */
   async setSignals(dtr?: boolean, rts?: boolean, breakSignal?: boolean) {
-    if (dtr) {
+    if (dtr !== undefined) {
       this._DTR_state = dtr;
     }
     await this.device.setSignals({ dataTerminalReady: dtr, requestToSend: rts, break: breakSignal });

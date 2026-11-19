@@ -148,7 +148,10 @@ export class HardReset implements ResetStrategy {
   }
 
   async reset() {
+    await this.transport.setRTS(true); // EN->LOW
     if (this.usingUsbOtg) {
+      // Give the chip some time to come out of reset,
+      // to be able to handle further DTR/RTS transitions
       await sleep(200);
       await this.transport.setRTS(false);
       await sleep(200);
