@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+### Bug fixes
+
+- `HardReset` asserts RTS before releasing it, so `after("hard_reset")` resets the chip again ([#279](https://github.com/espressif/esptool-js/issues/279))
+- `Transport.setSignals()` records DTR when it is set to `false`, so a later `setRTS()` no longer asserts DTR again ([#279](https://github.com/espressif/esptool-js/issues/279))
+
 ## [v0.7.0](https://github.com/espressif/esptool-js/releases/tag/v0.7.0) - 2026-09-21
 
 ### Features
