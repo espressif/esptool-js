@@ -17,9 +17,16 @@ Then open http://localhost:1234 in Chrome or Edge. The `npm run dev` step will c
 
 ## Generate build to publish
 
+Build the library from the repository root first, so `lib/` exists:
+
 ```
+npm install
+npm run build
+cd examples/typescript
 npm install
 npm run build
 ```
 
-Copy the content of `dist` to your static pages service like Github pages.
+`npm run dev` and `npm run build` generate API docs at the repository root, then copy them into `dist/docs`. `npm run build` writes the static site to `dist/` with relative URLs (`--public-url ./`) so it can be served from a subdirectory.
+
+The Pages workflow publishes `dist/` to the `gh-pages` branch. Set Pages to deploy from the `gh-pages` branch and the `/ (root)` folder. The site is https://espressif.github.io/esptool-js/ and the API reference is https://espressif.github.io/esptool-js/docs/. A pull request from the same repository publishes a preview at `https://espressif.github.io/esptool-js/pr-preview/pr-<number>/`.

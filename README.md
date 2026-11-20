@@ -401,7 +401,9 @@ Check the [example project](https://github.com/espressif/esptool-js/tree/main/ex
 
 ## Live demo
 
-Visit https://espressif.github.io/esptool-js/ to see this tool in action.
+GitHub Actions publishes the built example to the `gh-pages` branch from `main`. In the repository settings, set Pages to deploy from the `gh-pages` branch and the `/ (root)` folder. The site is https://espressif.github.io/esptool-js/.
+
+A pull request from this repository publishes the same example to `https://espressif.github.io/esptool-js/pr-preview/pr-<number>/` and comments that address on the pull request. The preview updates on each push and is removed when the pull request closes.
 
 ## Testing it locally
 
