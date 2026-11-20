@@ -1,0 +1,139 @@
+<!DOCTYPE html><html><head><script type="importmap">{"imports":{"1lHcO":"./esp32s2.f209b285.js","1tunb":"./esp32c2.6922f865.js","28MH8":"./esp32.2f09c79e.js","5WZO1":"./esp32c3.c48c9648.js","5YTAN":"./esp32c5.b8f87f41.js","7gQrl":"./esp32h2.424e882e.js","9C8bG":"./esp32c6.e254b295.js","9EvmU":"./esp32c61.e3414643.js","TNSXY":"./esp32s31.36cc4d0f.js","UDKwo":"./esp32p4-rev1.6022c47b.js","dX0nK":"./esp32p4.87908c52.js","gj5uo":"./esp32s3.428663d5.js","jsDcX":"./esp8266.1cc08ce6.js","kLVoC":"./esp32h4.1cfe1c9c.js"}}</script>
+        <meta charset="utf-8">
+        <title>ESP Tool</title>
+        <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.4.1/css/bootstrap.min.css">
+        <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/xterm@4.19.0/css/xterm.css">
+        <link href="https://fonts.googleapis.com/css?family=Orbitron" rel="stylesheet">
+        <link rel="icon" href="favicon.ee2246ac.ico">
+         <script src="https://cdn.jsdelivr.net/npm/xterm@4.19.0/lib/xterm.min.js"></script>
+         <script src="https://cdn.jsdelivr.net/npm/crypto-js@4.1.1/crypto-js.js"></script>
+         <script src="https://ajax.googleapis.com/ajax/libs/jquery/2.1.1/jquery.min.js"></script>
+         <script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.4.1/js/bootstrap.min.js"></script>
+    </head>
+    <body>
+        <h1 align="center"><p><img src="esp-logo.e558125a.png" width="42" height="42" style="vertical-align: middle" crossorigin=""> ESP Tool</p></h1>
+        <h4 align="center">A Serial Flasher utility for Espressif chips</h4>
+        <div id="safariErr" style="display: none"><p align="center" style="color: red">This tool is not supported on Safari browser!</p>
+        </div>
+        <div align="center">
+            <a class="btn btn-info" href="./docs/index.html">View the API Documentation</a>
+
+            <div class="form-check form-check-inline">
+                <input class="form-check-input" type="checkbox" id="debugLogging" value="">
+                <label class="form-check-label" for="debugLogging">Show Debug log</label>
+            </div>
+            <div class="form-check form-check-inline">
+                <input class="form-check-input" type="checkbox" id="useWebUsb" value="">
+                <label class="form-check-label" for="useWebUsb">WebUSB (CH340)</label>
+            </div>
+            <p style="color: #555; max-width: 720px; margin: 8px auto 0; font-size: 12px">
+              On macOS, Windows, and Linux the kernel usbserial driver often claims CH340, so WebUSB
+              <code>claimInterface</code> fails unless the driver is unbound. Android/Chrome OTG is the reliable WebUSB case.
+            </p>
+          </div>
+        <div class="container" id="main">
+            <hr>
+            <div id="program">
+                <h3> Program </h3>
+                <label for="baudrates" id="lblBaudrate">Baudrate:</label>
+                <label style="display: none" id="lblConnTo">Connected to device: </label>
+                <select name="baudrates" id="baudrates">
+                    <option value="921600">921600</option>
+                    <option value="460800">460800</option>
+                    <option value="230400">230400</option>
+                    <option value="115200">115200</option>
+                </select>
+
+                <br><br>
+
+                <input class="btn btn-info btn-sm" type="button" id="connectButton" value="Connect">
+                <input class="btn btn-info btn-sm" type="button" id="copyTraceButton" value="Copy Trace">
+                <input class="btn btn-warning btn-sm" type="button" id="disconnectButton" value="Disconnect">
+                <input class="btn btn-danger btn-sm" type="button" id="eraseButton" value="Erase Flash">
+                <br>
+
+                <div class="alert alert-danger alert-dismissible" id="alertDiv" style="margin-top: 10px; display: none">
+                    <a href="#" class="close" aria-label="close" onclick="$('.alert').hide()">×</a>
+                    <span id="alertmsg"></span>
+                </div>
+
+                <div id="files">
+                    <table class="table table-striped" id="fileTable">
+                        <thead class="thead-light">
+                            <tr>
+                                <th>Flash Address</th>
+                                <th>File</th>
+                                <th></th>
+                            </tr>
+                        </thead>
+                        <tbody id="tableBody">
+                        </tbody>
+                    </table>
+                    <input class="btn btn-info btn-sm" type="button" id="addFile" value="Add File">
+                    <input class="btn btn-info btn-sm" type="button" id="addHexFile" value="Add HEX File">
+                    <input type="file" id="hexFileInput" accept=".hex" style="display: none">
+                    <br><br>
+                    <label for="flashMode" id="lblFlashMode">Flash Mode:</label>
+                    <select name="flashMode" id="flashMode">
+                        <option value="keep" selected="">keep</option>
+                        <option value="dio">dio</option>
+                        <option value="qio">qio</option>
+                        <option value="dout">dout</option>
+                        <option value="qout">qout</option>
+                    </select>
+                    <br><br>
+                    <label for="flashFreq" id="lblFlashFreq">Flash Frequency:</label>
+                    <select name="flashFreq" id="flashFreq">
+                        <option value="keep">keep</option>
+                    </select>
+                    <br><br>
+                    <label for="flashSize" id="lblFlashSize">Flash Size:</label>
+                    <select name="flashSize" id="flashSize">
+                        <option value="detect">detect</option>
+                        <option value="keep">keep</option>
+                    </select>
+                    <br><br>
+                    <input type="checkbox" id="eraseAll">
+                    <label for="eraseAll" id="lblEraseAll">Erase all</label>
+                    <br><br>
+                    <input class="btn btn-info btn-sm" type="button" id="programButton" value="Program">
+                </div>
+                <output id="list"></output>
+                <hr>
+            </div>
+            <div id="console">
+                <h3>Console </h3>
+                <label style="display: none" id="lblConsoleFor">Connected to device: </label>
+                <label for="consoleBaudrates" id="lblConsoleBaudrate">Baudrate:</label>
+                <select name="consoleBaudrates" id="consoleBaudrates">
+                    <option value="115200">115200</option>
+                    <option value="74880">74880</option>
+                </select>
+                <label for="reconnectDelay" id="lblReconnectDelay">Reconnect Delay (ms):</label>
+                <input type="number" id="reconnectDelay" name="reconnectDelay" value="1000" min="100" max="10000" step="100">
+                <label for="maxRetries" id="lblMaxRetries">Max Retries:</label>
+                <input type="number" id="maxRetries" name="maxRetries" value="5" min="1" max="20" step="1">
+
+                <br><br>
+
+                <input class="btn btn-info" type="button" id="consoleStartButton" value="Start">
+                <input class="btn btn-info" type="button" id="consoleStopButton" value="Stop">
+                <input class="btn btn-info" type="button" id="resetButton" value="Reset">
+                <hr>
+            </div>
+            <div id="terminal"></div>
+        </div>
+        <script src="typescript.430e8b71.js" type="module"></script>
+        <script>// Safari 3.0+ "[object HTMLElementConstructor]"
+var isSafari = /constructor/i.test(window.HTMLElement) || function(p) {
+    return p.toString() === "[object SafariRemoteNotification]";
+}(!window['safari'] || typeof safari !== 'undefined' && window['safari'].pushNotification);
+if (isSafari) {
+    document.getElementById("safariErr").style.display = "inline";
+    document.getElementById("main").style.display = "none";
+}
+
+</script>
+    
+
+</body></html>
