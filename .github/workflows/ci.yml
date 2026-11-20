@@ -5,11 +5,13 @@ on:
     branches:
       - main
   pull_request:
+    types: [opened, synchronize, reopened, closed]
     branches:
       - main
 
 jobs:
   ci:
+    if: github.event.action != 'closed'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -36,3 +38,79 @@ jobs:
         with:
           name: esptool-js-${{ steps.version.outputs.version }}.tgz
           path: esptool-js-${{ steps.version.outputs.version }}.tgz
+
+  preview:
+    if: github.event_name == 'pull_request' && github.event.action != 'closed' && github.event.pull_request.head.repo.full_name == github.repository
+    needs: ci
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - name: Build library
+        run: npm ci && npm run build
+      - name: Build example
+        run: |
+          cd examples/typescript
+          npm install
+          npm run build
+      - name: Disable Jekyll
+        run: touch examples/typescript/dist/.nojekyll
+      - name: Deploy preview
+        uses: JamesIves/github-pages-deploy-action@v4
+        with:
+          folder: examples/typescript/dist
+          target-folder: pr-preview/pr-${{ github.event.number }}
+          commit-message: Publish preview for pull request ${{ github.event.number }}
+          # Rebase onto gh-pages so concurrent previews do not overwrite each other.
+          force: false
+      - name: Comment preview URL
+        uses: marocchino/sticky-pull-request-comment@v2
+        with:
+          header: pr-preview
+          skip_unchanged: true
+          message: |
+            Example preview: https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/pr-preview/pr-${{ github.event.number }}/
+
+            This updates on each push. The page is removed when the pull request closes.
+
+  preview-cleanup:
+    if: github.event_name == 'pull_request' && github.event.action == 'closed' && github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - name: Remove preview
+        run: |
+          set -eu
+          number="${{ github.event.number }}"
+          if ! git ls-remote --exit-code --heads origin gh-pages >/dev/null; then
+            echo "No gh-pages branch"
+            exit 0
+          fi
+          git fetch origin gh-pages
+          git checkout -B gh-pages origin/gh-pages
+          dir="pr-preview/pr-${number}"
+          if [ ! -d "$dir" ]; then
+            echo "No preview to remove"
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git rm -rf "$dir"
+          git commit -m "Remove preview for pull request ${number}"
+          attempt=1
+          while [ "$attempt" -le 3 ]; do
+            if git push origin HEAD:gh-pages; then
+              exit 0
+            fi
+            attempt=$((attempt + 1))
+            git fetch origin gh-pages
+            git rebase origin/gh-pages
+          done
+          exit 1
