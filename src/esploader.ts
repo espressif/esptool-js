@@ -562,9 +562,17 @@ export class ESPLoader {
   /**
    * True when Web Serial reports Espressif USB-Serial/JTAG VID/PID.
    * Safe before chip identify/sync (no register reads).
+   * @returns {boolean} Whether the port is Espressif USB Serial/JTAG.
    */
-  private isUsbJtagSerialPort(): boolean {
+  public isUsbJtagSerialPort(): boolean {
     return this.transport.getVid() === ESPRESSIF_VID && this.transport.getPid() === USB_JTAG_SERIAL_PID;
+  }
+
+  /**
+   * @returns {boolean} Whether a flasher stub is running or was detected during sync.
+   */
+  public get isStubRunning(): boolean {
+    return this.IS_STUB || this.syncStubDetected;
   }
 
   /**
