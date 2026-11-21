@@ -197,6 +197,28 @@ export class ESP32S31ROM extends ESP32C5ROM {
     if (await loader.usesUsbOtg()) {
       loader.ESP_RAM_BLOCK = this.USB_RAM_BLOCK;
     }
+
+    if (!loader.isUsbJtagSerialPort() || loader.secureDownloadMode || loader.isStubRunning) {
+      return;
+    }
+
+    // A USB Serial/JTAG reset can leave the watchdogs running during flashing.
+    const lpWdtBase = 0x20801000;
+    const writeProtectKey = 0x50d83aa1;
+    const rtcWdtConfig = lpWdtBase;
+    const rtcWdtWriteProtect = lpWdtBase + 0x18;
+    const swdConfig = lpWdtBase + 0x1c;
+    const swdWriteProtect = lpWdtBase + 0x20;
+    const swdAutoFeed = 1 << 18;
+
+    await loader.writeReg(rtcWdtWriteProtect, writeProtectKey);
+    await loader.writeReg(rtcWdtConfig, 0);
+    await loader.writeReg(rtcWdtWriteProtect, 0);
+
+    await loader.writeReg(swdWriteProtect, writeProtectKey);
+    const config = await loader.readReg(swdConfig);
+    await loader.writeReg(swdConfig, (config | swdAutoFeed) >>> 0);
+    await loader.writeReg(swdWriteProtect, 0);
   }
 
   public async changeBaud(loader: ESPLoader): Promise<void> {
