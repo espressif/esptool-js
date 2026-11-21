@@ -5,3 +5,5 @@ docs
 esptool-js-*.tgz
 .vscode/settings.json
 .parcel-cache
+
+examples/typescript/chrome/
