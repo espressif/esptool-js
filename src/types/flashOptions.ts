@@ -48,7 +48,10 @@ export interface FlashOptions {
   reportProgress?: (fileIndex: number, written: number, total: number) => void;
 
   /**
-   * A function to calculate the MD5 hash of the firmware image (optional).
+   * Optional custom digest of the image that will be written.
+   * Verification still runs whenever the loader supports SPI_FLASH_MD5.
+   * When omitted, the built-in MD5 of the image is used.
+   * @deprecated Ignored for whether verification runs. Provide it only to supply a custom digest.
    * @type {(image: Uint8Array) => string}
    */
   calculateMD5Hash?: (image: Uint8Array) => string;

@@ -23,6 +23,13 @@ export class ESP32C6ROM extends ESP32C3ROM {
   public SPI_MISO_DLEN_OFFS = 0x28;
   public SPI_W0_OFFS = 0x58;
 
+  public FLASH_FREQUENCY: { [key: string]: number } = {
+    // ROM MSPI high-speed divider is wrong; 80 MHz is programmed as 40 MHz.
+    "80m": 0x0,
+    "40m": 0x0,
+    "20m": 0x2,
+  };
+
   IROM_MAP_START = 0x42000000;
   IROM_MAP_END = 0x42800000;
 

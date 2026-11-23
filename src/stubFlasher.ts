@@ -21,53 +21,53 @@ export async function getStubJsonByChipName(chipName: string, chipRevision?: num
   let jsonStub;
   switch (chipName) {
     case "ESP32":
-      jsonStub = await import("./targets/stub_flasher/esp32.json", { with: { type: "json" } });
+      jsonStub = await import("esp-flasher-stub/esp32.json", { with: { type: "json" } });
       break;
     case "ESP32-C2":
-      jsonStub = await import("./targets/stub_flasher/esp32c2.json", { with: { type: "json" } });
+      jsonStub = await import("esp-flasher-stub/esp32c2.json", { with: { type: "json" } });
       break;
     case "ESP32-C3":
-      jsonStub = await import("./targets/stub_flasher/esp32c3.json", { with: { type: "json" } });
+      jsonStub = await import("esp-flasher-stub/esp32c3.json", { with: { type: "json" } });
       break;
     case "ESP32-C5":
-      jsonStub = await import("./targets/stub_flasher/esp32c5.json", { with: { type: "json" } });
+      jsonStub = await import("esp-flasher-stub/esp32c5.json", { with: { type: "json" } });
       break;
     case "ESP32-C6":
-      jsonStub = await import("./targets/stub_flasher/esp32c6.json", { with: { type: "json" } });
+      jsonStub = await import("esp-flasher-stub/esp32c6.json", { with: { type: "json" } });
       break;
     case "ESP32-C61":
-      jsonStub = await import("./targets/stub_flasher/esp32c61.json", { with: { type: "json" } });
+      jsonStub = await import("esp-flasher-stub/esp32c61.json", { with: { type: "json" } });
       break;
     case "ESP32-H2":
-      jsonStub = await import("./targets/stub_flasher/esp32h2.json", { with: { type: "json" } });
+      jsonStub = await import("esp-flasher-stub/esp32h2.json", { with: { type: "json" } });
       break;
     case "ESP32-H4":
-      jsonStub = await import("./targets/stub_flasher/esp32h4.json", { with: { type: "json" } });
+      jsonStub = await import("esp-flasher-stub/esp32h4.json", { with: { type: "json" } });
       break;
     case "ESP32-H21":
-      // No stub is published in esptool stub_flasher/2 yet.
+      jsonStub = await import("esp-flasher-stub/esp32h21.json", { with: { type: "json" } });
       break;
     case "ESP32-E22":
-      // No stub is published in esptool stub_flasher/2 yet.
+      // No stub is published in esp-flasher-stub yet.
       break;
     case "ESP32-P4":
       if (chipRevision && chipRevision < 300) {
-        jsonStub = await import("./targets/stub_flasher/esp32p4-rev1.json", { with: { type: "json" } });
+        jsonStub = await import("esp-flasher-stub/esp32p4-rev1.json", { with: { type: "json" } });
       } else {
-        jsonStub = await import("./targets/stub_flasher/esp32p4.json", { with: { type: "json" } });
+        jsonStub = await import("esp-flasher-stub/esp32p4.json", { with: { type: "json" } });
       }
       break;
     case "ESP32-S2":
-      jsonStub = await import("./targets/stub_flasher/esp32s2.json", { with: { type: "json" } });
+      jsonStub = await import("esp-flasher-stub/esp32s2.json", { with: { type: "json" } });
       break;
     case "ESP32-S3":
-      jsonStub = await import("./targets/stub_flasher/esp32s3.json", { with: { type: "json" } });
+      jsonStub = await import("esp-flasher-stub/esp32s3.json", { with: { type: "json" } });
       break;
     case "ESP32-S31":
-      jsonStub = await import("./targets/stub_flasher/esp32s31.json", { with: { type: "json" } });
+      jsonStub = await import("esp-flasher-stub/esp32s31.json", { with: { type: "json" } });
       break;
     case "ESP8266":
-      jsonStub = await import("./targets/stub_flasher/esp8266.json", { with: { type: "json" } });
+      jsonStub = await import("esp-flasher-stub/esp8266.json", { with: { type: "json" } });
       break;
   }
 
