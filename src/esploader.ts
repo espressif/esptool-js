@@ -1280,11 +1280,14 @@ export class ESPLoader {
     const SPI_USR2_REG = base + this.chip.SPI_USR2_OFFS;
     const SPI_W0_REG = base + this.chip.SPI_W0_OFFS;
 
+    const mosiDlenOffs = this.chip.SPI_MOSI_DLEN_OFFS;
+    const misoDlenOffs = this.chip.SPI_MISO_DLEN_OFFS;
     let setDataLengths;
-    if (this.chip.SPI_MOSI_DLEN_OFFS != null) {
+    // ESP8266 leaves these unset (esptool.py uses None) and encodes lengths in SPI_USR1.
+    if (mosiDlenOffs != null && misoDlenOffs != null) {
       setDataLengths = async (mosiBits: number, misoBits: number) => {
-        const SPI_MOSI_DLEN_REG = base + this.chip.SPI_MOSI_DLEN_OFFS;
-        const SPI_MISO_DLEN_REG = base + this.chip.SPI_MISO_DLEN_OFFS;
+        const SPI_MOSI_DLEN_REG = base + mosiDlenOffs;
+        const SPI_MISO_DLEN_REG = base + misoDlenOffs;
         if (mosiBits > 0) {
           await this.writeReg(SPI_MOSI_DLEN_REG, mosiBits - 1);
         }
