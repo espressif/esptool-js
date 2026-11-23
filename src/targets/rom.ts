@@ -138,8 +138,10 @@ export abstract class ROM {
    * Used for USB-OTG, where toggling RTS does not reset the SoC.
    */
   watchdogReset?(loader: ESPLoader): Promise<void>;
-  abstract SPI_MOSI_DLEN_OFFS: number; // not in esp8266
-  abstract SPI_MISO_DLEN_OFFS: number; // not in esp8266
+  /** Undefined on ESP8266, which encodes MOSI/MISO lengths in SPI_USR1. */
+  abstract SPI_MOSI_DLEN_OFFS: number | undefined;
+  /** Undefined on ESP8266, which encodes MOSI/MISO lengths in SPI_USR1. */
+  abstract SPI_MISO_DLEN_OFFS: number | undefined;
   abstract SPI_REG_BASE: number;
   abstract SPI_USR_OFFS: number;
   abstract SPI_USR1_OFFS: number;

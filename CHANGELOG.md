@@ -4,6 +4,7 @@
 
 ### Bug fixes
 
+- ESP8266 `readFlashId()` and `detectFlashSize()` use the `SPI_USR1` length fields. `SPI_MOSI_DLEN_OFFS` and `SPI_MISO_DLEN_OFFS` were `0`, so `runSpiflashCommand()` took the ESP32 register path and the flash ID came back as `0`. They are now unset, matching esptool.py.
 - Run the chip's `postConnect()` again when `changeBaud()` reconnects after the board reset during the port reopen (fixes flashing ESP32-P4 v3.1/v3.2 above 115200 baud)
 - Load flasher stubs from the [`esp-flasher-stub`](https://www.npmjs.com/package/esp-flasher-stub) package (`^1.5.0`) instead of vendored JSON. This upgrades the stub binaries from v1.2.2 to v1.5.0 and adds an ESP32-H21 stub. ESP32-E22 still has no published stub.
 - `writeFlash` skips post-write MD5 verification in Secure Download Mode and on ESP8266 ROM without the stub. Those loaders do not implement `SPI_FLASH_MD5`, so the check used to fail after a successful write.
