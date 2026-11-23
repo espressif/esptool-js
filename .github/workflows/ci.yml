@@ -45,7 +45,6 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write
-      pull-requests: write
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -68,15 +67,6 @@ jobs:
           commit-message: Publish preview for pull request ${{ github.event.number }}
           # Rebase onto gh-pages so concurrent previews do not overwrite each other.
           force: false
-      - name: Comment preview URL
-        uses: marocchino/sticky-pull-request-comment@v2
-        with:
-          header: pr-preview
-          skip_unchanged: true
-          message: |
-            Example preview: https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/pr-preview/pr-${{ github.event.number }}/
-
-            This updates on each push. The page is removed when the pull request closes.
 
   preview-cleanup:
     if: github.event_name == 'pull_request' && github.event.action == 'closed' && github.event.pull_request.head.repo.full_name == github.repository

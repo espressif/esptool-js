@@ -8,6 +8,7 @@ jobs:
     if: github.event.workflow_run.event == 'pull_request' && github.event.workflow_run.conclusion == 'success'
     runs-on: ubuntu-latest
     permissions:
+      actions: read
       contents: read
       pull-requests: write
 
@@ -18,8 +19,16 @@ jobs:
           # https://github.com/oprypin/nightly.link/blob/master/.github/workflows/pr-comment.yml
           script: |
             async function upsertComment(owner, repo, issue_number, purpose, body) {
-              const {data: comments} = await github.rest.issues.listComments(
+              const comments = await github.paginate(github.rest.issues.listComments,
                 {owner, repo, issue_number});
+
+              const stickyMarker = "<!-- Sticky Pull Request Commentpr-preview -->";
+              for (const comment of comments) {
+                if (comment.body.includes(stickyMarker)) {
+                  core.info(`Deleting sticky preview comment ${comment.id}`);
+                  await github.rest.issues.deleteComment({owner, repo, comment_id: comment.id});
+                }
+              }
 
               const marker = `<!-- bot: ${purpose} -->`;
               body = marker + "\n" + body;
@@ -78,9 +87,19 @@ jobs:
             body += "```\n\n";
             body += "2. Import it as `esptool-js/lib/index.js`.\n";
 
-            core.info("Review thread message body:", body);
+            const jobs = await github.paginate(
+              github.rest.actions.listJobsForWorkflowRun, {owner, repo, run_id});
+            const previewOk = jobs.some((job) => job.name === "preview" && job.conclusion === "success");
 
             for (const pr of pull_requests) {
+              let commentBody = body;
+              if (previewOk) {
+                const previewUrl = `https://${owner}.github.io/${repo}/pr-preview/pr-${pr.number}/`;
+                commentBody = `Example preview: ${previewUrl}\n\n`;
+                commentBody += "This updates on each push. The page is removed when the pull request closes.\n\n";
+                commentBody += body;
+              }
+              core.info(`Review thread message body for #${pr.number}:`, commentBody);
               await upsertComment(owner, repo, pr.number,
-                "nightly-link", body);
+                "nightly-link", commentBody);
             }
