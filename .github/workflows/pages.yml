@@ -6,11 +6,8 @@ on:
     branches: ["main"]
   workflow_dispatch:
 
-# Sets permissions of the GITHUB_TOKEN to allow deployment to GitHub Pages
 permissions:
-  contents: read
-  pages: write
-  id-token: write
+  contents: write
 
 # Allow one concurrent deployment
 concurrency:
@@ -19,9 +16,6 @@ concurrency:
 
 jobs:
   deploy:
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -30,21 +24,20 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 24
-      - name: Install Node modules
+      - name: Build library
+        run: npm ci && npm run build
+      - name: Build example
         run: |
-          npm install
-      - name: Build example project and copy docs
-        run: |
-          npm run build
           cd examples/typescript
           npm install
           npm run build
-      - name: Setup Pages
-        uses: actions/configure-pages@v2
-      - name: Upload artifact
-        uses: actions/upload-pages-artifact@v3
-        with:
-          path: 'examples/typescript/dist'
+      - name: Disable Jekyll
+        run: touch examples/typescript/dist/.nojekyll
       - name: Deploy to GitHub Pages
-        id: deployment
-        uses: actions/deploy-pages@v4
+        uses: JamesIves/github-pages-deploy-action@v4
+        with:
+          folder: examples/typescript/dist
+          clean-exclude: |
+            pr-preview/**
+          # Rebase onto gh-pages so this deploy does not wipe pull request previews.
+          force: false
