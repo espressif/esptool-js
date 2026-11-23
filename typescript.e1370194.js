@@ -40,73 +40,78 @@ if (parcelRequire == null) {
 }
 
 var parcelRegister = parcelRequire.register;
-parcelRegister("3yBgx", function(module, exports) {
-module.exports = import("28MH8").then(()=>parcelRequire('lLtNJ'));
+parcelRegister("g3NKX", function(module, exports) {
+module.exports = import("jXSUq").then(()=>parcelRequire('l4QHS'));
 
 });
 
-parcelRegister("1G7Bv", function(module, exports) {
-module.exports = import("1tunb").then(()=>parcelRequire('3vOXC'));
+parcelRegister("hrmhe", function(module, exports) {
+module.exports = import("9qbCl").then(()=>parcelRequire('lCCsR'));
 
 });
 
-parcelRegister("1PmWo", function(module, exports) {
-module.exports = import("5WZO1").then(()=>parcelRequire('dr18w'));
+parcelRegister("bfHCp", function(module, exports) {
+module.exports = import("bCOwA").then(()=>parcelRequire('lVG17'));
 
 });
 
-parcelRegister("gtAlv", function(module, exports) {
-module.exports = import("5YTAN").then(()=>parcelRequire('797Lz'));
+parcelRegister("jHIH5", function(module, exports) {
+module.exports = import("hYFIL").then(()=>parcelRequire('fJLnY'));
 
 });
 
-parcelRegister("bdgYL", function(module, exports) {
-module.exports = import("9C8bG").then(()=>parcelRequire('gnJWm'));
+parcelRegister("55rv0", function(module, exports) {
+module.exports = import("jizTq").then(()=>parcelRequire('33pCj'));
 
 });
 
-parcelRegister("1MmTl", function(module, exports) {
-module.exports = import("9EvmU").then(()=>parcelRequire('1cSiP'));
+parcelRegister("VLSUL", function(module, exports) {
+module.exports = import("bzCNP").then(()=>parcelRequire('lLHq8'));
 
 });
 
-parcelRegister("lYxc5", function(module, exports) {
-module.exports = import("7gQrl").then(()=>parcelRequire('5mU0N'));
+parcelRegister("te1Hh", function(module, exports) {
+module.exports = import("eKu0a").then(()=>parcelRequire('94RZT'));
 
 });
 
-parcelRegister("1XdOD", function(module, exports) {
-module.exports = import("kLVoC").then(()=>parcelRequire('4Fwwq'));
+parcelRegister("iq9iQ", function(module, exports) {
+module.exports = import("kemhn").then(()=>parcelRequire('9Wacx'));
 
 });
 
-parcelRegister("cTg0S", function(module, exports) {
-module.exports = import("UDKwo").then(()=>parcelRequire('5QJKF'));
+parcelRegister("jTXpI", function(module, exports) {
+module.exports = import("kMCPq").then(()=>parcelRequire('jKhhX'));
 
 });
 
-parcelRegister("d52g0", function(module, exports) {
-module.exports = import("dX0nK").then(()=>parcelRequire('fcvYh'));
+parcelRegister("jiphp", function(module, exports) {
+module.exports = import("cXqW8").then(()=>parcelRequire('7OYUB'));
 
 });
 
-parcelRegister("6lRzd", function(module, exports) {
-module.exports = import("1lHcO").then(()=>parcelRequire('53ydt'));
+parcelRegister("kqx5m", function(module, exports) {
+module.exports = import("gPnVL").then(()=>parcelRequire('b7awM'));
 
 });
 
-parcelRegister("cteFO", function(module, exports) {
-module.exports = import("gj5uo").then(()=>parcelRequire('fcPSl'));
+parcelRegister("4IHkY", function(module, exports) {
+module.exports = import("4de84").then(()=>parcelRequire('lDxFZ'));
 
 });
 
-parcelRegister("4kuQ6", function(module, exports) {
-module.exports = import("TNSXY").then(()=>parcelRequire('7fbjk'));
+parcelRegister("fcZwZ", function(module, exports) {
+module.exports = import("cA3DZ").then(()=>parcelRequire('gArHh'));
 
 });
 
-parcelRegister("frscf", function(module, exports) {
-module.exports = import("jsDcX").then(()=>parcelRequire('5ry10'));
+parcelRegister("ex5fq", function(module, exports) {
+module.exports = import("i7cbS").then(()=>parcelRequire('aFByw'));
+
+});
+
+parcelRegister("3HVk1", function(module, exports) {
+module.exports = import("6a17O").then(()=>parcelRequire('1F4vh'));
 
 });
 
@@ -270,6 +275,10 @@ $parcel$export(module.exports, "ROM", () => $2bb77dda76009c14$export$c643cc54d63
          * True when chip type is identified from the magic register, not GET_SECURITY_INFO chip-id.
          * ESP8266/ESP32 do not support the command; ESP32-S2 supports it but omits chip-id.
          */ this.USES_MAGIC_VALUE = false;
+        /**
+         * Chip has native USB-OTG. ROM stub upload is capped to 0x800 when that
+         * function is in use, or when the host cannot report a VID/PID.
+         */ this.USB_OTG_SUPPORTED = false;
     }
     /**
      * Get the chip erase size.
@@ -1153,6 +1162,12 @@ class $357f63c077465dd4$export$652353697ef98b38 extends (0, $5CcEa.ESP32C3ROM) {
         this.SPI_MOSI_DLEN_OFFS = 0x24;
         this.SPI_MISO_DLEN_OFFS = 0x28;
         this.SPI_W0_OFFS = 0x58;
+        this.FLASH_FREQUENCY = {
+            // ROM MSPI high-speed divider is wrong; 80 MHz is programmed as 40 MHz.
+            "80m": 0x0,
+            "40m": 0x0,
+            "20m": 0x2
+        };
         this.IROM_MAP_START = 0x42000000;
         this.IROM_MAP_END = 0x42800000;
         this.MEMORY_MAP = [
@@ -1469,6 +1484,12 @@ class $08150c7eafcc09b3$export$2184cd7dbcdab15a extends (0, $4ALwD.ESP32C6ROM) {
         this.USB_RAM_BLOCK = 0x800;
         this.UARTDEV_BUF_NO_USB = 3;
         this.UARTDEV_BUF_NO = 0x3fcef14c;
+        this.FLASH_FREQUENCY = {
+            "48m": 0xf,
+            "24m": 0x0,
+            "16m": 0x1,
+            "12m": 0x2
+        };
         this.IROM_MAP_START = 0x42000000;
         this.IROM_MAP_END = 0x42800000;
         this.MEMORY_MAP = [
@@ -1658,6 +1679,7 @@ class $2eed265d9a6a1b04$export$80700ef855e8973d extends (0, $jDde6.ESP32ROM) {
         this.SUPPORTS_ENCRYPTED_FLASH = true;
         this.FLASH_ENCRYPTED_WRITE_ALIGN = 16;
         this.USB_RAM_BLOCK = 0x800; // Max block size USB-OTG is used
+        this.USB_OTG_SUPPORTED = true;
         this.GPIO_STRAP_REG = 0x500e0038;
         this.GPIO_STRAP_SPI_BOOT_MASK = 0x8; // Not download mode
         this.RTC_CNTL_OPTION1_REG = 0x50110008;
@@ -1791,8 +1813,8 @@ class $2eed265d9a6a1b04$export$80700ef855e8973d extends (0, $jDde6.ESP32ROM) {
     }
     async getStubJsonPath(loader) {
         const chipRevision = await this.getChipRevision(loader);
-        if (chipRevision < 300) return "./targets/stub_flasher/esp32p4-rev1.json";
-        else return "./targets/stub_flasher/esp32p4.json";
+        if (chipRevision < 300) return "esp-flasher-stub/esp32p4-rev1.json";
+        else return "esp-flasher-stub/esp32p4.json";
     }
     async getChipDescription(loader) {
         const pkgVersion = await this.getPkgVersion(loader);
@@ -1972,10 +1994,10 @@ class $2eed265d9a6a1b04$export$80700ef855e8973d extends (0, $jDde6.ESP32ROM) {
      */ async powerOnFlash(loader) {
         if (loader.secureDownloadMode) throw new Error("Powering on flash in secure download mode is not allowed.");
         const chipRev = await this.getChipRevision(loader);
-        // Flash defaults off on ECO6/ECO7 after the 1.8V -> 3.3V default change, to prevent
+        // Flash defaults off on ECO6 and later after the 1.8V -> 3.3V default change, to prevent
         // damage to 1.8V flash chips. Board designers must set the appropriate voltage level
-        // in eFuse. Other silicon revisions do not need this sequence.
-        if (chipRev !== 301 && chipRev !== 302) return;
+        // in eFuse. Earlier silicon revisions do not need this sequence.
+        if (chipRev < 301) return;
         if (chipRev === 302) {
             const efuseRepeatData1 = await loader.readReg(this.EFUSE_RD_REPEAT_DATA1_REG);
             if (efuseRepeatData1 & this.EFUSE_DOWNLOAD_MODE_XPD_ON_MASK) {
@@ -2078,6 +2100,7 @@ class $a1dbcc0cc5ee5458$export$4fb717d12681de23 extends (0, $jDde6.ESP32ROM) {
         this.UARTDEV_BUF_NO = 0x3ffffd14; // Variable in ROM .bss which indicates the port in use
         this.UARTDEV_BUF_NO_USB_OTG = 2; // Value of the above indicating that USB-OTG is in use
         this.USB_RAM_BLOCK = 0x800; // Max block size USB-OTG is used
+        this.USB_OTG_SUPPORTED = true;
         this.GPIO_STRAP_REG = 0x3f404038;
         this.GPIO_STRAP_SPI_BOOT_MASK = 8; // Not download mode
         this.GPIO_STRAP_VDDSPI_MASK = 16;
@@ -2323,6 +2346,7 @@ class $e599bbb994ae198b$export$e18277a04821a5e extends (0, $jDde6.ESP32ROM) {
         this.SPI_MISO_DLEN_OFFS = 0x28;
         this.SPI_W0_OFFS = 0x58;
         this.USB_RAM_BLOCK = 0x800;
+        this.USB_OTG_SUPPORTED = true;
         this.UARTDEV_BUF_NO_USB = 3;
         this.UARTDEV_BUF_NO = 0x3fcef14c;
         this.IROM_MAP_START = 0x42000000;
@@ -7836,6 +7860,39 @@ function $216eff205ef04904$export$e772c8ff12451969(ms) {
 }
 
 
+/** Web Serial buffer used when the caller does not set `bufferSize`. Chrome's own default is 255 bytes. */ const $4616b1a2f9a5b082$var$DEFAULT_SERIAL_BUFFER_SIZE = 65536;
+/** Recoverable Web Serial read errors. A new readable stream is created after each one. */ const $4616b1a2f9a5b082$var$RECOVERABLE_SERIAL_ERRORS = [
+    "BufferOverrunError",
+    "FramingError",
+    "BreakError",
+    "ParityError"
+];
+/**
+ * Decoded SLIP payload. Grows by doubling so each byte is copied a few times, not once per byte.
+ */ class $4616b1a2f9a5b082$var$SlipPayload {
+    constructor(){
+        this.data = new Uint8Array(64);
+        this.length = 0;
+    }
+    /**
+     * Append one decoded byte.
+     * @param {number} byte Decoded payload byte.
+     */ push(byte) {
+        if (this.length === this.data.length) {
+            const grown = new Uint8Array(this.data.length * 2);
+            grown.set(this.data);
+            this.data = grown;
+        }
+        this.data[this.length] = byte;
+        this.length++;
+    }
+    /**
+     * Copy out the bytes pushed so far.
+     * @returns {Uint8Array} Decoded payload.
+     */ bytes() {
+        return this.data.slice(0, this.length);
+    }
+}
 /**
  * Wrapper class around Webserial API to communicate with the serial device.
  * @param {typeof import("w3c-web-serial").SerialPort} device - Requested device prompted by the browser.
@@ -7853,6 +7910,7 @@ function $216eff205ef04904$export$e772c8ff12451969(ms) {
         this.lastTraceTime = Date.now();
         this.buffer = new Uint8Array(0);
         this.onDeviceLostCallback = null;
+        /** Cleared by disconnect() so a stream close does not start another read. */ this.reading = false;
         this.SLIP_END = 0xc0;
         this.SLIP_ESC = 0xdb;
         this.SLIP_ESC_END = 0xdc;
@@ -7965,54 +8023,60 @@ function $216eff205ef04904$export$e772c8ff12451969(ms) {
         return combined;
     }
     /**
-     * Read from serial device and append to buffer
+     * Read from serial device and append to buffer.
+     * One reader is held across chunks. After a non-fatal stream close, the loop
+     * opens the replacement stream while `reading` is set. disconnect() clears it.
      */ async readLoop() {
-        var _a;
-        while(this.device.readable){
-            this.reader = (_a = this.device.readable) === null || _a === void 0 ? void 0 : _a.getReader();
+        this.reading = true;
+        let consecutiveEmptyStreams = 0;
+        while(this.reading && this.device.readable){
+            const reader = this.device.readable.getReader();
+            this.reader = reader;
+            let fatal = false;
+            let receivedData = false;
             try {
-                const { value: value, done: done } = await this.reader.read();
-                if (done) {
-                    this.trace(`Serial port done`);
-                    break;
-                }
-                // The following test is purely precautionary because .read()
-                // is not supposed to return empty data when done is false
-                if (value && value.length) {
-                    const newValue = Uint8Array.from(value);
-                    this.buffer = this.appendArray(this.buffer, newValue);
+                while(this.reading){
+                    const { value: value, done: done } = await reader.read();
+                    if (done) {
+                        this.trace(`Serial port done`);
+                        break;
+                    }
+                    // .read() is not supposed to return empty data when done is false
+                    if (value && value.length) {
+                        receivedData = true;
+                        this.buffer = this.appendArray(this.buffer, Uint8Array.from(value));
+                    }
                 }
             } catch (error) {
                 if (error instanceof Error) {
-                    // Read retry is possible for the following errors
-                    const nonFatal = [
-                        "BufferOverrunError",
-                        "FramingError",
-                        "BreakError",
-                        "ParityError"
-                    ];
-                    if (nonFatal.includes(error.name)) {
+                    if ($4616b1a2f9a5b082$var$RECOVERABLE_SERIAL_ERRORS.includes(error.name)) {
                         this.trace(`Recoverable serial port error: ${error.message}`);
                         continue;
                     }
-                    // Otherwise the read loop cannot continue
                     this.trace(`Unrecoverable serial port error: ${error.message}`);
-                    break;
-                }
-                if (error instanceof DOMException) {
+                } else if (error instanceof DOMException) {
                     // The read loop cannot continue after a DOMException error
                     if (this.onDeviceLostCallback) this.onDeviceLostCallback();
                     else this.trace(`Unrecoverable serial port error: ${error.message}`);
+                } else this.trace(`Unrecoverable serial port error: ${error}`);
+                fatal = true;
+            } finally{
+                reader.releaseLock();
+                if (this.reader === reader) this.reader = undefined;
+            }
+            if (fatal || !this.reading) break;
+            // A stream that ends at once, while readable keeps handing back a new one,
+            // would spin this loop with no await. Back off, then stop.
+            if (receivedData) consecutiveEmptyStreams = 0;
+            else {
+                consecutiveEmptyStreams++;
+                if (consecutiveEmptyStreams >= 100) {
+                    this.trace(`readLoop stopped after ${consecutiveEmptyStreams} empty streams`);
                     break;
                 }
-                // The read loop cannot continue after an error whose class is unknown
-                this.trace(`Unrecoverable serial port error: ${error}`);
-                break;
-            } finally{
-                this.reader.releaseLock();
+                await (0, $216eff205ef04904$export$e772c8ff12451969)(1);
             }
         }
-        // Fatal error or serial port stream ended
         this.trace(`readLoop exited`);
     }
     flushInput() {
@@ -8073,7 +8137,7 @@ function $216eff205ef04904$export$e772c8ff12451969(ms) {
      * @param {number} timeout Timeout read data.
      * @returns {Uint8Array} Formatted packet using SLIP escape sequences.
      */ async read(timeout) {
-        let partialPacket = null;
+        let payload = null;
         let isEscaping = false;
         let readBytes = null;
         // eslint-disable-next-line no-constant-condition
@@ -8088,15 +8152,15 @@ function $216eff205ef04904$export$e772c8ff12451969(ms) {
                 break;
             } else await (0, $216eff205ef04904$export$e772c8ff12451969)(1);
             if (!readBytes || readBytes.length === 0) {
-                const msg = partialPacket === null ? "Serial data stream stopped: Possible serial noise or corruption." : "No serial data received.";
+                const msg = payload === null ? "Serial data stream stopped: Possible serial noise or corruption." : "No serial data received.";
                 if (this.tracing) this.trace(msg);
                 throw new (0, $f1887d9f177795ef$export$5b519f82636185ec)(msg);
             }
             if (this.tracing) this.trace(`Read ${readBytes.length} bytes: ${this.hexConvert(readBytes)}`);
             for(let i = 0; i < readBytes.length; i++){
                 const byte = readBytes[i];
-                if (partialPacket === null) {
-                    if (byte === this.SLIP_END) partialPacket = new Uint8Array(0); // Start of a new packet
+                if (payload === null) {
+                    if (byte === this.SLIP_END) payload = new $4616b1a2f9a5b082$var$SlipPayload();
                     else {
                         if (this.tracing) this.trace(`Read invalid data: ${this.hexConvert(readBytes)}`);
                         const remainingData = this.buffer;
@@ -8109,12 +8173,8 @@ function $216eff205ef04904$export$e772c8ff12451969(ms) {
                     }
                 } else if (isEscaping) {
                     isEscaping = false;
-                    if (byte === this.SLIP_ESC_END) partialPacket = this.appendArray(partialPacket, new Uint8Array([
-                        this.SLIP_END
-                    ]));
-                    else if (byte === this.SLIP_ESC_ESC) partialPacket = this.appendArray(partialPacket, new Uint8Array([
-                        this.SLIP_ESC
-                    ]));
+                    if (byte === this.SLIP_ESC_END) payload.push(this.SLIP_END);
+                    else if (byte === this.SLIP_ESC_ESC) payload.push(this.SLIP_ESC);
                     else {
                         if (this.tracing) this.trace(`Read invalid data: ${this.hexConvert(readBytes)}`);
                         const remainingData = this.buffer;
@@ -8127,16 +8187,15 @@ function $216eff205ef04904$export$e772c8ff12451969(ms) {
                     }
                 } else if (byte === this.SLIP_ESC) isEscaping = true;
                 else if (byte === this.SLIP_END) {
-                    if (this.tracing) this.trace(`Received full packet: ${this.hexConvert(partialPacket)}`);
+                    const packet = payload.bytes();
+                    if (this.tracing) this.trace(`Received full packet: ${this.hexConvert(packet)}`);
                     // Put any remaining bytes after SLIP_END back into the buffer
                     if (i + 1 < readBytes.length) {
-                        const remainingBytes = readBytes.slice(i + 1);
+                        const remainingBytes = readBytes.subarray(i + 1);
                         this.buffer = this.appendArray(remainingBytes, this.buffer);
                     }
-                    return partialPacket;
-                } else partialPacket = this.appendArray(partialPacket, new Uint8Array([
-                    byte
-                ]));
+                    return packet;
+                } else payload.push(byte);
             }
         }
     }
@@ -8213,14 +8272,17 @@ function $216eff205ef04904$export$e772c8ff12451969(ms) {
     }
     /**
      * Connect to serial device using the Webserial open method.
+     * When `serialOptions.bufferSize` is omitted, the port opens with a 64 KiB buffer.
+     * Chrome's default of 255 bytes drops bytes on large high-baud transfers.
      * @param {number} baud Number baud rate for serial connection. Default is 115200.
-     * @param {typeof import("w3c-web-serial").SerialOptions} serialOptions Serial Options for WebUSB SerialPort class.
+     * @param {SerialOptions} serialOptions Serial options. `bufferSize` overrides the 64 KiB default.
      */ async connect(baud = 115200, serialOptions = {}) {
+        var _a;
         await this.device.open({
             baudRate: baud,
             dataBits: serialOptions === null || serialOptions === void 0 ? void 0 : serialOptions.dataBits,
             stopBits: serialOptions === null || serialOptions === void 0 ? void 0 : serialOptions.stopBits,
-            bufferSize: serialOptions === null || serialOptions === void 0 ? void 0 : serialOptions.bufferSize,
+            bufferSize: (_a = serialOptions === null || serialOptions === void 0 ? void 0 : serialOptions.bufferSize) !== null && _a !== void 0 ? _a : $4616b1a2f9a5b082$var$DEFAULT_SERIAL_BUFFER_SIZE,
             parity: serialOptions === null || serialOptions === void 0 ? void 0 : serialOptions.parity,
             flowControl: serialOptions === null || serialOptions === void 0 ? void 0 : serialOptions.flowControl
         });
@@ -8258,6 +8320,7 @@ function $216eff205ef04904$export$e772c8ff12451969(ms) {
      * Disconnect from serial device by running SerialPort.close() after streams unlock.
      */ async disconnect() {
         var _a, _b;
+        this.reading = false;
         if ((_a = this.device.readable) === null || _a === void 0 ? void 0 : _a.locked) await ((_b = this.reader) === null || _b === void 0 ? void 0 : _b.cancel());
         await this.waitForUnlock(400);
         await this.device.close();
@@ -8398,52 +8461,54 @@ $eb08ceb29680012e$exports = function _atob(str) {
 
 
 
+
 async function $c14fcc49e58a64cf$export$575862e1d5c85871(chipName, chipRevision) {
     let jsonStub;
     switch(chipName){
         case "ESP32":
-            jsonStub = await (parcelRequire("3yBgx"));
+            jsonStub = await (parcelRequire("g3NKX"));
             break;
         case "ESP32-C2":
-            jsonStub = await (parcelRequire("1G7Bv"));
+            jsonStub = await (parcelRequire("hrmhe"));
             break;
         case "ESP32-C3":
-            jsonStub = await (parcelRequire("1PmWo"));
+            jsonStub = await (parcelRequire("bfHCp"));
             break;
         case "ESP32-C5":
-            jsonStub = await (parcelRequire("gtAlv"));
+            jsonStub = await (parcelRequire("jHIH5"));
             break;
         case "ESP32-C6":
-            jsonStub = await (parcelRequire("bdgYL"));
+            jsonStub = await (parcelRequire("55rv0"));
             break;
         case "ESP32-C61":
-            jsonStub = await (parcelRequire("1MmTl"));
+            jsonStub = await (parcelRequire("VLSUL"));
             break;
         case "ESP32-H2":
-            jsonStub = await (parcelRequire("lYxc5"));
+            jsonStub = await (parcelRequire("te1Hh"));
             break;
         case "ESP32-H4":
-            jsonStub = await (parcelRequire("1XdOD"));
+            jsonStub = await (parcelRequire("iq9iQ"));
             break;
         case "ESP32-H21":
+            jsonStub = await (parcelRequire("jTXpI"));
             break;
         case "ESP32-E22":
             break;
         case "ESP32-P4":
-            if (chipRevision && chipRevision < 300) jsonStub = await (parcelRequire("cTg0S"));
-            else jsonStub = await (parcelRequire("d52g0"));
+            if (chipRevision && chipRevision < 300) jsonStub = await (parcelRequire("jiphp"));
+            else jsonStub = await (parcelRequire("kqx5m"));
             break;
         case "ESP32-S2":
-            jsonStub = await (parcelRequire("6lRzd"));
+            jsonStub = await (parcelRequire("4IHkY"));
             break;
         case "ESP32-S3":
-            jsonStub = await (parcelRequire("cteFO"));
+            jsonStub = await (parcelRequire("fcZwZ"));
             break;
         case "ESP32-S31":
-            jsonStub = await (parcelRequire("4kuQ6"));
+            jsonStub = await (parcelRequire("ex5fq"));
             break;
         case "ESP8266":
-            jsonStub = await (parcelRequire("frscf"));
+            jsonStub = await (parcelRequire("3HVk1"));
             break;
     }
     if (jsonStub) {
@@ -8467,6 +8532,134 @@ function $c14fcc49e58a64cf$export$7e57cd56df6c9bb5(dataStr) {
         return x.charCodeAt(0);
     });
     return new Uint8Array(chardata);
+}
+
+
+/** Per-round left-rotate counts from RFC 1321. */ const $d66212065e152aff$var$SHIFT = [
+    7,
+    12,
+    17,
+    22,
+    7,
+    12,
+    17,
+    22,
+    7,
+    12,
+    17,
+    22,
+    7,
+    12,
+    17,
+    22,
+    5,
+    9,
+    14,
+    20,
+    5,
+    9,
+    14,
+    20,
+    5,
+    9,
+    14,
+    20,
+    5,
+    9,
+    14,
+    20,
+    4,
+    11,
+    16,
+    23,
+    4,
+    11,
+    16,
+    23,
+    4,
+    11,
+    16,
+    23,
+    4,
+    11,
+    16,
+    23,
+    6,
+    10,
+    15,
+    21,
+    6,
+    10,
+    15,
+    21,
+    6,
+    10,
+    15,
+    21,
+    6,
+    10,
+    15,
+    21
+];
+/** T[i] = floor(2^32 * abs(sin(i))) for i = 1..64. */ const $d66212065e152aff$var$K = new Uint32Array(64);
+for(let i = 0; i < 64; i++)$d66212065e152aff$var$K[i] = Math.floor(Math.abs(Math.sin(i + 1)) * 0x100000000) >>> 0;
+function $d66212065e152aff$export$a58ec6a60c09ca72(data) {
+    const bitLength = data.length * 8;
+    // 0x80, then zeros, so the length is 56 mod 64 before the 8-byte bit count.
+    const mod = (data.length + 1) % 64;
+    const zeros = mod <= 56 ? 56 - mod : 120 - mod;
+    const padded = new Uint8Array(data.length + 1 + zeros + 8);
+    padded.set(data);
+    padded[data.length] = 0x80;
+    const paddedView = new DataView(padded.buffer);
+    paddedView.setUint32(padded.length - 8, bitLength >>> 0, true);
+    paddedView.setUint32(padded.length - 4, Math.floor(bitLength / 0x100000000), true);
+    let a0 = 0x67452301;
+    let b0 = 0xefcdab89;
+    let c0 = 0x98badcfe;
+    let d0 = 0x10325476;
+    const words = new Uint32Array(16);
+    for(let offset = 0; offset < padded.length; offset += 64){
+        for(let i = 0; i < 16; i++)words[i] = paddedView.getUint32(offset + i * 4, true);
+        let a = a0;
+        let b = b0;
+        let c = c0;
+        let d = d0;
+        for(let i = 0; i < 64; i++){
+            let f = 0;
+            let g = 0;
+            if (i < 16) {
+                f = b & c | ~b & d;
+                g = i;
+            } else if (i < 32) {
+                f = d & b | ~d & c;
+                g = (5 * i + 1) % 16;
+            } else if (i < 48) {
+                f = b ^ c ^ d;
+                g = (3 * i + 5) % 16;
+            } else {
+                f = c ^ (b | ~d);
+                g = 7 * i % 16;
+            }
+            f = f + a + $d66212065e152aff$var$K[i] + words[g] >>> 0;
+            const rotated = (f << $d66212065e152aff$var$SHIFT[i] | f >>> 32 - $d66212065e152aff$var$SHIFT[i]) >>> 0;
+            a = d;
+            d = c;
+            c = b;
+            b = b + rotated >>> 0;
+        }
+        a0 = a0 + a >>> 0;
+        b0 = b0 + b >>> 0;
+        c0 = c0 + c >>> 0;
+        d0 = d0 + d >>> 0;
+    }
+    const out = new Uint8Array(16);
+    const outView = new DataView(out.buffer);
+    outView.setUint32(0, a0, true);
+    outView.setUint32(4, b0, true);
+    outView.setUint32(8, c0, true);
+    outView.setUint32(12, d0, true);
+    return out;
 }
 
 
@@ -9313,6 +9506,7 @@ class $f5101f7fcb463007$export$87589e306c704da extends (0, $jDde6.ESP32ROM) {
         this.PURPOSE_VAL_XTS_AES128_KEY = 4;
         this.FLASH_ENCRYPTED_WRITE_ALIGN = 16;
         this.USB_RAM_BLOCK = 0x800;
+        this.USB_OTG_SUPPORTED = true;
         this.MEMORY_MAP = [
             [
                 0x00000000,
@@ -9478,6 +9672,72 @@ class $867d4bfd7d3d490a$export$5445d6d0c3b99e43 extends (0, $H1kyH.ESP32H2ROM) {
         this.IMAGE_CHIP_ID = 25;
         this.USES_MAGIC_VALUE = false;
         this.UF2_FAMILY_ID = 0xb6dd00af;
+        this.IROM_MAP_START = 0x42000000;
+        this.IROM_MAP_END = 0x43000000;
+        this.DROM_MAP_START = 0x42000000;
+        this.DROM_MAP_END = 0x43000000;
+        this.UART_DATE_REG_ADDR = 1610612876;
+        this.FLASH_FREQUENCY = {
+            "48m": 0xf,
+            "24m": 0x0
+        };
+        this.MEMORY_MAP = [
+            [
+                0x00000000,
+                0x00010000,
+                "PADDING"
+            ],
+            [
+                0x42000000,
+                0x43000000,
+                "DROM"
+            ],
+            [
+                0x40800000,
+                0x40850000,
+                "DRAM"
+            ],
+            [
+                0x40800000,
+                0x40850000,
+                "BYTE_ACCESSIBLE"
+            ],
+            [
+                0x40000000,
+                0x40020000,
+                "DROM_MASK"
+            ],
+            [
+                0x40000000,
+                0x40020000,
+                "IROM_MASK"
+            ],
+            [
+                0x42000000,
+                0x43000000,
+                "IROM"
+            ],
+            [
+                0x40800000,
+                0x40850000,
+                "IRAM"
+            ],
+            [
+                0x50000000,
+                0x50001000,
+                "RTC_IRAM"
+            ],
+            [
+                0x50000000,
+                0x50001000,
+                "RTC_DRAM"
+            ],
+            [
+                0x40800000,
+                0x40850000,
+                "MEM_INTERNAL"
+            ]
+        ];
         this.DR_REG_LP_WDT_BASE = 0x600b1c00;
         this.RTC_CNTL_WDTCONFIG0_REG = this.DR_REG_LP_WDT_BASE + 0x0;
         this.RTC_CNTL_WDTWPROTECT_REG = this.DR_REG_LP_WDT_BASE + 0x001c;
@@ -9572,9 +9832,9 @@ class $97f4b9e70378dc8a$export$ef604080c99287aa extends (0, $5CcEa.ESP32C3ROM) {
         this.IMAGE_CHIP_ID = 28;
         this.USES_MAGIC_VALUE = false;
         this.IROM_MAP_START = 0x42000000;
-        this.IROM_MAP_END = 0x42800000;
-        this.DROM_MAP_START = 0x42800000;
-        this.DROM_MAP_END = 0x43000000;
+        this.IROM_MAP_END = 0x44000000;
+        this.DROM_MAP_START = 0x42000000;
+        this.DROM_MAP_END = 0x44000000;
         this.BOOTLOADER_FLASH_OFFSET = 0x2000;
         this.SPI_REG_BASE = 0x60099000;
         this.SPI_USR_OFFS = 0x18;
@@ -9583,7 +9843,7 @@ class $97f4b9e70378dc8a$export$ef604080c99287aa extends (0, $5CcEa.ESP32C3ROM) {
         this.SPI_MOSI_DLEN_OFFS = 0x24;
         this.SPI_MISO_DLEN_OFFS = 0x28;
         this.SPI_W0_OFFS = 0x58;
-        this.UART_DATE_REG_ADDR = 1610686588;
+        this.UART_DATE_REG_ADDR = 1610686604;
         this.EFUSE_BASE = 0x600b1800;
         this.EFUSE_BLOCK1_ADDR = this.EFUSE_BASE + 0x044;
         this.MAC_EFUSE_REG = this.EFUSE_BASE + 0x044;
@@ -9614,10 +9874,10 @@ class $97f4b9e70378dc8a$export$ef604080c99287aa extends (0, $5CcEa.ESP32C3ROM) {
         this.PURPOSE_VAL_XTS_AES128_KEY = 4;
         this.FLASH_ENCRYPTED_WRITE_ALIGN = 16;
         this.FLASH_FREQUENCY = {
+            // Second-stage bootloader uses a 64 MHz source: 0xF is 64 MHz, 0x0 is 32 MHz.
+            // Names stay 48m/24m because ESP-IDF remaps 64M/32M onto those labels.
             "48m": 0xf,
-            "24m": 0x0,
-            "16m": 0x1,
-            "12m": 0x2
+            "24m": 0x0
         };
         this.MEMORY_MAP = [
             [
@@ -9642,12 +9902,12 @@ class $97f4b9e70378dc8a$export$ef604080c99287aa extends (0, $5CcEa.ESP32C3ROM) {
             ],
             [
                 0x40000000,
-                0x40050000,
+                0x40020000,
                 "DROM_MASK"
             ],
             [
                 0x40000000,
-                0x40050000,
+                0x40020000,
                 "IROM_MASK"
             ],
             [
@@ -9661,19 +9921,9 @@ class $97f4b9e70378dc8a$export$ef604080c99287aa extends (0, $5CcEa.ESP32C3ROM) {
                 "IRAM"
             ],
             [
-                0x50000000,
-                0x50004000,
-                "RTC_IRAM"
-            ],
-            [
-                0x50000000,
-                0x50004000,
-                "RTC_DRAM"
-            ],
-            [
-                0x60000000,
-                0x60100000,
-                "MEM_INTERNAL2"
+                0x40810000,
+                0x40860000,
+                "MEM_INTERNAL"
             ]
         ];
         this.UF2_FAMILY_ID = 0x9e0baa8a;
@@ -9806,6 +10056,16 @@ class $f04e71ce96d5af5a$export$65efa68eb174d316 extends (0, $gVK7e.ESP32C5ROM) {
         this.SPI_MISO_DLEN_OFFS = 0x28;
         this.SPI_W0_OFFS = 0x58;
         this.SPI_ADDR_REG_MSB = false;
+        this.DR_REG_LP_WDT_BASE = 0x20801000;
+        this.RTC_CNTL_WDTCONFIG0_REG = this.DR_REG_LP_WDT_BASE + 0x0;
+        this.RTC_CNTL_WDTCONFIG1_REG = this.DR_REG_LP_WDT_BASE + 0x4;
+        this.RTC_CNTL_WDTWPROTECT_REG = this.DR_REG_LP_WDT_BASE + 0x18;
+        this.RTC_CNTL_WDT_WKEY = 0x50d83aa1;
+        // SWD addresses are not the C6 defaults. USB-Serial/JTAG leaves these watchdogs running.
+        this.RTC_CNTL_SWD_WPROTECT_REG = this.DR_REG_LP_WDT_BASE + 0x20;
+        this.RTC_CNTL_SWD_CONF_REG = this.DR_REG_LP_WDT_BASE + 0x1c;
+        this.RTC_CNTL_SWD_AUTO_FEED_EN = 262144;
+        this.RTC_CNTL_SWD_WKEY = 0x50d83aa1;
         this.EFUSE_RD_REG_BASE = this.EFUSE_BASE + 0x030;
         this.EFUSE_PURPOSE_KEY0_REG = this.EFUSE_BASE + 0x38;
         this.EFUSE_PURPOSE_KEY0_SHIFT = 0;
@@ -9831,6 +10091,7 @@ class $f04e71ce96d5af5a$export$65efa68eb174d316 extends (0, $gVK7e.ESP32C5ROM) {
         this.PURPOSE_VAL_XTS_AES128_KEY = 4;
         this.FLASH_ENCRYPTED_WRITE_ALIGN = 16;
         this.USB_RAM_BLOCK = 0x800;
+        this.USB_OTG_SUPPORTED = true;
         this.MEMORY_MAP = [
             [
                 0x00000000,
@@ -9987,6 +10248,35 @@ class $f04e71ce96d5af5a$export$65efa68eb174d316 extends (0, $gVK7e.ESP32C5ROM) {
     async postConnect(loader) {
         // Python uses_usb_otg(): Espressif VID + IMAGE_CHIP_ID as USB-OTG PID
         if (await loader.usesUsbOtg()) loader.ESP_RAM_BLOCK = this.USB_RAM_BLOCK;
+        // C3 _post_connect disables watchdogs on USB-Serial/JTAG. Skip when a stub
+        // is already running or register reads are refused in secure download mode.
+        if (!loader.IS_STUB && !loader.detectedRunningStub() && !loader.secureDownloadMode) await this.disableWatchdogs(loader);
+    }
+    /**
+     * USB-Serial/JTAG does not reset the RTC watchdog or super watchdog, so they
+     * can reset the board during flashing. Detect the port by VID/PID, not the
+     * inherited C5 UARTDEV_BUF_NO address.
+     * @param {ESPLoader} loader - Loader class to communicate with chip.
+     */ async disableWatchdogs(loader) {
+        if (!loader.usesUsbJtagSerial()) return;
+        await loader.writeReg(this.RTC_CNTL_WDTWPROTECT_REG, this.RTC_CNTL_WDT_WKEY);
+        await loader.writeReg(this.RTC_CNTL_WDTCONFIG0_REG, 0);
+        await loader.writeReg(this.RTC_CNTL_WDTWPROTECT_REG, 0);
+        await loader.writeReg(this.RTC_CNTL_SWD_WPROTECT_REG, this.RTC_CNTL_SWD_WKEY);
+        const swdConfReg = await loader.readReg(this.RTC_CNTL_SWD_CONF_REG);
+        await loader.writeReg(this.RTC_CNTL_SWD_CONF_REG, swdConfReg | this.RTC_CNTL_SWD_AUTO_FEED_EN);
+        await loader.writeReg(this.RTC_CNTL_SWD_WPROTECT_REG, 0);
+    }
+    /**
+     * Reset via the LP watchdog. RTS does not reset the chip in USB-OTG mode.
+     * @param {ESPLoader} loader - Loader class to communicate with chip.
+     */ async watchdogReset(loader) {
+        loader.info("Hard resetting with a watchdog...");
+        await loader.writeReg(this.RTC_CNTL_WDTWPROTECT_REG, this.RTC_CNTL_WDT_WKEY);
+        await loader.writeReg(this.RTC_CNTL_WDTCONFIG1_REG, 2000);
+        await loader.writeReg(this.RTC_CNTL_WDTCONFIG0_REG, -805306110);
+        await loader.writeReg(this.RTC_CNTL_WDTWPROTECT_REG, 0);
+        await new Promise((resolve)=>setTimeout(resolve, 500));
     }
     async changeBaud(loader) {
         await loader.changeBaud();
@@ -10473,8 +10763,18 @@ class $b9be20b2c9078c9b$export$b0f7a6c745790308 {
     /**
      * True when Web Serial reports Espressif USB-Serial/JTAG VID/PID.
      * Safe before chip identify/sync (no register reads).
-     */ isUsbJtagSerialPort() {
+     * @returns {boolean} True when the port VID/PID is Espressif USB-Serial/JTAG.
+     */ usesUsbJtagSerial() {
         return this.transport.getVid() === $b9be20b2c9078c9b$export$5559d61a150fabe5 && this.transport.getPid() === $b9be20b2c9078c9b$export$2f0304870961b486;
+    }
+    isUsbJtagSerialPort() {
+        return this.usesUsbJtagSerial();
+    }
+    /**
+     * True when sync() talked to a flasher stub that was already running.
+     * @returns {boolean} True when the stub was already running at connect time.
+     */ detectedRunningStub() {
+        return this.syncStubDetected;
     }
     /**
      * True if the host sees this port as Espressif USB-OTG (VID/PID match).
@@ -10489,6 +10789,20 @@ class $b9be20b2c9078c9b$export$b0f7a6c745790308 {
         if (typeof this.chip.usesUsbOtg === "function") return await this.chip.usesUsbOtg(this);
         if (typeof this.chip.usingUsbOtg === "function") return await this.chip.usingUsbOtg(this);
         return false;
+    }
+    /**
+     * Cap ROM stub upload to 0x800 on USB-OTG chips.
+     * Applied when USB-OTG is detected, and when the host reports no VID/PID,
+     * because USB-OTG cannot be ruled out. UART bridges accept the smaller
+     * blocks. Flash writes after the stub is running are not changed here.
+     */ async applyUsbOtgRomBlock() {
+        if (this.IS_STUB || !this.chip.USB_OTG_SUPPORTED) return;
+        const vid = this.transport.getVid();
+        const pid = this.transport.getPid();
+        const noVidPid = vid === undefined && pid === undefined;
+        if (!noVidPid && !await this.usesUsbOtg()) return;
+        this.ESP_RAM_BLOCK = 0x800;
+        this.debug("Using 0x800 ROM block size for USB-OTG stub upload");
     }
     /**
      * Cap FLASH_WRITE_SIZE to USB_RAM_BLOCK when the stub is talking over
@@ -11033,10 +11347,11 @@ class $b9be20b2c9078c9b$export$b0f7a6c745790308 {
         return Array.prototype.map.call(buffer, (x)=>("00" + x.toString(16)).slice(-2)).join("");
     }
     /**
-     * Calculate the MD5 Checksum command
+     * Calculate the MD5 checksum of flash contents.
+     * The stub returns 16 raw digest bytes. The ROM returns 32 ASCII hex characters.
      * @param {number} addr Address number
      * @param {number} size Package size
-     * @returns {string} MD5 Checksum string
+     * @returns {string} Lowercase MD5 hex string
      */ async flashMd5sum(addr, size) {
         const timeout = this.timeoutPerMb(this.MD5_TIMEOUT_PER_MB, size);
         let pkt = this._appendArray(this._intToByteArray(addr), this._intToByteArray(size));
@@ -11046,35 +11361,59 @@ class $b9be20b2c9078c9b$export$b0f7a6c745790308 {
         const RESP_DATA_LEN_STUB = 16;
         const RESP_DATA_LEN_TO_USE = this.IS_STUB ? RESP_DATA_LEN_STUB : RESP_DATA_LEN;
         const res = await this.checkCommand("calculate md5sum", this.ESP_SPI_FLASH_MD5, pkt, undefined, RESP_DATA_LEN_TO_USE, timeout);
-        const strmd5 = this.toHex(res);
-        return strmd5;
+        if (!(res instanceof Uint8Array)) throw new (0, $f1887d9f177795ef$export$5b519f82636185ec)("Expected MD5 digest bytes, got: " + res);
+        // Stub: 16 raw digest bytes. ROM: 32 ASCII hex characters.
+        if (res.length === 16) return this.toHex(res);
+        if (res.length === 32) return String.fromCharCode(...res).toLowerCase();
+        throw new (0, $f1887d9f177795ef$export$5b519f82636185ec)("Expected 16-byte or 32-byte MD5 digest, got " + res.length + " bytes");
     }
     /**
      * Read data from flash memory of the chip.
      * This function reads a specified amount of data from the flash memory starting at a given address.
      * It sends a read command to the chip and processes the response packets until the requested size is read.
+     * The stub then sends a raw 16-byte MD5 SLIP frame. That digest is compared with the MD5 of the received bytes.
      * @param {number} addr - The starting address in flash memory to read from.
      * @param {number} size - The number of bytes to read from flash memory.
      * @param {FlashReadCallback} onPacketReceived - Optional callback function to handle each received packet.
      * @returns {Promise<Uint8Array>} A promise that resolves to the data read from flash memory as a Uint8Array.
-     * @throws {ESPError} If the read operation fails or an unexpected response is received.
+     * @throws {ESPError} If the read fails, the length is wrong, or the MD5 digest does not match.
      */ async readFlash(addr, size, onPacketReceived = null) {
+        // Four blocks in flight stay inside the 64 KiB Web Serial buffer, including SLIP escapes.
+        // A larger window lets the stub burst faster than the browser can drain, and Chrome drops bytes.
+        const blockSize = 0x1000;
+        const maxInFlight = 4;
         let pkt = this._appendArray(this._intToByteArray(addr), this._intToByteArray(size));
-        pkt = this._appendArray(pkt, this._intToByteArray(0x1000));
-        pkt = this._appendArray(pkt, this._intToByteArray(1024));
+        pkt = this._appendArray(pkt, this._intToByteArray(blockSize));
+        pkt = this._appendArray(pkt, this._intToByteArray(maxInFlight));
         const res = await this.checkCommand("read flash", this.ESP_READ_FLASH, pkt);
         if (res != 0) throw new (0, $f1887d9f177795ef$export$5b519f82636185ec)("Failed to read memory: " + res);
         let resp = new Uint8Array(0);
         while(resp.length < size){
             const packet = await this.transport.read(this.FLASH_READ_TIMEOUT);
-            if (packet instanceof Uint8Array) {
-                if (packet.length > 0) {
-                    resp = this._appendArray(resp, packet);
-                    await this.transport.write(this._intToByteArray(resp.length));
-                    if (onPacketReceived) onPacketReceived(packet, resp.length, size);
-                }
-            } else throw new (0, $f1887d9f177795ef$export$5b519f82636185ec)("Failed to read memory: " + packet);
+            if (!(packet instanceof Uint8Array)) throw new (0, $f1887d9f177795ef$export$5b519f82636185ec)("Failed to read memory: " + packet);
+            // A short frame is the tail of a read that is not a multiple of the block size.
+            // A short frame before that means bytes were dropped. An empty frame is a spare SLIP end.
+            if (packet.length > 0 && packet.length < blockSize && resp.length + packet.length < size) throw new (0, $f1887d9f177795ef$export$5b519f82636185ec)(`Corrupt data, expected 0x${blockSize.toString(16)} bytes but received 0x${packet.length.toString(16)} bytes. Reset the chip before retrying.`);
+            if (packet.length > 0) {
+                resp = this._appendArray(resp, packet);
+                await this.transport.write(this._intToByteArray(resp.length));
+                if (onPacketReceived) onPacketReceived(packet, resp.length, size);
+            }
         }
+        if (resp.length > size) throw new (0, $f1887d9f177795ef$export$5b519f82636185ec)("Read more than expected.");
+        // The stub always finishes READ_FLASH with a raw 16-byte MD5 SLIP frame.
+        // The final data packet is already ACKed above; do not ACK the digest.
+        const digest = await this.transport.read(this.FLASH_READ_TIMEOUT);
+        if (!(digest instanceof Uint8Array) || digest.length !== 16) throw new (0, $f1887d9f177795ef$export$5b519f82636185ec)("Expected 16-byte readFlash digest, got: " + digest);
+        const calculated = (0, $d66212065e152aff$export$a58ec6a60c09ca72)(resp);
+        let digestMatches = true;
+        for(let i = 0; i < digest.length; i++)if (digest[i] !== calculated[i]) {
+            digestMatches = false;
+            break;
+        }
+        const deviceHex = this.toHex(digest).toUpperCase();
+        if (!digestMatches) throw new (0, $f1887d9f177795ef$export$5b519f82636185ec)(`Digest mismatch: expected ${deviceHex}, got ${this.toHex(calculated).toUpperCase()}.` + " Reset the chip before retrying.");
+        this.debug("readFlash digest " + deviceHex);
         return resp;
     }
     /**
@@ -11097,6 +11436,7 @@ class $b9be20b2c9078c9b$export$b0f7a6c745790308 {
             this.info(`Stub flasher is not yet supported on ${this.chip.CHIP_NAME}, it has been disabled.`);
             return this.chip;
         }
+        await this.applyUsbOtgRomBlock();
         this.info("Uploading stub...");
         const stub = [
             stubFlasher.decodedText,
@@ -11274,13 +11614,9 @@ class $b9be20b2c9078c9b$export$b0f7a6c745790308 {
         }
         let aFlashFreq = flashSizeFreq & 0x0f;
         if (flashFreq !== "keep") {
-            const flashFreqs = {
-                "40m": 0,
-                "26m": 1,
-                "20m": 2,
-                "80m": 0xf
-            };
-            aFlashFreq = flashFreqs[flashFreq];
+            const encoded = this.chip.FLASH_FREQUENCY[flashFreq];
+            if (encoded === undefined) throw new (0, $f1887d9f177795ef$export$5b519f82636185ec)(`Flash frequency ${flashFreq} is not supported by ${this.chip.CHIP_NAME}. ` + `Supported frequencies: ${Object.keys(this.chip.FLASH_FREQUENCY).join(", ")}`);
+            aFlashFreq = encoded;
         }
         let aFlashSize = flashSizeFreq & 0xf0;
         if (flashSize !== "keep") aFlashSize = this.parseFlashSizeArg(flashSize);
@@ -11318,10 +11654,22 @@ class $b9be20b2c9078c9b$export$b0f7a6c745790308 {
         return updatedImage;
     }
     /**
+     * True when SPI_FLASH_MD5 can confirm a write.
+     * Secure Download Mode refuses the command. The ESP8266 ROM does not implement it;
+     * the stub does. Matches esptool.py's secure-download guard and NotImplementedInROMError catch.
+     * @returns {boolean} True when post-write MD5 verification should run.
+     */ canVerifyWrittenFlashMd5() {
+        if (this.secureDownloadMode) return false;
+        if (!this.IS_STUB && this.chip.CHIP_NAME === "ESP8266") return false;
+        return true;
+    }
+    /**
      * Write set of file images into given address based on given FlashOptions object.
      * When `options.flashSize` is `"detect"`, the flash ID is read before any file is written
      * (including images that are not at `BOOTLOADER_FLASH_OFFSET`) so the bounds check can
      * use a concrete size. Throws if the flash ID cannot be read or mapped.
+     * After each image is written, its MD5 is checked against the digest read from the chip.
+     * Verification is skipped in Secure Download Mode and on ESP8266 ROM without the stub.
      * @param {FlashOptions} options FlashOptions to configure how and what to write into flash.
      */ async writeFlash(options) {
         this.debug("EspLoader program");
@@ -11356,11 +11704,8 @@ class $b9be20b2c9078c9b$export$b0f7a6c745790308 {
             image = (0, $216eff205ef04904$export$fcbe1efa6919329)(image, 4);
             address = options.fileArray[i].address;
             image = await this._updateImageFlashParams(image, address, options.flashMode, options.flashFreq, resolvedFlashSize);
-            let calcmd5 = null;
-            if (options.calculateMD5Hash) {
-                calcmd5 = options.calculateMD5Hash(image);
-                this.debug("Image MD5 " + calcmd5);
-            }
+            const calcmd5 = options.calculateMD5Hash ? options.calculateMD5Hash(image) : this.toHex((0, $d66212065e152aff$export$a58ec6a60c09ca72)(image));
+            this.debug("Image MD5 " + calcmd5);
             const uncsize = image.length;
             let blocks;
             if (options.compress) {
@@ -11431,12 +11776,15 @@ class $b9be20b2c9078c9b$export$b0f7a6c745790308 {
             const t = d.getTime() - t1;
             if (options.compress) this.info("Wrote " + uncsize + " bytes (" + bytesSent + " compressed) at 0x" + address.toString(16) + " in " + t / 1000 + " seconds.");
             else this.info("Wrote " + bytesSent + " bytes at 0x" + address.toString(16) + " in " + t / 1000 + " seconds.");
-            if (calcmd5) {
-                this.info("File  md5: " + calcmd5);
-                const res = await this.flashMd5sum(address, uncsize);
-                this.info("Flash md5: " + res);
-                if (new String(res).valueOf() != new String(calcmd5).valueOf()) throw new (0, $f1887d9f177795ef$export$5b519f82636185ec)("MD5 of file does not match data in flash!");
-                else this.info("Hash of data verified.");
+            this.info("File  md5: " + calcmd5);
+            if (!this.canVerifyWrittenFlashMd5()) {
+                if (this.secureDownloadMode) this.info("Cannot verify written data if encrypted or in secure download mode.");
+                else this.debug("Skipping MD5 verification: SPI_FLASH_MD5 is not supported by the ESP8266 ROM.");
+            } else {
+                const flashMd5 = await this.flashMd5sum(address, uncsize);
+                this.info("Flash md5: " + flashMd5);
+                if (flashMd5 !== calcmd5) throw new (0, $f1887d9f177795ef$export$5b519f82636185ec)("MD5 of file does not match data in flash!");
+                this.info("Hash of data verified.");
             }
         }
         this.info("Leaving...");
@@ -11493,13 +11841,19 @@ class $b9be20b2c9078c9b$export$b0f7a6c745790308 {
      */ async after(mode = "hard_reset", usingUsbOtg, sequenceString) {
         switch(mode){
             case "hard_reset":
-                if (this.resetConstructors.hardReset) {
-                    this.info("Hard resetting via RTS pin...");
+                {
                     const usbOtg = usingUsbOtg !== null && usingUsbOtg !== void 0 ? usingUsbOtg : await this.usesUsbOtg();
-                    const hardReset = this.resetConstructors.hardReset(this.transport, usbOtg);
-                    await hardReset.reset();
+                    if (usbOtg && !this.secureDownloadMode && this.chip.USB_OTG_SUPPORTED && typeof this.chip.watchdogReset === "function") {
+                        await this.chip.watchdogReset(this);
+                        break;
+                    }
+                    if (this.resetConstructors.hardReset) {
+                        this.info("Hard resetting via RTS pin...");
+                        const hardReset = this.resetConstructors.hardReset(this.transport, usbOtg);
+                        await hardReset.reset();
+                    }
+                    break;
                 }
-                break;
             case "soft_reset":
                 this.info("Soft resetting...");
                 await this.softReset(false);
@@ -12992,10 +13346,6 @@ $382e02c9bbd5d50b$var$programButton.onclick = async ()=>{
             flashSize: $382e02c9bbd5d50b$var$flashSize.value,
             reportProgress: (fileIndex, written, total)=>{
                 progressBars[fileIndex].value = written / total * 100;
-            },
-            calculateMD5Hash: (image)=>{
-                const latin1String = Array.from(image, (byte)=>String.fromCharCode(byte)).join("");
-                return CryptoJS.MD5(CryptoJS.enc.Latin1.parse(latin1String)).toString();
             }
         };
         await $382e02c9bbd5d50b$var$esploader.writeFlash(flashOptions);
@@ -13015,4 +13365,4 @@ $382e02c9bbd5d50b$var$programButton.onclick = async ()=>{
 $382e02c9bbd5d50b$var$addFileButton.onclick(undefined);
 
 
-//# sourceMappingURL=typescript.430e8b71.js.map
+//# sourceMappingURL=typescript.e1370194.js.map
